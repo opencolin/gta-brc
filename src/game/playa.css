@@ -1,0 +1,255 @@
+/* GTA:BRC (PlayaWin.tsx): the canvas fills the window and the HUD floats over it.
+
+   The HUD sits on the game's own picture, not on the theme's paper, so it keeps the game's
+   palette in every theme — Agave's navy and pink over playa dust — declared once here as
+   --pl-* and used by name below. Sizes, faces and weights are the type system's tokens. */
+.pl {
+  --pl-navy: #1b1f3b; --pl-pink: #ff6b9a; --pl-ink: #ffffff; --pl-gold: #ffd27a; --pl-glass: rgba(27, 31, 59, .82);
+  position: relative; height: 100%; min-height: 0; overflow: hidden; background: #e6d3ae;
+  font-family: var(--font); font-size: var(--t-body); line-height: var(--lh-body);
+}
+.pl .pl-stage { position: absolute; inset: 0; outline: none; user-select: none; -webkit-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.pl .pl-stage:focus-visible { box-shadow: inset 0 0 0 3px var(--pl-pink); }
+.pl .pl-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* the pager: one line along the top, like the old game's */
+.pl .pl-pager {
+  position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 12px;
+  padding: 6px 12px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
+  font-family: var(--mono); font-size: var(--t-secondary); line-height: var(--lh-secondary); min-height: 34px;
+}
+.pl .pl-pager-txt { flex: 1; min-width: 0; }
+.pl .pl-pager b { font-family: var(--font-display, var(--font)); font-size: var(--t-heading); font-variant-numeric: tabular-nums; color: var(--pl-gold); }
+.pl .pl-pager b.pl-late { color: var(--pl-pink); }
+
+/* where you are and how fast */
+.pl .pl-where {
+  position: absolute; top: 58px; left: 8px; display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); max-width: 60%;
+}
+.pl .pl-addr { font-family: var(--font-display, var(--font)); font-size: var(--t-title); font-weight: var(--w-heading); line-height: var(--lh-ui); color: var(--pl-ink); }
+.pl .pl-speed { font-size: var(--t-caption); line-height: var(--lh-ui); }
+.pl .pl-speed b { font-family: var(--font-display, var(--font)); font-size: var(--t-heading); font-variant-numeric: tabular-nums; color: var(--pl-ink); }
+.pl .pl-speed b.pl-over { color: var(--pl-pink); }
+.pl .pl-limit { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--pl-ink); color: var(--pl-navy); font-weight: var(--w-strong); }
+.pl .pl-count { font-size: var(--t-caption); line-height: var(--lh-ui); }
+.pl .pl-count b { color: var(--pl-gold); font-variant-numeric: tabular-nums; }
+
+/* the minimap and the tools under it, top right */
+.pl .pl-side { position: absolute; top: 58px; right: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pl .pl-mini { display: block; width: 150px; height: 144px; padding: 0; border: 0; border-radius: 0; background: none; cursor: zoom-in; overflow: visible; }
+/* just the pentagon, no black square round it (asked 2026-10-22): a soft shadow keeps it apart from the playa */
+.pl .pl-mini canvas { filter: drop-shadow(0 2px 6px rgba(27, 31, 59, .45)); }
+.pl .pl-mini canvas { display: block; width: 100%; height: 100%; }
+.pl .pl-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 220px; }
+.pl .pl-btn {
+  min-height: 30px; padding: 3px 10px; border: 2px solid var(--pl-navy); border-radius: 6px; background: var(--pl-ink); color: var(--pl-navy);
+  font-family: var(--font); font-size: var(--t-control); font-weight: var(--w-control); line-height: var(--lh-ui); cursor: pointer; white-space: nowrap;
+}
+.pl .pl-btn:hover, .pl .pl-btn[aria-pressed="true"] { background: var(--pl-pink); color: var(--pl-navy); }
+
+/* "slow down: bikes. 5 mph" */
+.pl .pl-warn {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 8px 16px; border-radius: 8px;
+  background: var(--pl-pink); color: var(--pl-navy); font-family: var(--font-display, var(--font)); font-size: var(--t-heading); font-weight: var(--w-heading);
+  line-height: var(--lh-ui); white-space: nowrap; pointer-events: none; box-shadow: 0 4px 18px rgba(27, 31, 59, .35);
+}
+
+/* the title, the pause card */
+.pl .pl-over-card {
+  position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px; border-radius: 10px; text-align: center;
+  background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
+  box-shadow: 0 0 40px rgba(255, 107, 154, .35);
+}
+.pl .pl-title { font-family: var(--font-display, var(--font)); font-size: var(--t-display); font-weight: var(--w-display); line-height: var(--lh-display); color: var(--pl-pink); letter-spacing: .04em; }
+.pl .pl-title.pl-title-s { font-size: var(--t-title); color: var(--pl-ink); }
+.pl .pl-sub { font-size: var(--t-body); line-height: var(--lh-body); max-width: 34ch; }
+.pl .pl-help { margin: 0; padding: 0; list-style: none; font-size: var(--t-secondary); line-height: var(--lh-secondary); color: var(--pl-ink); }
+.pl .pl-btn.pl-go { min-height: 40px; padding: 6px 18px; background: var(--pl-pink); font-size: var(--t-body); }
+
+/* the whole city, M */
+/* the big map: over everything in the game, music players included; it zooms and pans, and its close
+   button is big and sits above the Home dome floating at the foot of the screen (asked 2026-10-22) */
+/* full screen (asked 2026-10-22): the desert goes on past the fence to every edge, the buttons float over it */
+.pl .pl-map { position: absolute; inset: 0; z-index: 40; background: #d4c3a0; }
+.pl .pl-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.pl .pl-map .pl-map-x { position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); min-height: 52px; padding: 10px 28px; border-radius: 14px; font-size: var(--t-title); box-shadow: 0 6px 20px rgba(27, 31, 59, .35); }
+/* with the map up (asked 2026-10-22): the pager, the where-and-points box and the music player stay on top of it */
+.pl[data-map] .pl-pager, .pl[data-map] .pl-where, .pl[data-map] .pl-lounge, .pl[data-map] .pl-amb { z-index: 41; }
+.pl .pl-map-zoom { position: absolute; top: 58px; right: 18px; display: flex; flex-direction: column; gap: 6px; }
+.pl .pl-map-zoom .pl-btn { min-width: 44px; min-height: 44px; padding: 0 10px; font-size: var(--t-title); }
+.pl .pl-btn.pl-icon { display: inline-grid; place-items: center; min-width: 40px; padding: 4px 8px; }
+.pl .pl-layout { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; border: 0; background: rgba(27, 31, 59, .92); cursor: zoom-out; }
+.pl .pl-layout img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* thumbs: steer bottom left, gas and brake on the right but above the dock's Home button
+   (it floats in the bottom-right 90px on a phone), drift over the gas */
+.pl .pl-pads { position: absolute; inset: 0; pointer-events: none; }
+.pl .pl-pad {
+  position: absolute; pointer-events: auto; display: grid; place-items: center; border: 2px solid var(--pl-navy); border-radius: 14px;
+  background: rgba(255, 255, 255, .55); color: var(--pl-navy); font-family: var(--font); font-size: var(--t-title); font-weight: var(--w-strong); line-height: var(--lh-ui);
+  touch-action: none; -webkit-tap-highlight-color: transparent; cursor: pointer;
+}
+.pl .pl-pad:active { background: var(--pl-pink); }
+.pl .pl-left { left: 12px; bottom: 28px; width: 70px; height: 76px; }
+.pl .pl-right { left: 88px; bottom: 28px; width: 70px; height: 76px; } /* clear of the Home dome in the middle */
+/* gas over brake in the bottom-right corner, the drift above them (asked 2026-10-22) */
+.pl .pl-brake { right: 12px; bottom: 28px; width: 84px; height: 68px; }
+.pl .pl-gas { right: 12px; bottom: 106px; width: 84px; height: 92px; }
+.pl .pl-hb { right: 12px; bottom: 208px; width: 84px; height: 44px; font-size: var(--t-control); }
+/* portrait (asked 2026-10-22): bigger thumbs, the steering pair side by side with room between, gas and brake taller */
+@media (orientation: portrait) {
+  .pl[data-phone] .pl-left { left: 12px; bottom: 28px; width: 82px; height: 92px; }
+  .pl[data-phone] .pl-right { left: 102px; bottom: 28px; width: 82px; height: 92px; }
+  .pl[data-phone] .pl-brake { right: 12px; bottom: 28px; width: 92px; height: 80px; }
+  .pl[data-phone] .pl-gas { right: 12px; bottom: 118px; width: 92px; height: 108px; }
+  .pl[data-phone] .pl-hb { right: 12px; bottom: 236px; width: 92px; height: 48px; }
+  .pl[data-phone] .pl-lounge[data-mini] { bottom: 132px; width: calc(100% - 124px); }
+  .pl[data-touch] .pl-lounge[data-mini] { bottom: 136px; }
+}
+
+/* a small window or a phone: a tighter HUD */
+.pl[data-phone] .pl-pager { top: calc(6px + env(safe-area-inset-top, 0px)); left: 6px; right: 6px; }
+.pl[data-phone] .pl-where, .pl[data-phone] .pl-side { top: calc(64px + env(safe-area-inset-top, 0px)); }
+.pl[data-phone] .pl-addr { font-size: var(--t-heading); }
+.pl[data-phone] .pl-mini { width: 110px; height: 106px; }
+/* a wide desk gets a map you can read (asked 2026-10-22) */
+@media (min-width: 900px) { .pl:not([data-phone]) .pl-mini { width: 240px; height: 230px; } }
+.pl[data-phone] .pl-tools { max-width: 120px; }
+
+/* what you can hear from the road, under the speed */
+.pl .pl-hear { display: flex; align-items: center; gap: 4px; font-size: var(--t-caption); line-height: var(--lh-ui); color: var(--pl-gold); }
+.pl .pl-hear-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl .pl-hear-btn {
+  flex: none; min-width: 26px; min-height: 22px; padding: 0 4px; border: 1px solid var(--pl-gold); border-radius: 4px; background: transparent; color: var(--pl-gold);
+  font-family: var(--font); font-size: var(--t-caption); line-height: var(--lh-ui); cursor: pointer;
+}
+.pl .pl-hear-btn:hover, .pl .pl-hear-btn:focus-visible { background: var(--pl-gold); color: var(--pl-navy); outline: none; }
+/* a camp's name on the full map, on hover or a tap */
+.pl .pl-map-tip {
+  position: absolute; transform: translate(-50%, calc(-100% - 8px)); padding: 3px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+  background: var(--pl-navy); color: var(--pl-gold); border: 1px solid var(--pl-gold); font-size: var(--t-caption); line-height: var(--lh-ui);
+}
+
+/* the ride menu: "ride: bike ▾" opens the list under it */
+.pl .pl-ride { position: relative; display: inline-flex; }
+.pl .pl-rides {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 3; display: flex; flex-direction: column; gap: 4px; padding: 6px;
+  border-radius: 8px; background: var(--pl-glass); border: 2px solid var(--pl-pink);
+}
+
+/* the lounge: parked at a sound camp, its sets and SoundCloud's player; folds to a bar when you drive off.
+   Bottom left on a desk, between the HUD and the thumbs on a phone, never over the whole game. */
+.pl .pl-lounge {
+  position: absolute; left: 8px; bottom: 8px; z-index: 4; width: min(360px, calc(100% - 16px)); max-height: calc(100% - 220px);
+  display: flex; flex-direction: column; border-radius: 10px; overflow: hidden;
+  background: rgba(27, 31, 59, .96); color: var(--pl-ink); border: 2px solid var(--pl-pink); box-shadow: 0 0 28px rgba(255, 107, 154, .35);
+}
+.pl .pl-lg-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 6px; min-height: 0; overflow: auto; }
+.pl .pl-lg-head { display: flex; align-items: flex-start; gap: 6px; }
+.pl .pl-lg-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl .pl-lg-eyebrow { font-size: var(--t-caption); line-height: var(--lh-ui); color: var(--pl-pink); }
+.pl .pl-lg-name { font-family: var(--font-display, var(--font)); font-size: var(--t-title); font-weight: var(--w-heading); line-height: var(--lh-ui); color: var(--pl-ink); }
+.pl .pl-lg-blurb { margin: 0; font-size: var(--t-secondary); line-height: var(--lh-secondary); color: var(--pl-ink); }
+.pl .pl-lg-btn {
+  min-width: 30px; min-height: 30px; padding: 2px 8px; border: 2px solid var(--pl-pink); border-radius: 6px; background: transparent; color: var(--pl-ink);
+  font-family: var(--font); font-size: var(--t-control); font-weight: var(--w-control); line-height: var(--lh-ui); cursor: pointer;
+}
+.pl .pl-lg-btn:hover, .pl .pl-lg-btn:focus-visible { background: var(--pl-pink); color: var(--pl-navy); outline: none; }
+.pl .pl-lg-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.pl .pl-lg-set {
+  width: 100%; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 8px; text-align: left; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .18); border-radius: 6px; background: rgba(255, 255, 255, .06); color: var(--pl-ink);
+  font-family: var(--font); font-size: var(--t-secondary); line-height: var(--lh-secondary);
+}
+.pl .pl-lg-set:hover, .pl .pl-lg-set:focus-visible { border-color: var(--pl-pink); outline: none; }
+.pl .pl-lg-set[aria-pressed="true"] { background: rgba(255, 107, 154, .25); border-color: var(--pl-pink); }
+.pl .pl-lg-play { flex: none; width: 18px; color: var(--pl-pink); text-align: center; }
+.pl .pl-lg-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl .pl-lg-hop { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: var(--t-caption); line-height: var(--lh-ui); }
+.pl .pl-lg-player { flex: none; height: 120px; background: var(--pl-navy); }
+.pl .pl-lg-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+/* folded: a "now playing" bar; the player keeps playing out of sight (never unmounted) */
+.pl .pl-lounge[data-mini] { max-height: none; }
+.pl .pl-lounge[data-mini] .pl-lg-player { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.pl .pl-lounge[data-mini] .pl-lg-player iframe { width: 300px; height: 120px; } /* its own size behind the clip: the widget's waveform breaks at 1px */
+.pl .pl-lg-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; }
+.pl .pl-lg-note { color: var(--pl-pink); }
+.pl .pl-lg-now {
+  flex: 1; min-width: 0; display: flex; gap: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--pl-ink); cursor: pointer; text-align: left;
+  font-family: var(--font); font-size: var(--t-secondary); line-height: var(--lh-secondary);
+}
+.pl .pl-lg-from { flex: none; color: var(--pl-gold); white-space: nowrap; }
+/* the camps heard from the road: real players, out of sight */
+.pl .pl-amb { position: absolute; inset: 0; pointer-events: none; }
+.pl .pl-amb > .pl-amb-box { position: absolute; left: 0; top: 0; width: 300px; height: 120px; border: 0; opacity: 0; clip-path: inset(0 0 calc(100% - 1px) calc(100% - 1px)); }
+/* the camp you are hearing: its player in plain sight, where the lounge sits when you park */
+.pl .pl-amb > .pl-amb-on {
+  top: auto; left: 8px; bottom: 8px; z-index: 4; width: min(360px, calc(100% - 16px)); height: 120px; opacity: 1; clip-path: none; pointer-events: auto;
+  border: 2px solid var(--pl-pink); border-radius: 10px; background: rgba(27, 31, 59, .96); box-shadow: 0 0 28px rgba(255, 107, 154, .35);
+}
+.pl[data-phone] .pl-amb > .pl-amb-on { bottom: 116px; width: calc(100% - 200px); }
+/* a video plays where the SoundCloud player would, at its own 16:9 */
+.pl .pl-lg-player.pl-lg-video { height: auto; aspect-ratio: 16 / 9; }
+.pl .pl-amb > .pl-amb-on.pl-amb-video { height: auto; aspect-ratio: 16 / 9; overflow: hidden; }
+.pl .pl-amb-box > iframe, .pl .pl-amb-box > .pl-yt { display: block; width: 100%; height: 100%; border: 0; }
+.pl .pl-amb-open { position: absolute; top: 6px; right: 6px; z-index: 2; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: rgba(27, 31, 59, .8); color: #ffffff; font-size: var(--t-heading); line-height: var(--lh-ui); cursor: pointer; }
+
+/* a phone: parked, the lounge takes the top of the screen over the HUD, leaving the ride in the middle and the thumbs free */
+.pl[data-phone] .pl-lounge { top: calc(6px + env(safe-area-inset-top, 0px)); bottom: auto; left: 6px; width: calc(100% - 12px); max-height: 44%; }
+.pl[data-phone] .pl-lounge[data-mini] { max-height: none; top: auto; bottom: 116px; width: calc(100% - 200px); } /* above the steering thumbs, clear of the pager */
+/* any screen with thumbs (a touch desktop too): the mini player sits above the steering pair (asked 2026-10-22) */
+.pl[data-touch] .pl-lounge[data-mini] { bottom: 120px; max-width: calc(100% - 220px); }
+.pl[data-touch]:not([data-phone]) .pl-lounge { bottom: 280px; }
+.pl[data-phone] .pl-lg-player { height: 96px; }
+
+/* a YouTube set (PlayaLounge VideoShell): the embed under a tap layer, a cover of our own while it isn't playing */
+.pl .pl-yt { position: relative; }
+.pl .pl-lg-player .pl-yt { width: 100%; height: 100%; }
+.pl .pl-yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+.pl .pl-yt-tap { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pl .pl-yt-cover {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px;
+  background: center / cover no-repeat var(--pl-navy); color: #ffffff; text-align: center;
+  box-shadow: inset 0 -60px 50px -20px rgba(27, 31, 59, .85);
+}
+.pl .pl-yt-play { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--pl-pink); color: #ffffff; font-size: var(--t-heading); line-height: var(--lh-ui); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.pl .pl-yt-title { position: absolute; left: 10px; right: 10px; bottom: 8px; font-family: var(--font); font-size: var(--t-caption); font-weight: 600; line-height: 1.2; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* a phone: the parked panel is the whole screen (asked 2026-10-22), over the game and its pause card;
+   its head stays put, the sets scroll on their own, the player sits at the foot above the Home dome */
+.pl[data-phone] .pl-lounge:not([data-mini]) {
+  top: 0; left: 0; right: 0; bottom: 0; width: auto; max-height: none; z-index: 30; border: 0; border-radius: 0; box-shadow: none;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-body { flex: 1 1 auto; min-height: 0; padding: 14px 14px 8px; }
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-head { position: sticky; top: -14px; z-index: 1; margin: -14px -14px 0; padding: 14px 14px 8px; background: rgba(27, 31, 59, .98); }
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-player { margin: 0 10px; border-radius: 10px; overflow: hidden; }
+/* the full-screen panel's video keeps its 16:9, its height from the screen's width */
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-player.pl-lg-video { flex: 0 0 auto; height: calc((100vw - 20px) * 9 / 16); aspect-ratio: auto; }
+.pl .pl-lg-player.pl-lg-video { flex: 0 0 auto; }
+.pl .pl-yt.pl-yt-pass iframe { pointer-events: auto; }
+.pl .pl-yt.pl-yt-pass .pl-yt-tap { pointer-events: none; }
+
+/* a clip-only place in passing: its video, silent, in a corner; tap to listen */
+.pl .pl-peek { position: absolute; left: -9999px; top: 0; z-index: 1; width: 220px; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; border: 2px solid var(--pl-gold); background: var(--pl-navy); box-shadow: 0 6px 18px rgba(27, 31, 59, .35); }
+.pl .pl-peek iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+.pl .pl-peek-tap { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 0; border: 0; background: linear-gradient(to top, rgba(27, 31, 59, .75), transparent 45%); cursor: pointer; }
+.pl .pl-peek-label { width: 100%; padding: 4px 8px; color: #ffffff; font-family: var(--font); font-size: var(--t-caption); font-weight: 600; line-height: var(--lh-ui); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl[data-phone] .pl-peek { width: 170px; }
+.pl .pl-lg-clip { flex: none; margin-left: auto; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .12); color: var(--pl-gold); font-size: var(--t-caption); line-height: var(--lh-ui); }
+/* a clip (mostly phone video, often upright) gets room on a desk: a wider panel, a tall player it can fill (asked 2026-10-22) */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-clip:not([data-mini]) { width: min(480px, calc(100% - 16px)); max-height: calc(100% - 120px); }
+.pl:not([data-phone]) .pl-lounge:not([data-mini]) .pl-lg-player.pl-lg-clip-player { aspect-ratio: auto; height: min(56vh, 520px); }
+/* the panel made big: the whole screen (asked 2026-10-22: half, then three quarters, then all of it), its video filling what the list leaves */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) { top: 0; left: 0; right: 0; bottom: 0; width: auto; max-height: none; z-index: 30; border-radius: 0; }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-body { flex: 0 1 auto; min-height: 0; overflow: auto; }
+/* the player takes whatever height the sets' list leaves: the video, or SoundCloud's artwork player */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-player:not(.pl-lg-stacked) { flex: 1 1 auto; min-height: 40vh; height: auto; aspect-ratio: auto; }
+/* every SoundCloud set as its own player, stacked (asked 2026-10-22); the one playing is outlined */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]):has(.pl-lg-stack) .pl-lg-body { flex: 1 1 auto; }
+.pl .pl-lg-stack { display: flex; flex-direction: column; gap: 8px; }
+.pl .pl-lg-player.pl-lg-stacked { flex: none; height: 166px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; }
+.pl .pl-lg-player.pl-lg-stacked[data-now] { border-color: var(--pl-pink); }
+.pl[data-phone] .pl-lg-widen { display: none; }

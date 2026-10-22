@@ -1,0 +1,11 @@
+/* GTA:BRC on its own: the type tokens the game's styles use (from AgentCamp's globals.css), and the full-screen stage */
+:root {
+  color-scheme: light;
+  --font: "Space Grotesk", Arial, sans-serif; --mono: "DM Mono", ui-monospace, Menlo, monospace; --font-display: var(--font);
+  --t-display: 34px; --t-display-narrow: 28px; --t-display-min: 24px; --t-title: 21px; --t-heading: 17px; --t-body: 14px;
+  --t-secondary: 13px; --t-control: 13px; --t-caption: 12px;
+  --lh-display: 1.05; --lh-title: 1.15; --lh-heading: 1.3; --lh-body: 1.55; --lh-secondary: 1.45; --lh-ui: 1.2; --lh-caption: 1.35;
+  --w-display: 700; --w-heading: 700; --w-control: 600; --w-label: 600; --w-strong: 600; --w-muted: 400;
+}
+html, body { margin: 0; height: 100%; background: #e6d3ae; font-family: var(--font); -webkit-text-size-adjust: 100%; }
+.gta { position: fixed; inset: 0; height: 100dvh; overflow: hidden; background: #e6d3ae; }
