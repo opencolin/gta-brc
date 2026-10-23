@@ -892,13 +892,14 @@ export function startKey(path: string): string | null {
   }
   return null;
 }
-/** Where and which way to start for a place key: beside an art car (to its right, heading its way), at a camp's curb
- * facing along the street, or in front of a piece facing it; Agave Lounge's curb by default. */
+/** Where and which way to start for a place key: beside an art car (to its right, heading its way), parked in a camp's
+ * bay facing along the street, or in front of a piece facing it; Agave Lounge's curb by default. */
 function startPose(key: string | null): { at: Vec; h: number } {
   // at Agave Lounge, on the Esplanade beside its bay with the dome in view, facing clockwise along the street
   if (!key || key === "agave") return { at: AGAVE.curb, h: (AGAVE.curbMin / 720) * Math.PI * 2 + Math.PI / 2 };
   if (key.startsWith("mutant:")) { const p = npcAt(mutantOf(key)!, 0), r = right(p.h); return { at: { x: p.x + r.x * 30, y: p.y + r.y * 30 }, h: p.h }; }
-  if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.curb, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.curb.y, sp.stage.x - sp.curb.x) + Math.PI / 2 }; }
+  // a camp: parked in its bay, so its music is playing from the start (the panel opens as you stop there)
+  if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.mid, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.mid.y, sp.stage.x - sp.mid.x) + Math.PI / 2 }; }
   if (key.startsWith("art:")) { // far enough back on the Man's side that the whole piece is on the screen ahead
     const a = ART.find((x) => x.name === key.slice(4))!, d = Math.hypot(a.x, a.y) || 1, k = (d - a.r - 170) / d, at = { x: a.x * k, y: a.y * k };
     return { at, h: Math.atan2(a.y - at.y, a.x - at.x) + Math.PI / 2 };

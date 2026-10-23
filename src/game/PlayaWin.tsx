@@ -1325,7 +1325,8 @@ export default function PlayaWin() {
       let ox = (g.car.vx * 0.45 + Math.sin(g.car.h) * lead) * cam.z, oy = (g.car.vy * 0.45 - Math.cos(g.car.h) * lead) * cam.z;
       const css = root.current ? getComputedStyle(root.current) : null;
       const hudH = parseFloat(css?.getPropertyValue("--pl-top-h") || "0") || 0, miniH = parseFloat(css?.getPropertyValue("--pl-player-h") || "0") || 0;
-      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? miniH : 0) + 24), bottomSafe = h - (touchUiRef.current ? 280 : 48), sideSafe = w * 0.14;
+      // on a phone the minimap is under the top block and the mini player above the thumbs (asked 2026-10-23)
+      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? 126 : 0) + 24), bottomSafe = h - (touchUiRef.current ? Math.max(280, 146 + miniH) : 48), sideSafe = w * 0.14;
       // you sit at (w/2 − ox, h/2 − oy) on the screen: keep that inside the box
       ox = Math.max(-(w / 2 - sideSafe), Math.min(w / 2 - sideSafe, ox));
       oy = Math.max(h / 2 - bottomSafe, Math.min(h / 2 - topSafe, oy));
@@ -1362,7 +1363,7 @@ export default function PlayaWin() {
         if (mix.current.length !== was.length || mix.current.some((v, i) => v.key !== was[i]?.key || Math.abs(v.vol - was[i].vol) >= 2)) setVoices(mix.current.map((v) => ({ key: v.key, vol: Math.round(v.vol) })));
         hudAt = now;
         {
-          // the mini player's height, for the buttons that sit under it on a phone (playa.css --pl-player-h)
+          // the mini player's height, for the big map's close button above it on a phone (playa.css --pl-player-h) and the camera's safe box
           const pl = root.current?.querySelector<HTMLElement>(".pl-lounge[data-mini], .pl-amb > .pl-amb-on");
           const ph = pl ? Math.round(pl.getBoundingClientRect().height) : 0;
           if (ph !== playerH.current) { playerH.current = ph; root.current?.style.setProperty("--pl-player-h", `${ph}px`); }
