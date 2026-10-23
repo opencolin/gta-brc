@@ -1286,7 +1286,7 @@ export default function PlayaWin() {
     const ro = new ResizeObserver(fit); ro.observe(stage); fit();
     const input = (): Input => {
       const k = keys.current, t = touch.current;
-      return { gas: k.gas || t.gas, brake: k.brake || t.brake, left: k.left || t.left, right: k.right || t.right, handbrake: k.handbrake || t.handbrake };
+      return { gas: k.gas || t.gas, brake: k.brake || t.brake, left: k.left || t.left, right: k.right || t.right, handbrake: k.handbrake || t.handbrake, stick: t.stick ?? null }; // the stick rides along (it was dropped here at first, 2026-10-23)
     };
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
@@ -1326,7 +1326,7 @@ export default function PlayaWin() {
       const css = root.current ? getComputedStyle(root.current) : null;
       const hudH = parseFloat(css?.getPropertyValue("--pl-top-h") || "0") || 0, miniH = parseFloat(css?.getPropertyValue("--pl-player-h") || "0") || 0;
       // on a phone the minimap is under the top block and the mini player above the thumbs (asked 2026-10-23)
-      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? 126 : 0) + 24), bottomSafe = h - (touchUiRef.current ? Math.max(280, 200 + miniH) : 48), sideSafe = w * 0.14;
+      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? 126 : 0) + 24), bottomSafe = h - (touchUiRef.current ? Math.max(280, 134 + miniH) : 48), sideSafe = w * 0.14;
       // you sit at (w/2 − ox, h/2 − oy) on the screen: keep that inside the box
       ox = Math.max(-(w / 2 - sideSafe), Math.min(w / 2 - sideSafe, ox));
       oy = Math.max(h / 2 - bottomSafe, Math.min(h / 2 - topSafe, oy));
@@ -1552,7 +1552,6 @@ export default function PlayaWin() {
               onPointerDown={stickDown} onPointerMove={(e) => { if (e.buttons || e.pointerType === "touch") stickMove(e); }} onPointerUp={stickUp} onPointerCancel={stickUp} onLostPointerCapture={stickUp} onContextMenu={(e) => e.preventDefault()}>
               <div className="pl-knob" ref={knobEl} />
             </div>
-            {pad("brake", "brake and reverse", "▼", "pl-brake")}
             {pad("handbrake", "handbrake: drift", "drift", "pl-hb")}
           </div>
         )}
