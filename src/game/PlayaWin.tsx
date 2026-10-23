@@ -1479,6 +1479,15 @@ export default function PlayaWin() {
   };
   const stickDown = (e: ReactPointerEvent) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); if (phaseRef.current === "title") go(); stickMove(e); };
   const stickUp = (e: ReactPointerEvent) => { e.preventDefault(); if (knobEl.current) knobEl.current.style.transform = ""; touch.current = { ...touch.current, stick: null }; };
+  // hop off / ride / drive / take the plane: beside the ride picker on a desktop, next to the drift button on a phone (asked 2026-10-23)
+  const acts = (cls: string) => <>
+    {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className={cls} onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
+    {parked?.startsWith("mutant:") && !aboard && vehicle !== "found" && <>
+      <button type="button" className={`${cls} pl-found`} onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
+      {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className={`${cls} pl-found`} onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
+    </>}
+    {hud.pad && <button type="button" className={`${cls} pl-found`} onClick={takeOff}>✈ take the plane</button>}
+  </>;
   const over = hud.mph > SPEED_LIMIT_MPH;
 
   return (
@@ -1526,13 +1535,7 @@ export default function PlayaWin() {
                 </span>
               )}
             </span>
-            {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className="pl-btn" onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
-            {/* beside an art car (asked 2026-10-23): ride along on it, or take its wheel if it is drawn */}
-            {parked?.startsWith("mutant:") && !aboard && vehicle !== "found" && <>
-              <button type="button" className="pl-btn pl-found" onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
-              {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className="pl-btn pl-found" onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
-            </>}
-            {hud.pad && <button type="button" className="pl-btn pl-found" onClick={takeOff}>✈ take the plane</button>}
+            {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
             <button type="button" className="pl-btn pl-icon" onClick={toggleSound} aria-pressed={!sound} aria-label={sound ? "sound on: turn it off" : "sound off: turn it on"} title={sound ? "sound on" : "sound off"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1558,6 +1561,7 @@ export default function PlayaWin() {
               <div className="pl-knob" ref={knobEl} />
             </div>
             {pad("handbrake", "handbrake: drift", "drift", "pl-hb")}
+            <div className="pl-acts">{acts("pl-pad pl-act")}</div>
           </div>
         )}
 

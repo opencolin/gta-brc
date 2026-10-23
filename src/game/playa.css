@@ -102,6 +102,12 @@
 .pl .pl-stick::before { content: ""; position: absolute; inset: 30%; border-radius: 50%; border: 1.5px dashed rgba(27, 31, 59, .35); }
 .pl .pl-knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: var(--pl-navy); box-shadow: 0 2px 8px rgba(27, 31, 59, .4); will-change: transform; }
 .pl .pl-stick:active .pl-knob { background: var(--pl-pink); }
+/* hop off / ride / drive next to the drift button on a phone (asked 2026-10-23); on a desktop they stay by the ride picker */
+.pl .pl-acts { display: none; }
+.pl[data-phone] .pl-side .pl-act { display: none; }
+.pl[data-phone] .pl-acts { position: absolute; display: flex; gap: 8px; left: 112px; bottom: calc(40px + var(--pl-player-h, 0px)); pointer-events: none; }
+.pl[data-phone] .pl-acts .pl-pad { position: static; height: 64px; padding: 0 14px; font-size: var(--t-control); white-space: nowrap; }
+.pl[data-phone] .pl-acts .pl-pad.pl-found { border-color: var(--pl-gold, #ffd27a); }
 /* no brake button: the stick pulled back brakes and reverses (asked 2026-10-23); the drift alone sits bottom left */
 .pl .pl-hb { left: 12px; bottom: 28px; width: 84px; height: 68px; font-size: var(--t-control); }
 /* portrait (asked 2026-10-22): bigger thumbs, the steering pair side by side with room between, gas and brake taller */
