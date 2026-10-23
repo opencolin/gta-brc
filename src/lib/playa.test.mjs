@@ -6,9 +6,9 @@ import {
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
-import { ARC_R, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
+import { AIRPORT, ARC_R, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
 
 const DT = 1 / 60;
@@ -237,7 +237,7 @@ test("rides: every vehicle's physics stays finite, caps its speed, and collides"
 });
 
 test("streets are at least twice the longest ride, so two pass and one can turn round", () => {
-  const longest = Math.max(...VEHICLE_IDS.map((id) => VEHICLES[id].len));
+  const longest = Math.max(...VEHICLE_IDS.filter((id) => id !== "plane").map((id) => VEHICLES[id].len)); // the plane lives at the airport, not on the streets
   for (const w of [ROAD_W, WIDE_ROAD_W, ESPLANADE_W]) assert.ok(w >= 2 * longest, `${w} ≥ 2 × ${longest}`);
 });
 
@@ -447,7 +447,7 @@ test("a follow: find the art car, then stay close for 20 s while it moves", () =
 
 test("switching rides mid-game keeps the game finite and the ride clear of walls", () => {
   const g = newGame(11);
-  for (const id of VEHICLE_IDS) {
+  for (const id of VEHICLE_IDS.filter((v) => v !== "plane")) { // the plane flies over walls by design
     setVehicle(g, id);
     for (let i = 0; i < 60 * 10; i++) {
       stepGame(g, { ...NO_INPUT, gas: true, right: i % 100 < 30 }, DT);
@@ -536,4 +536,43 @@ test("with the big map open (ghost) nothing stops you: camps, art cars and bikes
   const free = run(true), blocked = run(false);
   assert.ok(free > 600, `a ghost gets well clear: ${free.toFixed(0)} ft`);
   assert.ok(free > blocked, `camps stop a real rider sooner: ${blocked.toFixed(0)} < ${free.toFixed(0)}`);
+});
+
+test("the fence is open toward the airport and solid everywhere else past it", () => {
+  assert.equal(solidAt(polar(252, FENCE_R * 1.05)), null, "the way to the airport");
+  assert.ok(solidAt(polar(120, FENCE_R * 1.05)), "past the fence at 2:00");
+  assert.ok(Math.hypot(AIRPORT.pad.x, AIRPORT.pad.y) > FENCE_R, "the pad is outside the fence");
+});
+
+test("the plane: taken at the pad, it lifts past takeoff speed, flies through anything, and bailing out leaves you under a chute while it flies off", () => {
+  const g = newGame(5);
+  assert.equal(takePlane(g), false, "not at the airport");
+  g.car = newCar(AIRPORT.pad, 0);
+  assert.ok(atAirport(g)); assert.equal(takePlane(g), true); assert.equal(g.vehicle, "plane");
+  let took = false;
+  for (let i = 0; i < 60 * 12 && !took; i++) took = stepGame(g, { ...NO_INPUT, gas: true }, DT).includes("takeoff");
+  assert.ok(took, "it took off"); assert.ok(speedOf(g.car) > TAKEOFF);
+  for (let i = 0; i < 60 * 6; i++) stepGame(g, { ...NO_INPUT, gas: true }, DT);
+  assert.ok(g.alt > 200, `climbing: ${g.alt.toFixed(0)} ft`);
+  // off the gas it holds at least stall speed and sinks slowly; it never bounces off anything up there
+  for (let i = 0; i < 60 * 3; i++) stepGame(g, { ...NO_INPUT, brake: true }, DT);
+  assert.ok(speedOf(g.car) >= STALL - 1, "never below stall in the air"); assert.ok(g.alt > 0, "still up");
+  const alt = g.alt;
+  bailOut(g);
+  assert.equal(g.chute, true); assert.equal(g.vehicle, "bike"); assert.ok(g.plane, "the plane flies on");
+  const planeStart = { x: g.plane.x, y: g.plane.y };
+  let landed = false;
+  for (let i = 0; i < 60 * 60 && !landed; i++) landed = stepGame(g, { ...NO_INPUT, right: true }, DT).includes("landed");
+  assert.ok(landed, "you touched down"); assert.equal(g.chute, false); assert.equal(g.alt, 0); assert.equal(g.vehicle, "bike");
+  assert.ok(alt / 24 < 60 * 60 * DT, "a chute from that height lands inside a minute");
+  for (let i = 0; i < 60 * 25; i++) stepGame(g, NO_INPUT, DT); // half a minute on, the plane has flown well off or is gone
+  assert.ok(g.plane === null || Math.hypot(g.plane.x - planeStart.x, g.plane.y - planeStart.y) > 2000, "the plane flew off or is gone");
+});
+
+test("e-bikes ride the streets faster than the cruisers", () => {
+  const g = newGame(2);
+  const e = g.npcs.filter((n) => n.kind === "ebike"), b = g.npcs.filter((n) => n.kind === "bike" && !n.lead);
+  assert.ok(e.length >= 30, `${e.length} e-bikes`);
+  const avg = (l) => l.reduce((a, n) => a + Math.abs(n.speed), 0) / l.length;
+  assert.ok(avg(e) > avg(b) * 1.4, `e-bikes ${avg(e).toFixed(0)} vs bikes ${avg(b).toFixed(0)}`);
 });

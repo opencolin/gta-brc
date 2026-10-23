@@ -9,12 +9,12 @@ import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
 import {
-  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
@@ -371,6 +371,70 @@ function drawCuttlefish(ctx: CanvasRenderingContext2D, t: number, night: number)
 
 /** A bike and its rider. */
 /** Someone on foot, seen from above: shoulders in a costume colour, a hat, arms swinging as they walk; an LED at night. */
+/**
+ * The plane from the airport (asked 2026-10-22), from above and nose up: a high wing across, the fuselage under it
+ * with a red cheatline, a tailplane and fin, the prop a blur; strobes and a beacon at night. About 30 long, 34 across.
+ */
+function drawPlane(ctx: CanvasRenderingContext2D, t: number, night: number) {
+  ctx.fillStyle = "#f4f4f6"; ctx.strokeStyle = "#8a90a8"; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(0, -15); ctx.quadraticCurveTo(2.8, -12, 2.8, -6); ctx.lineTo(2.4, 9); ctx.quadraticCurveTo(1.6, 14, 0.8, 15.5); ctx.lineTo(-0.8, 15.5);
+  ctx.quadraticCurveTo(-1.6, 14, -2.4, 9); ctx.lineTo(-2.8, -6); ctx.quadraticCurveTo(-2.8, -12, 0, -15); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#d62828"; ctx.fillRect(-2.6, -2, 5.2, 1.2);                                  // the cheatline
+  ctx.fillStyle = "#26304a"; ctx.beginPath(); ctx.roundRect(-2.1, -10, 4.2, 4.5, 1.5); ctx.fill(); // the cockpit
+  ctx.fillStyle = "#f4f4f6"; ctx.beginPath(); ctx.roundRect(-17, -4.5, 34, 5, 2); ctx.fill(); ctx.stroke(); // the wing
+  ctx.fillStyle = "#d62828"; ctx.fillRect(-17, -4.5, 4, 5); ctx.fillRect(13, -4.5, 4, 5);        // its tips
+  ctx.fillStyle = "#f4f4f6"; ctx.beginPath(); ctx.roundRect(-6.5, 10.5, 13, 3, 1.2); ctx.fill(); ctx.stroke(); // the tailplane
+  ctx.fillStyle = "#d62828"; ctx.fillRect(-0.7, 7, 1.4, 8);                                    // the fin, seen edge on
+  ctx.save(); ctx.translate(0, -15.5); ctx.rotate(t * 42); ctx.fillStyle = "rgba(60, 64, 80, .75)"; ctx.fillRect(-5, -0.5, 10, 1); ctx.restore();
+  ctx.fillStyle = "rgba(120, 125, 150, .2)"; ctx.beginPath(); ctx.arc(0, -15.5, 5, 0, Math.PI * 2); ctx.fill();
+  if (night > 0.3) {
+    const s = Math.sin(t * 8) > 0.5;
+    ctx.fillStyle = "#ff3048"; ctx.beginPath(); ctx.arc(-17, -2, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#40ff7a"; ctx.beginPath(); ctx.arc(17, -2, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = s ? "#ffffff" : "rgba(255,255,255,.2)"; ctx.beginPath(); ctx.arc(-17, -2, 0.6, 0, Math.PI * 2); ctx.arc(17, -2, 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = Math.sin(t * 5) > 0 ? "#ff2d2d" : "#5a2030"; ctx.beginPath(); ctx.arc(0, 2, 0.9, 0, Math.PI * 2); ctx.fill();
+  }
+}
+/** A plane's shadow on the playa, off to one side by its height. */
+function drawPlaneShadow(ctx: CanvasRenderingContext2D, alt: number) {
+  ctx.fillStyle = `rgba(27, 31, 59, ${0.22 / (1 + alt / 600)})`;
+  ctx.beginPath(); ctx.ellipse(0, 0, 17, 5, 0, 0, Math.PI * 2); ctx.ellipse(0, 1, 3, 15, 0, 0, Math.PI * 2); ctx.fill();
+}
+/** You under the parachute (asked 2026-10-22): the striped canopy over you, lines down to the harness, you in the middle. */
+function drawChute(ctx: CanvasRenderingContext2D, t: number, night: number) {
+  const sway = Math.sin(t * 1.7) * 2;
+  ctx.save(); ctx.translate(sway, 0);
+  for (let k = 0; k < 8; k++) {
+    ctx.fillStyle = k % 2 ? "#ff6b9a" : "#fbf7ef";
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.ellipse(0, 0, 17, 13, 0, (k / 8) * Math.PI * 2, ((k + 1) / 8) * Math.PI * 2); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = "#1b1f3b"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(0, 0, 17, 13, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.fill(); // the vent
+  ctx.restore();
+  ctx.strokeStyle = "rgba(27, 31, 59, .6)"; ctx.lineWidth = 0.5;
+  for (const [x, y] of [[-14, -6], [14, -6], [-14, 6], [14, 6], [0, -12], [0, 12]]) { ctx.beginPath(); ctx.moveTo(x + sway, y); ctx.lineTo(0, 0); ctx.stroke(); }
+  ctx.save(); ctx.scale(0.8, 0.8); drawRider(ctx, 7, 330, night); ctx.restore();
+}
+/** The airport on the ground: its two runways with their centre lines and numbers, the hangars, a windsock, and the plane on its pad. */
+function drawAirport(ctx: CanvasRenderingContext2D, t: number, night: number, padPlane: boolean) {
+  ctx.save(); ctx.translate(AIRPORT.at.x, AIRPORT.at.y); ctx.rotate(AIRPORT.ta);
+  const L = AIRPORT.runwayLen, W = AIRPORT.runwayW;
+  for (const off of [-AIRPORT.runwayOff, AIRPORT.runwayOff]) {
+    ctx.fillStyle = "#efe7d4"; ctx.fillRect(-L / 2, off - W / 2, L, W);
+    ctx.strokeStyle = "rgba(27, 31, 59, .35)"; ctx.lineWidth = 3; ctx.strokeRect(-L / 2, off - W / 2, L, W);
+    ctx.setLineDash([60, 40]); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-L / 2 + 120, off); ctx.lineTo(L / 2 - 120, off); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(27, 31, 59, .5)"; for (let k = 0; k < 6; k++) { ctx.fillRect(-L / 2 + 20, off - W / 2 + 8 + k * 16, 70, 7); ctx.fillRect(L / 2 - 90, off - W / 2 + 8 + k * 16, 70, 7); }
+  }
+  // the hangars and the tie-downs
+  for (let k = 0; k < 5; k++) { ctx.fillStyle = k % 2 ? "#d9d0bd" : "#cfc5ae"; ctx.fillRect(-1700 + k * 420, -560, 300, 200); ctx.strokeStyle = "#8a7a5a"; ctx.lineWidth = 3; ctx.strokeRect(-1700 + k * 420, -560, 300, 200); }
+  ctx.fillStyle = "#e8dfc9"; ctx.fillRect(-1800, -330, 2200, 90);
+  // the windsock, blowing with the time
+  ctx.save(); ctx.translate(1200, -420); ctx.fillStyle = "#6b7390"; ctx.fillRect(-2, -2, 4, 4); ctx.rotate(Math.sin(t * 0.3) * 0.6 + 0.8);
+  ctx.fillStyle = "#ff7a2f"; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(48, -2); ctx.lineTo(48, 2); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill(); ctx.restore();
+  ctx.fillStyle = "#4a3b10"; ctx.font = "600 60px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("88NV · Black Rock City Airport", -600, -620);
+  ctx.restore();
+  if (padPlane) { ctx.save(); ctx.translate(AIRPORT.pad.x, AIRPORT.pad.y); ctx.rotate(AIRPORT.h); drawPlaneShadow(ctx, 0); drawPlane(ctx, t, night); ctx.restore(); }
+}
 function drawWalker(ctx: CanvasRenderingContext2D, hue: number, t: number, night: number) {
   const sw = Math.sin(t * 6 + hue) * 2;
   ctx.fillStyle = "#f2c6a0";
@@ -786,6 +850,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
   ctx.beginPath(); FENCE.forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+  // the airport past it
+  if (seen(AIRPORT.at.x, AIRPORT.at.y, 2900)) drawAirport(ctx, t, night, g.vehicle !== "plane");
 
   // street signs at the corners in view
   ctx.font = `600 ${12 / z}px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -835,7 +901,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const n of g.npcs) { if (n.key && n.key === mine) continue; const p = npcAt(n, t); if (seen(p.x, p.y, 40)) npcs.push({ n, p }); }
   for (const { n, p } of npcs) {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.h);
-    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
+    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
     ctx.restore();
   }
   for (const { n, p } of npcs) if (n.kind === "mutant" && n.name) {
@@ -844,7 +910,22 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     ctx.fillStyle = C.gold; ctx.fillText(n.name, p.x, p.y - NPC_R.mutant - 17 / z);
   }
   // you
-  ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawRide(ctx, g.vehicle, t, night, input.brake || input.handbrake); ctx.restore();
+  if (g.chute) {
+    // under the canopy: your shadow on the playa off to one side, then you and the canopy, bigger the higher you are
+    ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.fillStyle = `rgba(27, 31, 59, ${0.2 / (1 + g.alt / 600)})`; ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / 500; ctx.scale(k, k); ctx.rotate(g.car.h); drawChute(ctx, t, night); ctx.restore();
+  } else if (g.vehicle === "plane" && g.alt > 0) {
+    ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.rotate(g.car.h); drawPlaneShadow(ctx, g.alt); ctx.restore();
+    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / 400; ctx.scale(k, k); ctx.rotate(g.car.h); drawPlane(ctx, t, night); ctx.restore();
+  } else if (g.vehicle === "plane") {
+    ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawPlaneShadow(ctx, 0); drawPlane(ctx, t, night); ctx.restore();
+  } else { ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawRide(ctx, g.vehicle, t, night, input.brake || input.handbrake); ctx.restore(); }
+  // the plane you bailed out of, flying on
+  if (g.plane && seen(g.plane.x, g.plane.y, 400)) {
+    const q = g.plane;
+    ctx.save(); ctx.translate(q.x + q.alt * 0.5, q.y + q.alt * 0.4); ctx.rotate(q.h); drawPlaneShadow(ctx, q.alt); ctx.restore();
+    ctx.save(); ctx.translate(q.x, q.y); const k = 1 + q.alt / 400; ctx.scale(k, k); ctx.rotate(q.h); drawPlane(ctx, t, night); ctx.restore();
+  }
 
   // night: the city goes dark, then the lights
   if (night > 0) {
@@ -914,7 +995,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
-type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string };
+type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; alt: number; chute: boolean; pad: boolean };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -956,7 +1037,7 @@ export default function PlayaWin() {
   useEffect(() => { game.current.ghost = map; }, [map]);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
-  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "" });
+  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", alt: 0, chute: false, pad: false });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
@@ -985,8 +1066,11 @@ export default function PlayaWin() {
   const [parked, setParked] = useState<string | null>(null);
   /** riding along on the art car you parked beside (lib/games/playa.ts hopOn) */
   const [aboard, setAboard] = useState(false);
+  // the airport (asked 2026-10-22): E on the pad takes the plane; R in the air bails out under a chute, on the ground steps out
+  const takeOff = () => { const g = game.current; if (takePlane(g)) { setVehicleState("plane"); setRides(false); flash.current = { text: "at the controls. gas to roll; past 40 mph it lifts", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); } };
   const ridealong = () => {
     const g = game.current;
+    if (g.vehicle === "plane") { const air = g.alt > 0; bailOut(g); setVehicleState("bike"); flash.current = { text: air ? "bailed out! steer the chute down" : "out of the plane", until: g.t + 2.5 }; board.current?.focus({ preventScroll: true }); return; }
     if (g.aboard) { hopOff(g); setVehicleState("bike"); }
     else if (g.vehicle === "found") { leaveDriven(g); setVehicleState("bike"); flash.current = { text: "parked it. on the bike", until: g.t + 1.5 }; }
     else hopOn(g);
@@ -1088,6 +1172,8 @@ export default function PlayaWin() {
         while (acc >= DT && n < 6) {
           for (const e of stepGame(g, inp, DT)) {
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
+            else if (e === "takeoff") flash.current = { text: "wheels up. gas climbs, brake dives, R bails out", until: g.t + 3 };
+            else if (e === "landed") flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. on the bike", until: g.t + 2.5 };
             else if (e === "delivered") flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
             else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
@@ -1104,7 +1190,7 @@ export default function PlayaWin() {
       // portrait (asked 2026-10-22): a tall, narrow view pulls back a little and puts you in the lower
       // third, looking up the road the way you are pointed, so there is somewhere to go on the screen
       const portrait = h > w * 1.15;
-      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1);
+      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / 450); // up in the air the ground pulls away
       const k = 1 - Math.exp(-5 * dt);
       const lead = portrait ? (0.16 * h) / Math.max(0.5, cam.z) : 0;
       cam.x += (g.car.x + g.car.vx * 0.45 + Math.sin(g.car.h) * lead - cam.x) * k;
@@ -1148,6 +1234,7 @@ export default function PlayaWin() {
           time: m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow" ? m.timeLeft : null,
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
           hear: target && target.vol > 4 ? soundOf(target.key).name : "", hearKey: target && target.vol > 4 ? target.key : "",
+          alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g),
         });
         const mc = mini.current, mx = mc?.getContext("2d");
         if (mc && mx && mc.width > 0) {
@@ -1219,7 +1306,7 @@ export default function PlayaWin() {
     else if (e.key === "v" || e.key === "V") { e.preventDefault(); ride(nextVehicle(game.current.vehicle)); }
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); ridealong(); }
-    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
+    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
   };
@@ -1258,6 +1345,8 @@ export default function PlayaWin() {
           <b className="pl-addr">{hud.address}</b>
           <span className="pl-speed"><b className={over ? "pl-over" : undefined}>{hud.mph}</b> mph <span className="pl-limit">limit {SPEED_LIMIT_MPH}</span></span>
           <span className="pl-count">gifts <b>{hud.gifts}</b> · moop <b>{hud.moop}</b></span>
+          {hud.alt > 0 && <span className="pl-count">{hud.chute ? "under the chute" : "flying"} · <b>{hud.alt}&apos;</b> up</span>}
+          {hud.pad && <span className="pl-count">a plane on the pad · <b>E</b> takes it</span>}
           {hud.hear && (
             <span className="pl-hear">
               <span className="pl-hear-name">♪ {hud.hear}</span>
@@ -1281,7 +1370,8 @@ export default function PlayaWin() {
                 </span>
               )}
             </span>
-            {(vehicle === "found" || aboard) && <button type="button" className="pl-btn" onClick={ridealong}>hop off</button>}
+            {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className="pl-btn" onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
+            {hud.pad && <button type="button" className="pl-btn pl-found" onClick={takeOff}>✈ take the plane</button>}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
             <button type="button" className="pl-btn pl-icon" onClick={toggleSound} aria-pressed={!sound} aria-label={sound ? "sound on: turn it off" : "sound off: turn it on"} title={sound ? "sound on" : "sound off"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1317,7 +1407,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>◀ ▶ steer · ▲ gas · ▼ brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night</li><li>beside an art car: R ride along or hop off · E drive it</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night</li><li>beside an art car: R ride along or hop off · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>

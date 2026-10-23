@@ -15,7 +15,7 @@
  * art car's top speed reads about 50. The camp speed limit is 5, as everyone ignores.
  */
 import {
-  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, MAN_R, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, MAN_R, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
   clockToAngle, fenceDepth, parseClock, pointAt, polar, surfaceAt, toPolar, type ArcName, type Vec,
 } from "./brc.ts";
 import { planAt, planCity, structPush, type BlockPlan } from "./camps.ts";
@@ -76,6 +76,12 @@ export const VEHICLES = {
     name: "art car", len: 36, wid: 20, // drawn at 0.58 of the 64-foot art car: the streets are twice the longest ride
     maxSpeed: 200, maxReverse: 60, accel: 95, brake: 260, reverse: 70, handbrake: 200,
     drag: 0.3, roll: 14, maxYaw: 1.6, hbYaw: 1.5, restitution: 0.2, dust: 1.2, grip: 0.9, throughCamps: false,
+  },
+  // the plane from the airport (asked 2026-10-22): slow to roll, fast once it lifts, wide and gentle in a turn
+  plane: {
+    name: "plane", len: 30, wid: 34,
+    maxSpeed: 480, maxReverse: 20, accel: 70, brake: 160, reverse: 20, handbrake: 120,
+    drag: 0.12, roll: 5, maxYaw: 1.1, hbYaw: 1.1, restitution: 0.2, dust: 0.8, grip: 1, throughCamps: false,
   },
   unicycle: {
     name: "unicycle", len: 10, wid: 8,
@@ -319,7 +325,12 @@ export type Push = { depth: number; nx: number; ny: number };
  */
 export function solidAt(p: Vec, through = false): Push | null {
   const f = fenceDepth(p);
-  if (f.depth < 0) return { depth: -f.depth, nx: f.nx, ny: f.ny };
+  if (f.depth < 0) {
+    // past the fence: solid everywhere but the wedge the airport sits in (brc.ts AIRPORT.gap)
+    const m = toPolar(p).min;
+    if (m < AIRPORT.gap.from || m > AIRPORT.gap.to) return { depth: -f.depth, nx: f.nx, ny: f.ny };
+    return null;
+  }
   const b = blockPush(p);
   if (b) {
     if (through) {
@@ -377,12 +388,12 @@ export function collide(c: Car, v: Vehicle = CAR): number {
 /* ── the others on the road ─────────────────────────────────────────────── */
 
 type NpcBase = {
-  kind: "bike" | "walker" | "artcar" | "mutant" | "ambulance"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
+  kind: "bike" | "ebike" | "walker" | "artcar" | "mutant" | "ambulance"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
   /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line */
   lead?: Npc; lag?: number; side?: number;
 };
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" });
-export const NPC_R = { bike: 7, walker: 5, artcar: 24, mutant: 32, ambulance: 14 } as const;
+export const NPC_R = { bike: 7, ebike: 7, walker: 5, artcar: 24, mutant: 32, ambulance: 14 } as const;
 /** Room a biker riding with an art car keeps from it: wide enough to ride between them. */
 export const FOLLOW_GAP = 30;
 
@@ -518,6 +529,14 @@ export function makeNpcs(rand: () => number): Npc[] {
   }
   for (let i = 0; i < 50; i++) {
     out.push({ kind: "bike", path: "loop", r: (250 + rand() * 1700) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (16 + rand() * 16), phase: rand() * 720, hue: Math.floor(rand() * 360) });
+  }
+  // e-bikes (asked 2026-10-22): forty of them, half again as fast as the cruisers, on the streets and the open playa
+  for (let i = 0; i < 28; i++) {
+    const ring = Math.floor(rand() * ARC_R.length);
+    out.push({ kind: "ebike", path: "arc", r: ARC_R[ring] + (rand() - 0.5) * arcWidth(ring) * 0.7, from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (28 + rand() * 20), phase: rand() * 480, hue: 200 + Math.floor(rand() * 60) });
+  }
+  for (let i = 0; i < 12; i++) {
+    out.push({ kind: "ebike", path: "loop", r: (300 + rand() * 1700) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (30 + rand() * 20), phase: rand() * 720, hue: 200 + Math.floor(rand() * 60) });
   }
   // a few ambulances on their rounds (asked 2026-10-22): no music, not art cars, never on the maps
   for (let i = 0; i < 4; i++) {
@@ -796,9 +815,12 @@ export type Game = {
   t: number; car: Car; vehicle: VehicleId; mission: Mission; npcs: Npc[]; moop: Vec[]; moopCount: number;
   storm: Storm; dayT: number; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string;
   parking: Parking;
+  /** feet up: more than 0 and the plane, or you under the canopy, is in the air (asked 2026-10-22) */ alt: number;
+  /** you bailed out: under a parachute, drifting down */ chute: boolean;
+  /** the plane you bailed out of, flying on without you until it is gone */ plane: (Car & { alt: number; left: number }) | null;
   rand: () => number;
 };
-export type GameEvent = MissionEvent | "moop" | "bump" | "hit" | "slow" | "storm" | "park" | "leave";
+export type GameEvent = MissionEvent | "moop" | "bump" | "hit" | "slow" | "storm" | "park" | "leave" | "takeoff" | "landed" | "bail";
 export const MOOP_N = 80;
 export const MOOP_R = 22;
 
@@ -820,9 +842,39 @@ export function newGame(seed = 1, vehicle: VehicleId = "bike"): Game {
     t: 0, car: newCar(start, (AGAVE.curbMin / 720) * Math.PI * 2 + Math.PI / 2), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
     moop: Array.from({ length: MOOP_N }, () => moopSpot(rand)), moopCount: 0,
     storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: 0.1 * DAY_SECONDS, dust: [], bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
-    parking: newParking(),
+    parking: newParking(), alt: 0, chute: false, plane: null,
     rand,
   };
+}
+
+/* ── the airport and the plane (asked 2026-10-22) ──────────────────────── */
+/** Rolling faster than this, the plane lifts; slower than STALL in the air, it is held at STALL. */
+export const TAKEOFF = 200, STALL = 150, ALT_MAX = 900;
+/** Within reach of the plane on the pad: E takes it. */
+export const atAirport = (g: Game) => g.vehicle !== "plane" && !g.chute && Math.hypot(g.car.x - AIRPORT.pad.x, g.car.y - AIRPORT.pad.y) < 160;
+/** Into the plane on the pad, lined up on the runway. */
+export function takePlane(g: Game): boolean {
+  if (!atAirport(g)) return false;
+  if (g.aboard) hopOff(g);
+  g.vehicle = "plane"; g.alt = 0;
+  g.car = newCar(AIRPORT.pad, AIRPORT.h);
+  return true;
+}
+/** Out of the plane: in the air, under a parachute, the plane flying on without you (it disappears off the screen); on the ground, onto the bike beside it. */
+export function bailOut(g: Game) {
+  if (g.vehicle !== "plane") return;
+  if (g.alt > 0) {
+    const f = fwd(g.car.h), spd = Math.max(STALL, speedOf(g.car));
+    g.plane = { ...g.car, vx: f.x * spd, vy: f.y * spd, alt: g.alt, left: 30 };
+    g.chute = true;
+    g.car = { ...g.car, vx: g.car.vx * 0.15, vy: g.car.vy * 0.15 };
+    g.vehicle = "bike";
+  } else {
+    const rt = right(g.car.h);
+    g.car = { ...g.car, x: g.car.x + rt.x * 40, y: g.car.y + rt.y * 40, vx: 0, vy: 0 };
+    g.vehicle = "bike"; g.alt = 0;
+    collide(g.car, VEHICLES.bike);
+  }
 }
 
 /** Change rides where you stand: the new one is pushed clear of anything it would overlap. */
@@ -846,7 +898,7 @@ export function hopOff(g: Game) {
 }
 /** The next ride in the list, for the V key. */
 /** The rides V steps through: every one but a found art car, which you drive by finding it (PlayaWin's garage). */
-export const BASE_RIDES: VehicleId[] = VEHICLE_IDS.filter((id) => id !== "found");
+export const BASE_RIDES: VehicleId[] = VEHICLE_IDS.filter((id) => id !== "found" && id !== "plane");
 export const nextVehicle = (id: VehicleId): VehicleId => BASE_RIDES[(BASE_RIDES.indexOf(id) + 1) % BASE_RIDES.length];
 
 /** One fixed step of the whole game. Mutates the game and returns what happened, for the window's sounds and lines. */
@@ -866,14 +918,42 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   if (riding) {
     const p = npcAt(riding, g.t), jump = Math.hypot(p.x - g.car.x, p.y - g.car.y) > 200;
     g.car = { ...g.car, x: p.x, y: p.y, h: p.h, vx: jump ? 0 : (p.x - g.car.x) / dt, vy: jump ? 0 : (p.y - g.car.y) / dt };
-  } else g.car = carStep(g.car, input, dt, gripAt(g.car), v);
+  } else if (g.chute) {
+    // under the canopy: the keys drift you, the ground comes up at a steady rate, and you land on the bike
+    const c = g.car, ax = (input.right ? 1 : 0) - (input.left ? 1 : 0), ay = (input.brake ? 1 : 0) - (input.gas ? 1 : 0);
+    let vx = c.vx * (1 - 1.4 * dt) + ax * 90 * dt, vy = c.vy * (1 - 1.4 * dt) + ay * 90 * dt;
+    const sp = Math.hypot(vx, vy); if (sp > 45) { vx *= 45 / sp; vy *= 45 / sp; }
+    g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h: sp > 5 ? Math.atan2(vx, -vy) : c.h };
+    g.alt = Math.max(0, g.alt - 24 * dt);
+    if (g.alt === 0) { g.chute = false; g.car = { ...g.car, vx: 0, vy: 0 }; collide(g.car, VEHICLES.bike); ev.push("landed"); }
+  } else {
+    g.car = carStep(g.car, input, dt, g.vehicle === "plane" && g.alt > 0 ? 40 : gripAt(g.car), v);
+    if (g.vehicle === "plane") {
+      // the plane: lifts past TAKEOFF, climbs on the gas, sinks off it, dives on the brake, never slower than STALL up there
+      const spd = speedOf(g.car), was = g.alt;
+      if (g.alt > 0 || spd > TAKEOFF) {
+        const rate = input.gas ? 48 : input.brake ? -75 : -12;
+        g.alt = Math.min(ALT_MAX, Math.max(0, g.alt + rate * dt));
+        if (g.alt > 0 && spd < STALL && spd > 1e-6) { g.car.vx *= STALL / spd; g.car.vy *= STALL / spd; }
+      }
+      if (was === 0 && g.alt > 0) ev.push("takeoff");
+      if (was > 0 && g.alt === 0) ev.push("landed");
+    }
+  }
+  // the plane you bailed out of flies on, climbing gently, until it is well off the screen
+  if (g.plane) {
+    const q = g.plane;
+    q.x += q.vx * dt; q.y += q.vy * dt; q.alt = Math.min(ALT_MAX, q.alt + 8 * dt); q.left -= dt;
+    if (q.left <= 0) g.plane = null;
+  }
+  const airborne = g.chute || (g.vehicle === "plane" && g.alt > 0);
   // riding through a block of camps: slow, and the 5 mph line
-  if (!riding && !g.ghost && v.throughCamps && surfaceAt(g.car).kind === "block" && !SPOTS.some((sp) => inBay(g.car, sp.bay))) {
+  if (!riding && !g.ghost && !airborne && v.throughCamps && surfaceAt(g.car).kind === "block" && !SPOTS.some((sp) => inBay(g.car, sp.bay))) {
     const s = speedOf(g.car), cap = v.maxSpeed * CAMP_SPEED;
     if (s > cap) { g.car.vx *= cap / s; g.car.vy *= cap / s; }
     if (s > SPEED_LIMIT_MPH / MPH && g.warn <= 0) { g.warn = 2; g.warnText = "riding through camps: 5 mph"; ev.push("slow"); }
   }
-  const impact = riding || g.ghost ? 0 : collide(g.car, v);
+  const impact = riding || g.ghost || airborne ? 0 : collide(g.car, v);
   if (impact > 60) { g.bumps++; ev.push("bump"); }
   const spd = speedOf(g.car);
 
@@ -882,7 +962,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   // through everyone for a second instead of being shoved back and forth on the spot.
   if (driven.key && g.vehicle === "found") noteDriven(g.t, g.car);
   // the art car you drive is you: no bumping into yourself
-  const others = riding || g.ghost ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
+  const others = riding || g.ghost || airborne ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
   const touching = others.filter((n) => { const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < NPC_R[n.kind] + v.wid / 2 + 5; }).length;
   for (const n of others) {
     const p = npcAt(n, g.t);
@@ -893,11 +973,11 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
       if (g.hitCool <= 0 && hit > 15) {
         g.hitCool = 1.5;
         g.mission.gifts = Math.max(0, g.mission.gifts - 1);
-        g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : n.kind === "bike" ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
+        g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : n.kind === "bike" || n.kind === "ebike" ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
         ev.push("hit");
       }
     } else if (d >= min && d < 130 && spd > 45 && g.warn <= 0) {
-      g.warn = 2; g.warnText = n.kind === "walker" ? "slow down: people walking. 5 mph" : n.kind === "bike" ? "slow down: bikes. 5 mph" : `slow down: ${n.name ?? "art car"}. 5 mph`;
+      g.warn = 2; g.warnText = n.kind === "walker" ? "slow down: people walking. 5 mph" : n.kind === "bike" || n.kind === "ebike" ? "slow down: bikes. 5 mph" : `slow down: ${n.name ?? "art car"}. 5 mph`;
       ev.push("slow");
     }
   }

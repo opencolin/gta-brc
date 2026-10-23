@@ -113,6 +113,18 @@ export function parseAddress(s: string): Vec | null {
 export const CENTER_CAMP: Vec = polar(360, CENTER_CAMP_DIST);
 export const TEMPLE: Vec = polar(0, TEMPLE_DIST);
 
+/**
+ * The airport (88NV, asked 2026-10-22): past the fence at about 4:00, two runways side by side on a slight
+ * slant, a line of hangars beside them, and a pad at the near end of the first runway where a plane waits.
+ * `local` turns runway coordinates (x along the runway, y across it) into city space; `h` is the heading
+ * a plane takes off on; the fence is open to it between `gap.from` and `gap.to` on the clock.
+ */
+export const AIRPORT = (() => {
+  const at = polar(252, 7600 * S * 1.09), ta = clockToAngle(252) + Math.PI / 2 + 0.35;
+  const local = (lx: number, ly: number): Vec => ({ x: at.x + lx * Math.cos(ta) - ly * Math.sin(ta), y: at.y + lx * Math.sin(ta) + ly * Math.cos(ta) });
+  return { at, ta, h: ta + Math.PI / 2, runwayLen: 4600, runwayW: 110, runwayOff: 140, local, pad: local(-2000, -140), gap: { from: 215, to: 290 } };
+})();
+
 /** The fence's five corners, clockwise from the one at 12:00. */
 export const FENCE: readonly Vec[] = Array.from({ length: 5 }, (_, i) => polar(i * 144, FENCE_R));
 
