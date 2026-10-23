@@ -1086,7 +1086,7 @@ export default function PlayaWin() {
   /** riding along on the art car you parked beside (lib/games/playa.ts hopOn) */
   const [aboard, setAboard] = useState(false);
   // the airport (asked 2026-10-22): E on the pad takes the plane; R in the air bails out under a chute, on the ground steps out
-  const takeOff = () => { const g = game.current; if (takePlane(g)) { setVehicleState("plane"); setRides(false); flash.current = { text: "at the controls. gas to roll; past 40 mph it lifts", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); } };
+  const takeOff = () => { const g = game.current; if (takePlane(g)) { setVehicleState("plane"); setRides(false); flash.current = { text: "at the controls. gas to roll; past 30 mph it lifts", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); } };
   const ridealong = () => {
     const g = game.current;
     if (g.vehicle === "plane") { const air = g.alt > 0; bailOut(g); setVehicleState("bike"); flash.current = { text: air ? "bailed out! steer the chute down" : "out of the plane", until: g.t + 2.5 }; board.current?.focus({ preventScroll: true }); return; }

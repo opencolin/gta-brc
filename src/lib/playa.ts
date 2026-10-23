@@ -24,7 +24,8 @@ import { SOUND_CAMPS, type SoundCamp } from "./soundcamps.ts";
 /** Where Agave Lounge camps: the Esplanade at 8:30, its dome facing the open playa. */
 export const AGAVE_ADDRESS = "8:30 & Esplanade";
 
-export const MPH = 0.2;
+/** Feet per second → the mph on the HUD (asked 2026-10-22: a bike tops out about 21, an e-bike about 50). */
+export const MPH = 1 / 7;
 export const SPEED_LIMIT_MPH = 5;
 
 /* ── what you ride ──────────────────────────────────────────────────────── */
@@ -52,13 +53,13 @@ export type Vehicle = {
 export const VEHICLES = {
   bike: {
     name: "bike", len: 16, wid: 7, // the cruiser's pixel art drawn at 0.55, about the size of the other bikes (PlayaWin.tsx, 2026-10-22)
-    maxSpeed: 175, maxReverse: 40, accel: 150, brake: 330, reverse: 60, handbrake: 260,
+    maxSpeed: 147, maxReverse: 40, accel: 150, brake: 330, reverse: 60, handbrake: 260, // 21 mph on the HUD
     drag: 0.32, roll: 18, maxYaw: 3.1, hbYaw: 1.6, restitution: 0.35, dust: 0.85, grip: 1.1, throughCamps: true,
   },
   ebike: {
     // the cruiser with a battery: twice the bike's top speed, a stronger pull, same size (asked 2026-10-22)
     name: "e-bike", len: 16, wid: 7,
-    maxSpeed: 350, maxReverse: 40, accel: 260, brake: 380, reverse: 60, handbrake: 280,
+    maxSpeed: 350, maxReverse: 40, accel: 260, brake: 380, reverse: 60, handbrake: 280, // 50 mph on the HUD
     drag: 0.28, roll: 16, maxYaw: 2.8, hbYaw: 1.6, restitution: 0.35, dust: 1, grip: 1, throughCamps: true,
   },
   artcar: {

@@ -6,7 +6,7 @@ import {
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { AIRPORT, ARC_R, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
@@ -21,7 +21,8 @@ test("physics: the gas accelerates to a capped top speed, never NaN", () => {
   assert.ok(speedOf(c) <= CAR.maxSpeed + 1e-9, `capped (${speedOf(c)})`);
   assert.ok(speedOf(c) > CAR.maxSpeed * 0.6, `gets going (${speedOf(c)})`);
   assert.ok(c.y < -1000, "heading 0 drives toward 12:00 (up)");
-  assert.ok(mph(speedOf(c)) > 30 && mph(speedOf(c)) < 60, "the speedometer reads a few dozen playa mph at the top");
+  assert.ok(mph(speedOf(c)) >= 18 && mph(speedOf(c)) <= 22, `a cruiser tops out about 21 mph on the HUD (${mph(speedOf(c)).toFixed(1)})`);
+  assert.ok(Math.abs(VEHICLES.ebike.maxSpeed * MPH - 50) < 1, "an e-bike about 50");
 });
 
 test("physics: brakes stop, then reverse is slow and capped", () => {
