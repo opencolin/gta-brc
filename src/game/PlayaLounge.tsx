@@ -251,8 +251,6 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           <button type="button" className="pl-lg-btn" onClick={onClose} aria-label="stop the music">×</button>
         </div>
       )}
-      {/* a phone (asked 2026-10-23): a down arrow by the player folds the panel to its bar; the × in the head is gone, the bar's × stops the music */}
-      {open && <button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button>}
       {now && !(stacked && !isVideo(now.url)) && (
         <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lg-clip-player" : ""}`}>
           {isVideo(now.url) ? (
@@ -268,6 +266,8 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           )}
         </div>
       )}
+      {/* a phone (asked 2026-10-23): a down arrow under the player, centred, folds the panel to its bar; the × in the head is gone, the bar's × stops the music */}
+      {open && <button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button>}
     </section>
   );
 }

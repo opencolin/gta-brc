@@ -174,7 +174,7 @@
 .pl .pl-lg-btn:hover, .pl .pl-lg-btn:focus-visible { background: var(--pl-pink); color: var(--pl-navy); outline: none; }
 /* the down arrow by the player (asked 2026-10-23), phones only */
 .pl .pl-lg-down { display: none; }
-.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-down { display: grid; place-items: center; flex: 0 0 auto; margin: 0 10px 8px auto; width: 64px; height: 40px; font-size: var(--t-title); }
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-down { display: grid; place-items: center; flex: 0 0 auto; margin: 10px auto 0; width: 72px; height: 44px; font-size: var(--t-title); }
 .pl .pl-lg-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .pl .pl-lg-set {
   width: 100%; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 8px; text-align: left; cursor: pointer;
