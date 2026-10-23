@@ -123,7 +123,8 @@
 }
 
 /* a small window or a phone: a tighter HUD */
-.pl[data-phone] .pl-top { top: calc(6px + env(safe-area-inset-top, 0px)); left: 6px; right: 6px; gap: 6px; }
+/* --pl-inset-top: room a host that embeds the game asks for above the HUD (?top=px; agave.dance's Home dome sits in that corner on phones) */
+.pl[data-phone] .pl-top { top: calc(6px + env(safe-area-inset-top, 0px) + var(--pl-inset-top, 0px)); left: 6px; right: 6px; gap: 6px; }
 .pl[data-phone] .pl-addr { font-size: var(--t-heading); }
 .pl[data-phone] .pl-mini { width: 110px; height: 106px; }
 /* a wide desk gets a map you can read (asked 2026-10-22) */

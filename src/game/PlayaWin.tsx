@@ -1022,10 +1022,13 @@ const placeAt = (key: string, t: number): { x: number; y: number } | null => {
 
 export default function PlayaWin() {
   const mobile = useIsMobile();
-  // the top block's height, for what sits under it on a portrait phone (the mini player; playa.css): --pl-top-h on the root
+  // the top block's height, for what sits under it on a portrait phone (the mini player; playa.css): --pl-top-h on the root;
+  // and a host that embeds the game (agave.dance, its Home button in the corner) asks for room above it with ?top=<px>
   const top = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = top.current, r = root.current; if (!el || !r) return;
+    const inset = Number(new URLSearchParams(location.search).get("top")) || 0;
+    if (inset > 0) r.style.setProperty("--pl-inset-top", `${Math.min(160, inset)}px`);
     const pager = el.querySelector<HTMLElement>(".pl-pager");
     const set = () => {
       r.style.setProperty("--pl-top-h", `${Math.round(el.getBoundingClientRect().height)}px`);
