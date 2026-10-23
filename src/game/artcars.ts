@@ -274,8 +274,16 @@ function lunaCrane(c: Ctx, t: number, night: number) {
  * fore and aft, the pilothouse and flybridge forward of midships under a radar mast, a hot tub, loungers and a dining
  * table on the aft deck, a swim platform at the stern. Twice the length of the other art cars and no tyres showing
  * (asked 2026-10-23): the hull hides them. Its bow is at −y. */
+const YACHT = typeof Image === "undefined" ? null : Object.assign(new Image(), { src: "/gta/dragon-lady.png" });
 function dragonLady(c: Ctx, t: number, night: number) {
   const L = 132, W = 40, bow = -L * 0.53, stern = L * 0.47, hw = W / 2; // the photo's beam is a third of its length
+  // the illustration Collin sent (2026-10-23) is the yacht itself, bow to −y; the drawing below stands in until it loads
+  if (YACHT?.complete && YACHT.naturalWidth) {
+    const h = L * YACHT.naturalHeight / YACHT.naturalWidth;
+    c.save(); c.rotate(Math.PI / 2); c.drawImage(YACHT, -L / 2, -h / 2, L, h); c.restore();
+    if (night > 0.3) { glow(c, night, "#3fc8ff", 12); c.fillStyle = "#3fc8ff"; disc(c, 0, 6, 4.5); c.fill(); noGlow(c); c.fillStyle = "#fff3b0"; for (const x of [-h / 2 + 2, h / 2 - 2]) for (const y of [-L * 0.25, 0, L * 0.3]) { disc(c, x, y, 1.1); c.fill(); } }
+    return;
+  }
   // hull: a fine bow, flared sides, a squared transom
   c.fillStyle = "#f4f3ee"; c.beginPath(); c.moveTo(0, bow); c.quadraticCurveTo(hw + 1, bow + L * 0.3, hw, stern - L * 0.3); c.lineTo(hw - 1, stern - 4); c.quadraticCurveTo(0, stern + 2, -hw + 1, stern - 4); c.lineTo(-hw, stern - L * 0.3); c.quadraticCurveTo(-hw - 1, bow + L * 0.3, 0, bow); c.fill();
   c.strokeStyle = "#c9c6bb"; c.lineWidth = 1; c.stroke();
