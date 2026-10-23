@@ -114,7 +114,7 @@
      never autoplays, so the button has to be in reach); the minimap tucks under the top block on the right */
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
     /* its bottom level with the joystick's (asked 2026-10-23): the same 28px, with no safe-area inset, as the stick has none */
-    top: auto; right: auto; left: 8px; bottom: 28px; width: min(62vw, 320px); z-index: 6;
+    top: auto; right: auto; left: 8px; bottom: 28px; width: min(calc(100vw - 192px), 320px); z-index: 6; /* narrower (asked 2026-10-23): clear of the stick, 150px wide at 14px from the right */
   }
   .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; right: 6px; top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); left: auto; bottom: auto; width: 112px; height: 108px; z-index: 1; }
