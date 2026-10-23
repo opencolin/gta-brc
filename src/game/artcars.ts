@@ -270,10 +270,39 @@ function lunaCrane(c: Ctx, t: number, night: number) {
 }
 
 /** Every drawn art car, by its id (soundcamps.ts). */
+/** Dragon Lady: Jerry Deal's 89-foot motor yacht, from the drone photo Collin sent (2026-10-23): a white hull, teak decks
+ * fore and aft, the pilothouse and flybridge amidships under a radar mast, a hot tub and loungers on the aft deck, a swim
+ * platform at the stern. The longest car in the city: it fills the box. */
+function dragonLady(c: Ctx, t: number, night: number) {
+  wheels(c, 12, [-16, 4, 22]);
+  // hull: a fine bow, flared sides, a squared transom
+  c.fillStyle = "#f4f3ee"; c.beginPath(); c.moveTo(0, -36); c.quadraticCurveTo(13.5, -22, 13, 10); c.lineTo(12.5, 30); c.quadraticCurveTo(0, 33, -12.5, 30); c.lineTo(-13, 10); c.quadraticCurveTo(-13.5, -22, 0, -36); c.fill();
+  c.strokeStyle = "#c9c6bb"; c.lineWidth = 0.8; c.stroke();
+  // teak foredeck with a sun pad, and the aft deck
+  const teak = (x: number, y: number, w: number, h: number) => { c.fillStyle = "#c7955a"; rr(c, x, y, w, h, 2); c.fill(); c.strokeStyle = "rgba(90,50,20,.35)"; c.lineWidth = 0.5; for (let yy = y + 1.5; yy < y + h; yy += 2) { c.beginPath(); c.moveTo(x + 0.5, yy); c.lineTo(x + w - 0.5, yy); c.stroke(); } };
+  c.save(); c.beginPath(); c.moveTo(0, -33); c.quadraticCurveTo(11, -20, 10.5, -8); c.lineTo(-10.5, -8); c.quadraticCurveTo(-11, -20, 0, -33); c.clip(); teak(-12, -34, 24, 27); c.restore();
+  c.fillStyle = "#e9e5d8"; rr(c, -4, -27, 8, 9, 2); c.fill(); // the sun pad
+  teak(-11, 8, 22, 21);
+  // the superstructure: pilothouse and flybridge, a radar dome and the mast
+  c.fillStyle = "#ffffff"; rr(c, -10, -9, 20, 20, [6, 6, 3, 3]); c.fill(); c.strokeStyle = "#d5d2c7"; c.lineWidth = 0.7; c.stroke();
+  c.fillStyle = "#2b3a4a"; rr(c, -8.5, -8, 17, 3, 1.5); c.fill(); // the windscreen
+  c.fillStyle = "#f7f7f4"; disc(c, -4, -1, 2.6); c.fill(); c.strokeStyle = "#c9c6bb"; c.stroke(); // the radar dome
+  c.strokeStyle = "#8a8f99"; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -4); c.moveTo(-5, 6); c.lineTo(5, 6); c.stroke();
+  c.save(); c.translate(0, 6); c.rotate(t * 2.2); c.strokeStyle = "#5c6370"; c.lineWidth = 0.9; c.beginPath(); c.moveTo(-4, 0); c.lineTo(4, 0); c.stroke(); c.restore(); // the radar bar turning
+  // the aft deck: a hot tub, loungers, a dining table, the tender's crane
+  glow(c, night, "#3fc8ff", 10); c.fillStyle = night > 0.3 ? "#3fc8ff" : "#1f6f9a"; disc(c, -4.5, 13, 3.4); c.fill(); noGlow(c);
+  c.fillStyle = "rgba(255,255,255,.55)"; disc(c, -5.5, 12, 1.2); c.fill();
+  c.fillStyle = "#f0ede4"; for (const x of [3, 7]) { rr(c, x, 10, 3, 6, 1); c.fill(); }
+  c.fillStyle = "#3b2f2f"; disc(c, 2, 22, 2.2); c.fill(); c.fillStyle = "#f0ede4"; for (const a of [0, 1, 2, 3]) { disc(c, 2 + Math.cos(a * Math.PI / 2) * 3.8, 22 + Math.sin(a * Math.PI / 2) * 3.8, 1); c.fill(); }
+  c.strokeStyle = "#9aa0a8"; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-9, 10); c.lineTo(-2, 24); c.stroke();
+  // the swim platform and the stern lights
+  c.fillStyle = "#c7955a"; rr(c, -9, 29, 18, 3, 1); c.fill();
+  if (night > 0.3) { c.fillStyle = "#fff3b0"; for (const x of [-11, 11]) for (const y of [-6, 8, 24]) { disc(c, x, y, 0.9); c.fill(); } }
+}
 export const ART_CARS: Record<string, (c: Ctx, t: number, night: number) => void> = {
   ...PLATFORM_CARS, // the rest, built on the city games' base vehicles (artplatforms.ts)
   "robot-heart": robotHeart, "mayan-warrior": mayanWarrior, "titanics-end": titanicsEnd, "el-pulpo-mecanico": elPulpo,
   "big-imagination-747": jumbo, "lonely-submarine": submarine, "heavy-meta": heavyMeta, kalliope, "golden-gate-art-car": goldenGate,
   axolotl, baaahs, funkadelephant, "whomp-wagon": whompWagon, dragonfly, nudibranch, technogecko: technoGecko, "the-scarab": scarab,
-  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane,
+  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane, "dragon-lady": dragonLady,
 };
