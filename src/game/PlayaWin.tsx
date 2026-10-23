@@ -15,7 +15,7 @@ import {
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
@@ -1136,6 +1136,18 @@ export default function PlayaWin() {
     flash.current = { text: `at the wheel of ${soundOf(`mutant:${id}`).name}`, until: g.t + 2 };
     board.current?.focus({ preventScroll: true });
   };
+  // a URL that names an art car puts you in its driver's seat (asked 2026-10-23): burningman.chat/dragonlady starts you
+  // at the wheel of the Dragon Lady, where it was; one with no drawing of its own starts you on the bike beside it
+  useEffect(() => {
+    const key = startKey(typeof location === "undefined" ? "" : location.pathname.slice(1));
+    if (!key?.startsWith("mutant:")) return;
+    const id = key.slice("mutant:".length), m = mutantOf(key);
+    if (!m || !ART_CARS[id]) return;
+    const g = game.current, p = npcAt(m, 0);
+    g.car.x = p.x; g.car.y = p.y; g.car.h = p.h; g.car.vx = 0; g.car.vy = 0;
+    drive(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const ride = (id: VehicleId) => {
     const g = game.current;
     if (g.aboard) hopOff(g);
