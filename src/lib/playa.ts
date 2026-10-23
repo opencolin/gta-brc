@@ -98,8 +98,25 @@ export const CAR: Vehicle = VEHICLES.bike;
 export const CAMP_SPEED = 0.6;
 
 export type Car = { x: number; y: number; h: number; vx: number; vy: number; steer: number };
-export type Input = { gas: boolean; brake: boolean; left: boolean; right: boolean; handbrake: boolean };
-export const NO_INPUT: Input = { gas: false, brake: false, left: false, right: false, handbrake: false };
+/** The one-thumb stick (asked 2026-10-23): `a` is the heading you point it in (world radians, as car.h) and `k` how far
+ * you push, 0..1: the bike turns toward `a` and cruises at `k` of its top speed; pulled back (more than STICK_BACK off
+ * the heading) it brakes, then reverses. */
+export type Stick = { a: number; k: number };
+export type Input = { gas: boolean; brake: boolean; left: boolean; right: boolean; handbrake: boolean; stick?: Stick | null };
+export const NO_INPUT: Input = { gas: false, brake: false, left: false, right: false, handbrake: false, stick: null };
+export const STICK_DEAD = 0.12, STICK_BACK = 2.4, STICK_LOCK = 0.5;
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+/** The stick read as pedals and wheel for a car heading `h` at forward speed `vf` with top speed `top`; the keys
+ * and pads when there is no stick (or it is in its dead zone). `want` is the wheel, −1..1; `throttle` scales the gas. */
+export function readStick(h: number, vf: number, top: number, input: Input): { gas: boolean; brake: boolean; want: number; throttle: number } {
+  const st = input.stick;
+  if (!st || st.k < STICK_DEAD) return { gas: input.gas, brake: input.brake, want: (input.right ? 1 : 0) - (input.left ? 1 : 0), throttle: 1 };
+  const e = wrapAngle(st.a - h);
+  if (Math.abs(e) > STICK_BACK) return { gas: false, brake: true, want: 0, throttle: 1 };
+  return { gas: vf < top * st.k - 1, brake: false, want: Math.max(-1, Math.min(1, e / STICK_LOCK)), throttle: Math.max(0.45, st.k) };
+}
+/** Whether the stick is being pushed at all. */
+export const stickOn = (input: Input) => !!input.stick && input.stick.k >= STICK_DEAD;
 
 export const newCar = (at: Vec, h = 0): Car => ({ x: at.x, y: at.y, h, vx: 0, vy: 0, steer: 0 });
 export const speedOf = (c: { vx: number; vy: number }) => Math.hypot(c.vx, c.vy);
@@ -130,17 +147,17 @@ export function carStep(c: Car, input: Input, dt: number, grip = 8, v: Vehicle =
   const f = fwd(c.h), r = right(c.h);
   const top = v.maxSpeed * (grip < 6 ? v.dust : 1);
   let vf = c.vx * f.x + c.vy * f.y, vs = c.vx * r.x + c.vy * r.y;
-  if (input.gas) vf += (vf < -1 ? v.brake : v.accel) * dt;
-  if (input.brake) vf -= (vf > 1 ? v.brake : v.reverse) * dt;
+  const { gas, brake, want, throttle } = readStick(c.h, vf, top, input);
+  if (gas) vf += (vf < -1 ? v.brake : v.accel * throttle) * dt;
+  if (brake) vf -= (vf > 1 ? v.brake : v.reverse) * dt;
   if (input.handbrake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), v.handbrake * dt);
   vf -= vf * v.drag * dt;
-  if (!input.gas && !input.brake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), v.roll * dt);
+  if (!gas && !brake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), v.roll * dt);
   // over the top (driving off a street onto dust) it bleeds back down rather than snapping
   if (vf > top) vf = Math.max(top, vf - v.brake * 0.5 * dt);
   vf = Math.max(-v.maxReverse, Math.min(v.maxSpeed * Math.max(1, v.dust), vf));
   const g = input.handbrake ? 1.2 : grip * v.grip;
   vs *= Math.exp(-g * dt);
-  const want = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const steer = c.steer + (want - c.steer) * Math.min(1, dt * 9);
   const spd = Math.abs(vf);
   const yaw = steer * v.maxYaw * Math.min(1, spd / 45) / (1 + spd / 320) * Math.sign(vf) * (input.handbrake ? v.hbYaw : 1);
@@ -986,14 +1003,14 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   const v: Vehicle = VEHICLES[g.vehicle] ?? CAR;
 
   // riding along on an art car: carried where it goes; any steering hops you off
-  if (g.aboard && (input.gas || input.brake || input.left || input.right || !mutantOf(g.aboard))) hopOff(g);
+  if (g.aboard && (input.gas || input.brake || input.left || input.right || stickOn(input) || !mutantOf(g.aboard))) hopOff(g);
   const riding = g.aboard ? mutantOf(g.aboard) ?? null : null;
   if (riding) {
     const p = npcAt(riding, g.t), jump = Math.hypot(p.x - g.car.x, p.y - g.car.y) > 200;
     g.car = { ...g.car, x: p.x, y: p.y, h: p.h, vx: jump ? 0 : (p.x - g.car.x) / dt, vy: jump ? 0 : (p.y - g.car.y) / dt };
   } else if (g.chute) {
     // under the canopy: the keys drift you, the ground comes up at a steady rate, and you land on the bike
-    const c = g.car, ax = (input.right ? 1 : 0) - (input.left ? 1 : 0), ay = (input.brake ? 1 : 0) - (input.gas ? 1 : 0);
+    const c = g.car, ax = stickOn(input) ? Math.sin(input.stick!.a) * input.stick!.k : (input.right ? 1 : 0) - (input.left ? 1 : 0), ay = stickOn(input) ? -Math.cos(input.stick!.a) * input.stick!.k : (input.brake ? 1 : 0) - (input.gas ? 1 : 0);
     let vx = c.vx * (1 - 1.4 * dt) + ax * 90 * dt, vy = c.vy * (1 - 1.4 * dt) + ay * 90 * dt;
     const sp = Math.hypot(vx, vy); if (sp > 45) { vx *= 45 / sp; vy *= 45 / sp; }
     g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h: sp > 5 ? Math.atan2(vx, -vy) : c.h };
@@ -1005,7 +1022,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
       // the plane: lifts past TAKEOFF, climbs on the gas, sinks off it, dives on the brake, never slower than STALL up there
       const spd = speedOf(g.car), was = g.alt;
       if (g.alt > 0 || spd > TAKEOFF) {
-        const rate = input.gas ? 48 : input.brake ? -75 : -12;
+        const pedals = readStick(g.car.h, speedOf(g.car), v.maxSpeed, input), rate = pedals.gas ? 48 : pedals.brake ? -75 : -12;
         g.alt = Math.min(ALT_MAX, Math.max(0, g.alt + rate * dt));
         if (g.alt > 0 && spd < STALL && spd > 1e-6) { g.car.vx *= STALL / spd; g.car.vy *= STALL / spd; }
       }

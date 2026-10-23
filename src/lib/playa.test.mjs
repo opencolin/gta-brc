@@ -594,3 +594,17 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
   assert.ok(Math.hypot(g2.car.x - orb.x, g2.car.y - orb.y) < orb.r + 200, "in front of the Orb");
   assert.deepEqual([newGame(1).car.x, newGame(1).car.y], [newGame(1, "bike", null).car.x, newGame(1, "bike", null).car.y], "no place: Agave Lounge as before");
 });
+
+test("the one-thumb stick (asked 2026-10-23): point it and the bike turns and goes there, half a push cruises at half speed, pulled back it reverses", () => {
+  const east = { ...NO_INPUT, stick: { a: Math.PI / 2, k: 1 } };
+  let c = run(newCar({ x: 0, y: 0 }, 0), east, 5);
+  assert.ok(Math.abs(Math.atan2(Math.sin(c.h - Math.PI / 2), Math.cos(c.h - Math.PI / 2))) < 0.1, `heading east: ${c.h}`);
+  assert.ok(c.vx > 0 && Math.abs(c.vy) < c.vx * 0.2, "moving east");
+  assert.ok(Math.abs(speedOf(c) - CAR.maxSpeed) < CAR.maxSpeed * 0.25, "near top speed with a full push");
+  const half = run(newCar({ x: 0, y: 0 }, 0), { ...NO_INPUT, stick: { a: 0, k: 0.5 } }, 8);
+  assert.ok(speedOf(half) > CAR.maxSpeed * 0.35 && speedOf(half) < CAR.maxSpeed * 0.62, `half a push cruises at about half speed: ${speedOf(half)}`);
+  const back = run(newCar({ x: 0, y: 0 }, 0), { ...NO_INPUT, stick: { a: Math.PI, k: 1 } }, 3);
+  assert.ok(back.vy > 0, "pulled back from rest: reversing (heading up, moving down)");
+  const dead = run(newCar({ x: 0, y: 0 }, 0), { ...NO_INPUT, stick: { a: 1, k: 0.05 } }, 2);
+  assert.equal(speedOf(dead), 0, "the dead zone does nothing");
+});

@@ -1326,7 +1326,7 @@ export default function PlayaWin() {
       const css = root.current ? getComputedStyle(root.current) : null;
       const hudH = parseFloat(css?.getPropertyValue("--pl-top-h") || "0") || 0, miniH = parseFloat(css?.getPropertyValue("--pl-player-h") || "0") || 0;
       // on a phone the minimap is under the top block and the mini player above the thumbs (asked 2026-10-23)
-      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? 126 : 0) + 24), bottomSafe = h - (touchUiRef.current ? Math.max(280, 146 + miniH) : 48), sideSafe = w * 0.14;
+      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? 126 : 0) + 24), bottomSafe = h - (touchUiRef.current ? Math.max(280, 200 + miniH) : 48), sideSafe = w * 0.14;
       // you sit at (w/2 − ox, h/2 − oy) on the screen: keep that inside the box
       ox = Math.max(-(w / 2 - sideSafe), Math.min(w / 2 - sideSafe, ox));
       oy = Math.max(h / 2 - bottomSafe, Math.min(h / 2 - topSafe, oy));
@@ -1466,6 +1466,19 @@ export default function PlayaWin() {
       </button>
     );
   };
+  // the one-thumb stick (asked 2026-10-23): push where to go, further is faster; pull back to brake and reverse
+  const stickEl = useRef<HTMLDivElement>(null), knobEl = useRef<HTMLDivElement>(null);
+  const stickMove = (e: ReactPointerEvent) => {
+    const el = stickEl.current, knob = knobEl.current; if (!el || !knob) return;
+    const b = el.getBoundingClientRect(), R = b.width / 2 - 10;
+    let dx = e.clientX - (b.left + b.width / 2), dy = e.clientY - (b.top + b.height / 2);
+    const len = Math.hypot(dx, dy), k = Math.min(1, len / R);
+    if (len > R) { dx *= R / len; dy *= R / len; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    touch.current = { ...touch.current, stick: len < 2 ? null : { a: Math.atan2(dx, -dy), k } };
+  };
+  const stickDown = (e: ReactPointerEvent) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); if (phaseRef.current === "title") go(); stickMove(e); };
+  const stickUp = (e: ReactPointerEvent) => { e.preventDefault(); if (knobEl.current) knobEl.current.style.transform = ""; touch.current = { ...touch.current, stick: null }; };
   const over = hud.mph > SPEED_LIMIT_MPH;
 
   return (
@@ -1535,10 +1548,11 @@ export default function PlayaWin() {
 
         {touchUi && phase === "play" && (
           <div className="pl-pads" role="group" aria-label="driving controls">
-            {pad("left", "steer left", "◀", "pl-left")}
-            {pad("right", "steer right", "▶", "pl-right")}
+            <div className="pl-stick" ref={stickEl} role="application" aria-label="joystick: push where to go, further is faster; pull back to brake and reverse"
+              onPointerDown={stickDown} onPointerMove={(e) => { if (e.buttons) stickMove(e); }} onPointerUp={stickUp} onPointerCancel={stickUp} onLostPointerCapture={stickUp} onContextMenu={(e) => e.preventDefault()}>
+              <div className="pl-knob" ref={knobEl} />
+            </div>
             {pad("brake", "brake and reverse", "▼", "pl-brake")}
-            {pad("gas", "gas", "▲", "pl-gas")}
             {pad("handbrake", "handbrake: drift", "drift", "pl-hb")}
           </div>
         )}
@@ -1553,7 +1567,7 @@ export default function PlayaWin() {
             ) : <div className="pl-title pl-title-s">paused</div>}
             <ul className="pl-help">
               {touchUi
-                ? <><li>◀ ▶ steer · ▲ gas · ▼ brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
+                ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
                 : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night</li><li>beside an art car: R ride along or hop off · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>

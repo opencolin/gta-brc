@@ -96,24 +96,24 @@
   touch-action: none; -webkit-tap-highlight-color: transparent; cursor: pointer;
 }
 .pl .pl-pad:active { background: var(--pl-pink); }
-.pl .pl-left { left: 12px; bottom: 28px; width: 70px; height: 76px; }
-.pl .pl-right { left: 88px; bottom: 28px; width: 70px; height: 76px; } /* clear of the Home dome in the middle */
-/* gas over brake in the bottom-right corner, the drift above them (asked 2026-10-22) */
+/* the one-thumb stick (asked 2026-10-23) bottom left: a ring, a dashed inner ring for the dead zone, the knob following
+   the thumb (PlayaWin moves it); the brake and the drift stay bottom right */
+.pl .pl-stick { position: absolute; left: 16px; bottom: 24px; width: 136px; height: 136px; border-radius: 50%; border: 2px solid var(--pl-navy); background: rgba(255, 255, 255, .45); pointer-events: auto; touch-action: none; -webkit-tap-highlight-color: transparent; cursor: pointer; }
+.pl .pl-stick::before { content: ""; position: absolute; inset: 30%; border-radius: 50%; border: 1.5px dashed rgba(27, 31, 59, .35); }
+.pl .pl-knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: var(--pl-navy); box-shadow: 0 2px 8px rgba(27, 31, 59, .4); will-change: transform; }
+.pl .pl-stick:active .pl-knob { background: var(--pl-pink); }
 .pl .pl-brake { right: 12px; bottom: 28px; width: 84px; height: 68px; }
-.pl .pl-gas { right: 12px; bottom: 106px; width: 84px; height: 92px; }
-.pl .pl-hb { right: 12px; bottom: 208px; width: 84px; height: 44px; font-size: var(--t-control); }
+.pl .pl-hb { right: 12px; bottom: 106px; width: 84px; height: 44px; font-size: var(--t-control); }
 /* portrait (asked 2026-10-22): bigger thumbs, the steering pair side by side with room between, gas and brake taller */
 @media (orientation: portrait) {
-  /* the steering pair as tall as the brake (asked 2026-10-23), so the mini player above them has room */
-  .pl[data-phone] .pl-left { left: 12px; bottom: 28px; width: 82px; height: 80px; }
-  .pl[data-phone] .pl-right { left: 102px; bottom: 28px; width: 82px; height: 80px; }
+  .pl[data-phone] .pl-stick { left: 14px; bottom: 28px; width: 150px; height: 150px; }
+  .pl[data-phone] .pl-knob { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .pl[data-phone] .pl-brake { right: 12px; bottom: 28px; width: 92px; height: 80px; }
-  .pl[data-phone] .pl-gas { right: 12px; bottom: 118px; width: 92px; height: 108px; }
-  .pl[data-phone] .pl-hb { right: 12px; bottom: 236px; width: 92px; height: 48px; }
+  .pl[data-phone] .pl-hb { right: 12px; bottom: 118px; width: 92px; height: 48px; }
   /* the mini player sits above the steering thumbs, its play button by your left thumb (asked 2026-10-23: a phone
      never autoplays, so the button has to be in reach); the minimap tucks under the top block on the right */
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
-    top: auto; right: auto; left: 8px; bottom: calc(124px + env(safe-area-inset-bottom, 0px)); width: min(62vw, 320px); z-index: 6;
+    top: auto; right: auto; left: 8px; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); width: min(62vw, 320px); z-index: 6;
   }
   .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; right: 6px; top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); left: auto; bottom: auto; width: 112px; height: 108px; z-index: 1; }
@@ -272,8 +272,10 @@
    its play button by either thumb (last in the file: it beats the phone and touch rules above); the minimap stays top right */
 @media (orientation: landscape) {
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
-    top: auto; right: auto; left: 176px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: min(calc(100vw - 296px), 320px); z-index: 6;
+    top: auto; right: auto; left: 150px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: min(calc(100vw - 350px), 320px); z-index: 6;
   }
+  .pl[data-phone] .pl-stick { left: 12px; bottom: 16px; width: 120px; height: 120px; }
+  .pl[data-phone] .pl-knob { width: 52px; height: 52px; margin: -26px 0 0 -26px; }
   /* and the buttons go under the where-and-points box on the left: the right side is the minimap and the thumbs;
      the drift button moves beside the brake, out from under the minimap */
   .pl[data-phone] .pl-hb { right: 104px; bottom: 28px; width: 84px; height: 68px; }
