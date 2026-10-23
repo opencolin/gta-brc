@@ -1527,6 +1527,11 @@ export default function PlayaWin() {
               )}
             </span>
             {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className="pl-btn" onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
+            {/* beside an art car (asked 2026-10-23): ride along on it, or take its wheel if it is drawn */}
+            {parked?.startsWith("mutant:") && !aboard && vehicle !== "found" && <>
+              <button type="button" className="pl-btn pl-found" onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
+              {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className="pl-btn pl-found" onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
+            </>}
             {hud.pad && <button type="button" className="pl-btn pl-found" onClick={takeOff}>✈ take the plane</button>}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
             <button type="button" className="pl-btn pl-icon" onClick={toggleSound} aria-pressed={!sound} aria-label={sound ? "sound on: turn it off" : "sound off: turn it on"} title={sound ? "sound on" : "sound off"}>

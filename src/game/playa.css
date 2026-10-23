@@ -203,7 +203,6 @@
   top: auto; left: 8px; bottom: 8px; z-index: 4; width: min(360px, calc(100% - 16px)); height: 120px; opacity: 1; clip-path: none; pointer-events: auto;
   border: 2px solid var(--pl-pink); border-radius: 10px; background: rgba(27, 31, 59, .96); box-shadow: 0 0 28px rgba(255, 107, 154, .35);
 }
-.pl[data-phone] .pl-amb > .pl-amb-on { bottom: 116px; width: calc(100% - 200px); }
 /* a video plays where the SoundCloud player would, at its own 16:9 */
 .pl .pl-lg-player.pl-lg-video { height: auto; aspect-ratio: 16 / 9; }
 .pl .pl-amb > .pl-amb-on.pl-amb-video { height: auto; aspect-ratio: 16 / 9; overflow: hidden; }
@@ -212,9 +211,10 @@
 
 /* a phone: parked, the lounge takes the top of the screen over the HUD, leaving the ride in the middle and the thumbs free */
 .pl[data-phone] .pl-lounge { top: calc(6px + env(safe-area-inset-top, 0px)); bottom: auto; left: 6px; width: calc(100% - 12px); max-height: 44%; }
-.pl[data-phone] .pl-lounge[data-mini] { max-height: none; top: auto; bottom: 116px; width: calc(100% - 200px); } /* above the steering thumbs, clear of the pager */
-/* any screen with thumbs (a touch desktop too): the mini player sits above the steering pair (asked 2026-10-22) */
-.pl[data-touch] .pl-lounge[data-mini] { bottom: 120px; max-width: calc(100% - 220px); }
+/* the mini player's place on a phone is set in the portrait and landscape blocks (the bottom left corner, asked 2026-10-23) */
+.pl[data-phone] .pl-lounge[data-mini] { max-height: none; }
+/* a touch desktop (an iPad): the mini player sits above the drift button */
+.pl[data-touch]:not([data-phone]) .pl-lounge[data-mini] { bottom: 110px; max-width: calc(100% - 220px); }
 .pl[data-touch]:not([data-phone]) .pl-lounge { bottom: 280px; }
 .pl[data-phone] .pl-lg-player { height: 96px; }
 
