@@ -108,8 +108,13 @@
   .pl[data-phone] .pl-brake { right: 12px; bottom: 28px; width: 92px; height: 80px; }
   .pl[data-phone] .pl-gas { right: 12px; bottom: 118px; width: 92px; height: 108px; }
   .pl[data-phone] .pl-hb { right: 12px; bottom: 236px; width: 92px; height: 48px; }
-  .pl[data-phone] .pl-lounge[data-mini] { bottom: 132px; width: calc(100% - 124px); }
-  .pl[data-touch] .pl-lounge[data-mini] { bottom: 136px; }
+  /* the mini player and the minimap swap places (asked 2026-10-22): the player tucks under the top block on the
+     right, clear of you and the thumbs; the minimap sits small above the steering thumbs */
+  .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
+    top: calc(var(--pl-top-h, 160px) + 6px + env(safe-area-inset-top, 0px)); right: 6px; left: auto; bottom: auto; width: min(64vw, 320px);
+  }
+  .pl[data-phone] .pl-mini { position: fixed; left: 8px; bottom: calc(136px + env(safe-area-inset-bottom, 0px)); width: 112px; height: 108px; z-index: 5; }
+  .pl[data-phone][data-map] .pl-mini { visibility: hidden; }
 }
 
 /* a small window or a phone: a tighter HUD */

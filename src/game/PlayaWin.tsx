@@ -1022,6 +1022,15 @@ const placeAt = (key: string, t: number): { x: number; y: number } | null => {
 
 export default function PlayaWin() {
   const mobile = useIsMobile();
+  // the top block's height, for what sits under it on a portrait phone (the mini player; playa.css): --pl-top-h on the root
+  const top = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = top.current, r = root.current; if (!el || !r) return;
+    const set = () => r.style.setProperty("--pl-top-h", `${Math.round(el.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const root = useRef<HTMLDivElement>(null);
   const board = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -1336,7 +1345,7 @@ export default function PlayaWin() {
 
         {/* the top: the pager across, then the where-and-points box left and the minimap and buttons right, each
             below the pager however many lines it takes (asked 2026-10-22: a long job overlapped the box) */}
-        <div className="pl-top">
+        <div className="pl-top" ref={top}>
         <div className="pl-pager" aria-live="polite">
           <span className="pl-pager-txt">{hud.pager}</span>
           {hud.time != null && <b className={hud.time < 10 ? "pl-late" : undefined}>{fmt(hud.time)}</b>}
