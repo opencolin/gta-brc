@@ -286,6 +286,18 @@ function dragonLady(c: Ctx, t: number, night: number) {
     c.fillStyle = "rgba(255,255,255,.5)"; disc(c, 22, -8.8, 1.3); c.fill();
     c.fillStyle = "#f4f4f1"; disc(c, 2, -1, 2.2); c.fill(); c.strokeStyle = "#8a8f99"; c.lineWidth = 0.6; c.stroke();
     c.save(); c.translate(2, -1); c.rotate(t * 2.5); c.strokeStyle = "#4b515e"; c.lineWidth = 1.3; c.lineCap = "round"; c.beginPath(); c.moveTo(-7, 0); c.lineTo(7, 0); c.stroke(); c.lineCap = "butt"; c.restore();
+    // the rainbow pride flag flying from the mast top (asked 2026-10-23), streaming aft and rippling
+    c.save(); c.translate(-4, -9);
+    c.fillStyle = "#4b515e"; disc(c, 0, 0, 0.9); c.fill();
+    const stripes = ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"], fl = 11, fw = 6.6;
+    for (let k = 0; k < 6; k++) {
+      const y0 = -fw / 2 + (k * fw) / 6, y1 = y0 + fw / 6;
+      c.fillStyle = stripes[k]; c.beginPath(); c.moveTo(0, y0);
+      for (let u = 0; u <= fl; u += 1.5) { const w = Math.sin(t * 9 - u * 0.7) * 0.9 * (u / fl); c.lineTo(u, y0 + w); }
+      for (let u = fl; u >= 0; u -= 1.5) { const w = Math.sin(t * 9 - u * 0.7) * 0.9 * (u / fl); c.lineTo(u, y1 + w); }
+      c.closePath(); c.fill();
+    }
+    c.restore();
     if (night > 0.3) { c.fillStyle = "#fff3b0"; for (const v of [-h / 2 + 2, h / 2 - 2]) for (const u of [-L * 0.25, 0, L * 0.3]) { disc(c, u, v, 1.1); c.fill(); } }
     c.restore();
     return;
