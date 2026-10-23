@@ -553,7 +553,8 @@ export const isClip = (url: string) => VIDEO_CLIPS.has(/[?&]v=([\w-]{11})/.exec(
 /** A place's sets: SoundCloud first where it has any (that player behaves best in the game), then its video sets,
  * then its clips, each clip marked so the game shows it rather than plays it. */
 /** A set chosen to lead a place's list, whatever it plays on (asked 2026-10-22). */
-export const PINNED_FIRST: Record<string, string> = { "robot-heart": "https://www.youtube.com/watch?v=S7OBT3kQAHQ" }; // Lee Burridge, Burning Man 2025
+/** A set to lead a place's list regardless of kind. Empty since 2026-10-22: Robot Heart's SoundCloud comes first, Lee Burridge's video with the rest (asked). */
+export const PINNED_FIRST: Record<string, string> = {};
 export const campTracks = (c: SoundCamp): { url: string; title: string; clip?: boolean }[] => {
   const own = c.sets ?? [{ url: c.soundcloud, title: `${c.name} on SoundCloud` }];
   const all = [...own, ...(VIDEOS[c.id] ?? []).filter((v) => !own.some((o) => o.url === v.url))];
