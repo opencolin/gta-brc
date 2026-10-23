@@ -5,6 +5,7 @@ import { useIsMobile } from "@/lib/mobile";
 import { useBoardFocus } from "./useBoardFocus";
 import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
 import { ART_CARS } from "./artcars";
+import { ART_PIECES } from "./artpieces";
 import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
@@ -13,7 +14,7 @@ import {
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
-  AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
+  AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
   atAirport, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
@@ -435,6 +436,27 @@ function drawAirport(ctx: CanvasRenderingContext2D, t: number, night: number, pa
   ctx.restore();
   if (padPlane) { ctx.save(); ctx.translate(AIRPORT.pad.x, AIRPORT.pad.y); ctx.rotate(AIRPORT.h); drawPlaneShadow(ctx, 0); drawPlane(ctx, t, night); ctx.restore(); }
 }
+/** The crowd at a sound camp (asked 2026-10-23): a party round the front of the stage, hugging it, clear of the bay. Each person
+ * stands in their own spot (seeded by the camp's key), dancing: bobbing to the beat, arms up on the drop, a few just
+ * standing in a knot talking. Drawn, not NPCs: you ride through them. Agave's party is the biggest. */
+function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t: number, night: number) {
+  let h = 0; for (const ch of sp.key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.kind === "art" ? 12 : 20;
+  for (let i = 0; i < n; i++) {
+    const a = dir + (rnd() - 0.5) * 3.2, d = st.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360), ph = rnd() * Math.PI * 2, rate = 5 + rnd() * 3;
+    const dancing = rnd() < 0.72, bob = dancing ? Math.sin(t * rate + ph) : 0, up = dancing && Math.sin(t * rate * 0.5 + ph) > 0.3;
+    ctx.save(); ctx.translate(st.x + Math.cos(a) * d, st.y + Math.sin(a) * d + bob * 1.2); ctx.rotate(a + Math.PI); // facing the stage
+    ctx.fillStyle = "#f2c6a0";
+    if (up) { ctx.fillRect(-5.5, -4 + bob, 2, 4); ctx.fillRect(3.5, -4 - bob, 2, 4); } else { ctx.fillRect(-5, -1 + bob * 0.6, 2, 3); ctx.fillRect(3, -1 - bob * 0.6, 2, 3); }
+    ctx.fillStyle = hsl(hue, 70, night > 0.3 ? 60 : 55);
+    ctx.beginPath(); ctx.ellipse(0, 0.5, 4.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hsl((hue + 40) % 360, 50, 75);
+    ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, Math.PI * 2); ctx.fill();
+    if (night > 0.3) { ctx.fillStyle = hsl((hue + t * 120) % 360, 100, 65); ctx.fillRect(-0.8, -0.8, 1.6, 1.6); }
+    ctx.restore();
+  }
+}
 function drawWalker(ctx: CanvasRenderingContext2D, hue: number, t: number, night: number) {
   const sw = Math.sin(t * 6 + hue) * 2;
   ctx.fillStyle = "#f2c6a0";
@@ -612,8 +634,11 @@ function drawTemple(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = "#f6ead2"; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
-function drawArt(ctx: CanvasRenderingContext2D, a: (typeof ART)[number], t: number) {
+function drawArt(ctx: CanvasRenderingContext2D, a: (typeof ART)[number], t: number, night: number) {
   ctx.save(); ctx.translate(a.x, a.y);
+  // the real piece, drawn in detail (artpieces.ts, asked 2026-10-23); the plain star for one without a drawing
+  const piece = ART_PIECES[a.id];
+  if (piece) { piece(ctx, t, night, a.r); ctx.restore(); return; }
   ctx.fillStyle = "rgba(120, 95, 60, .25)"; ctx.beginPath(); ctx.arc(4, 6, a.r, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hsl(a.hue, 55, 62); ctx.strokeStyle = hsl(a.hue, 60, 35); ctx.lineWidth = 2;
   ctx.beginPath();
@@ -623,18 +648,52 @@ function drawArt(ctx: CanvasRenderingContext2D, a: (typeof ART)[number], t: numb
   ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(0, 0, a.r * 0.25, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
+/** Agave Lounge's dome: its skin is a map of the Earth (asked 2026-10-23), so from above it is the planet seen over the
+ * North Pole: the ice cap in the middle, North America, Greenland, Eurasia and Africa spread round it, the oceans between;
+ * the camp's pink ring round it, rainbow at night. */
 function drawAgave(ctx: CanvasRenderingContext2D, t: number, night: number) {
-  const d = AGAVE.dome;
+  const d = AGAVE.dome, R = d.r;
   ctx.save(); ctx.translate(d.x, d.y);
-  ctx.fillStyle = "rgba(255, 107, 154, .18)"; ctx.beginPath(); ctx.arc(0, 0, d.r + 26, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = night > 0.3 ? hsl((t * 90) % 360, 100, 65) : C.pink; ctx.lineWidth = 3; ctx.stroke();
-  ctx.strokeStyle = "rgba(27, 31, 59, .45)"; ctx.lineWidth = 1.2;
+  ctx.fillStyle = "rgba(255, 107, 154, .18)"; ctx.beginPath(); ctx.arc(0, 0, R + 26, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(60, 40, 20, .22)"; ctx.beginPath(); ctx.arc(6, 8, R, 0, Math.PI * 2); ctx.fill();
+  // the oceans, lit from the upper left like a globe
+  const sea = ctx.createRadialGradient(-R * 0.35, -R * 0.35, R * 0.1, 0, 0, R);
+  sea.addColorStop(0, "#5aa0e0"); sea.addColorStop(1, "#1f4f9a");
+  ctx.fillStyle = sea; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.clip();
+  // the land: polar coordinates (degrees clockwise from up, fraction of R), as a polar map of the north shows them
+  const land = (pts: [number, number][], col = "#8db36a") => {
+    ctx.fillStyle = col; ctx.beginPath();
+    pts.forEach(([a, f], i) => { const x = Math.sin((a * Math.PI) / 180) * f * R, y = -Math.cos((a * Math.PI) / 180) * f * R; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.closePath(); ctx.fill();
+  };
+  land([[-150, 0.3], [-125, 0.42], [-118, 0.62], [-110, 0.8], [-96, 0.98], [-84, 1.02], [-74, 0.86], [-66, 0.7], [-58, 0.5], [-72, 0.34], [-100, 0.26], [-130, 0.24]]); // North America
+  land([[-90, 1.02], [-80, 0.98], [-78, 1.1], [-92, 1.12]], "#7fa85e"); // South America's shoulder at the rim
+  land([[-40, 0.24], [-30, 0.32], [-28, 0.46], [-40, 0.5], [-52, 0.42], [-50, 0.3]], "#eef3f6"); // Greenland
+  land([[-5, 0.3], [10, 0.34], [30, 0.44], [55, 0.5], [75, 0.6], [95, 0.74], [110, 0.9], [125, 1.02], [140, 1.02], [150, 0.84], [135, 0.66], [112, 0.56], [90, 0.42], [60, 0.36], [35, 0.3], [15, 0.26], [0, 0.26]]); // Europe and Asia
+  land([[5, 0.72], [25, 0.76], [40, 0.9], [38, 1.08], [10, 1.1], [-5, 0.92]], "#c9b36a"); // Africa at the rim
+  ctx.fillStyle = "#f6f9fb"; ctx.beginPath(); ctx.arc(0, 0, R * 0.17, 0, Math.PI * 2); ctx.fill(); // the ice cap
+  ctx.restore();
+  // the dome's struts, faint over the map
+  ctx.strokeStyle = "rgba(27, 31, 59, .18)"; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * d.r, Math.sin(a) * d.r); }
-  for (const f of [0.4, 0.72]) for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2, b = ((k + 1) / 10) * Math.PI * 2; ctx.moveTo(Math.cos(a) * d.r * f, Math.sin(a) * d.r * f); ctx.lineTo(Math.cos(b) * d.r * f, Math.sin(b) * d.r * f); }
+  for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R); }
+  for (const f of [0.4, 0.72]) { ctx.moveTo(R * f, 0); ctx.arc(0, 0, R * f, 0, Math.PI * 2); }
   ctx.stroke();
-  ctx.fillStyle = C.pink; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+  // the camp's ring, rainbow at night
+  ctx.strokeStyle = night > 0.3 ? hsl((t * 90) % 360, 100, 65) : C.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  // the Moon dome beside it (asked 2026-10-23): grey, cratered, lit from the same side, silver at night
+  const m = AGAVE.moon;
+  ctx.save(); ctx.translate(m.x, m.y);
+  ctx.fillStyle = "rgba(60, 40, 20, .22)"; ctx.beginPath(); ctx.arc(4, 5, m.r, 0, Math.PI * 2); ctx.fill();
+  const rock = ctx.createRadialGradient(-m.r * 0.35, -m.r * 0.35, m.r * 0.1, 0, 0, m.r);
+  rock.addColorStop(0, "#e8e6e0"); rock.addColorStop(1, "#8d8a84");
+  ctx.fillStyle = rock; ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(90, 88, 84, .35)";
+  for (const [cx, cy, cr] of [[-0.35, 0.1, 0.22], [0.3, -0.3, 0.16], [0.25, 0.4, 0.12], [-0.1, -0.45, 0.1], [0.55, 0.1, 0.09], [-0.5, -0.5, 0.08]] as const) { ctx.beginPath(); ctx.arc(cx * m.r, cy * m.r, cr * m.r, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = "rgba(120, 118, 112, .3)"; for (const [cx, cy] of [[-0.6, 0.35], [0.0, 0.62], [0.62, -0.55]] as const) { ctx.beginPath(); ctx.arc(cx * m.r, cy * m.r, 0.2 * m.r, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = night > 0.3 ? "#dfe6ff" : "#bfbab2"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
 
@@ -827,6 +886,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   const spots = SPOTS.filter((sp) => seen(sp.mid.x, sp.mid.y, 260));
   for (const sp of spots) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
   for (const sp of spots) if (sp.kind !== "agave") drawStage(ctx, sp, t, night);
+  for (const sp of spots) drawCrowd(ctx, sp, t, night);
   // the next ride, parked at the side of Agave's bay: stop in the bay to hop on
   if (spots.some((sp) => sp.kind === "agave")) {
     const other: VehicleId = g.vehicle === "artcar" ? "bike" : "artcar";
@@ -843,10 +903,10 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     ctx.strokeStyle = "#9c7b52"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, CAFE_R, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
-  if (seen(AGAVE.dome.x, AGAVE.dome.y, 120)) drawAgave(ctx, t, night);
+  if (seen(AGAVE.dome.x, AGAVE.dome.y, 240)) drawAgave(ctx, t, night);
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
   if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_R + 20)) drawTemple(ctx);
-  for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t);
+  for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t, night);
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
   ctx.beginPath(); FENCE.forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
@@ -1045,7 +1105,7 @@ export default function PlayaWin() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
   const big = useRef<HTMLCanvasElement>(null);
-  const game = useRef<Game>(newGame((Date.now() & 0xffff) + 1));
+  const game = useRef<Game>(newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)))); // burningman.chat/dragonlady starts beside the Dragon Lady (asked 2026-10-23)
   const keys = useRef<Input>({ ...NO_INPUT });
   const touch = useRef<Input>({ ...NO_INPUT });
   const phaseRef = useRef<Phase>("title");

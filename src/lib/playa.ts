@@ -159,26 +159,41 @@ export function carPoints(c: Car, v: Vehicle = CAR): Vec[] {
 
 export type Circle = { x: number; y: number; r: number; name: string };
 
-/** The art on the open playa: invented pieces, nobody's real work. */
-export const ART: readonly (Circle & { hue: number })[] = [
-  { ...polar(180, 1400 * CITY_SCALE), r: 60, name: "the Lantern Spiral", hue: 40 },
-  { ...polar(480, 1700 * CITY_SCALE), r: 70, name: "the Dust Whale", hue: 200 },
-  { ...polar(630, 1500 * CITY_SCALE), r: 55, name: "the Sunrise Gate", hue: 330 },
-  { ...polar(300, 900 * CITY_SCALE), r: 45, name: "the Tin Owl", hue: 160 },
-  { ...polar(60, 3300 * CITY_SCALE), r: 65, name: "the Mirror Field", hue: 270 },
-  { ...polar(690, 4200 * CITY_SCALE), r: 60, name: "the Ribbon Tower", hue: 15 },
-  { ...polar(390, 1900 * CITY_SCALE), r: 50, name: "the Sleeping Moth", hue: 290 },
-  { ...polar(90, 1150 * CITY_SCALE), r: 50, name: "the Copper Jellyfish", hue: 20 },
-  { ...polar(240, 2100 * CITY_SCALE), r: 45, name: "the Neon Cactus", hue: 120 },
-  { ...polar(540, 1100 * CITY_SCALE), r: 55, name: "the Whispering Arch", hue: 30 },
-  { ...polar(600, 2150 * CITY_SCALE), r: 60, name: "the Paper Crane Flock", hue: 0 },
-  { ...polar(150, 2050 * CITY_SCALE), r: 55, name: "the Giant Disco Snail", hue: 280 },
-  { ...polar(420, 1250 * CITY_SCALE), r: 40, name: "the Sound Totem", hue: 180 },
-  { ...polar(270, 1500 * CITY_SCALE), r: 45, name: "the Hummingbird Swing", hue: 100 },
-  { ...polar(30, 2650 * CITY_SCALE), r: 60, name: "the Glass Garden", hue: 150 },
-  { ...polar(660, 2850 * CITY_SCALE), r: 50, name: "the Wind Harp", hue: 60 },
-  { ...polar(100, 3800 * CITY_SCALE), r: 55, name: "the Moon Ladder", hue: 220 },
-  { ...polar(640, 3600 * CITY_SCALE), r: 70, name: "the Iron Octopus", hue: 340 },
+/**
+ * The big art on the open playa (asked 2026-10-23): real pieces, each drawn in detail in game/artpieces.ts.
+ * `clock` and `ft` are the piece's published placement from Burning Man's art data as mirrored by iBurn
+ * (github.com/iBurnApp/iBurn-Data and Burning-Man-Earth/iBurn-Data, data/<year>/APIData/art.json) for the
+ * year given, nudged by up to 100 ft where an art-car loop runs through it; the classics from before 2023
+ * (year 0) stand where there is room for them, since their old placements are not in that data.
+ * `r` is the footprint the car bounces off; `hue` colours its diamond on the maps and its glow at night.
+ */
+export type ArtPiece = Circle & { id: string; hue: number; artist: string; year: number; clock: string; ft: number; blurb: string };
+const piece = (id: string, name: string, artist: string, year: number, clock: string, ft: number, r: number, hue: number, blurb: string): ArtPiece =>
+  ({ id, name, artist, year, clock, ft, r, hue, blurb, ...polar(parseClock(clock)!, ft * CITY_SCALE) });
+export const ART: readonly ArtPiece[] = [
+  piece("real-love", "REAL LOVE", "Alexander Milov", 2026, "11:55", 900, 50, 200, "two wire adults sit back to back, the children inside them reaching for each other"),
+  piece("muxalove", "#MUXALOVE", "Misha Libertee", 2026, "2:09", 2200, 60, 110, "an 82-foot venus flytrap, its jaws opening and closing"),
+  piece("fire-horse", "Fire Horse", "Victor Spinelli", 2026, "2:55", 1900, 45, 30, "a rearing steampunk horse of brass gears, its mane on fire at night"),
+  piece("penny-the-goose", "Penny the Goose", "Mr & Mrs Ferguson", 2026, "5:55", 1720, 45, 25, "a giant copper goose, wings half spread"),
+  piece("elemental-dragon", "Elemental Dragon", "Arterra Techtonics", 2026, "6:30", 2100, 60, 0, "a steel-plated dragon winding across the playa, breathing fire"),
+  piece("black-rock-observatory", "Black Rock Observatory", "Black Rock Observatory", 2026, "3:00", 4815, 55, 220, "two white domes and a telescope out past the city"),
+  piece("elder-mother", "Elder Mother", "Charles A. Gadeken", 2023, "2:06", 1235, 55, 280, "a fifty-foot steel tree with thousands of LEDs in its canopy"),
+  piece("mariposa", "Mariposa", "Christopher Schardt", 2023, "7:00", 1100, 45, 300, "a 26-foot aluminium butterfly hovering overhead, wings slowly flapping"),
+  piece("chapel-of-babel", "Chapel of Babel", "Michael Garlington", 2023, "1:00", 2200, 50, 40, "a tiered wooden chapel tower collaged with photographs"),
+  piece("bliss-dance", "Bliss Dance", "Marco Cochrane", 2010, "10:00", 1500, 50, 320, "a forty-foot mesh woman dancing on one foot, lit from within"),
+  piece("truth-is-beauty", "Truth is Beauty", "Marco Cochrane", 2013, "9:00", 2200, 50, 330, "a 55-foot mesh woman stretching up on tiptoe"),
+  piece("r-evolution", "R-Evolution", "Marco Cochrane", 2015, "3:00", 2150, 45, 340, "a 48-foot mesh woman standing square and breathing"),
+  piece("embrace", "Embrace", "The Pier Group", 2014, "12:20", 1500, 70, 15, "two 72-foot wooden figures leaning into a hug, hearts glowing inside"),
+  piece("the-orb", "The Orb", "Bjarke Ingels & Jakob Lange", 2018, "1:00", 1500, 65, 210, "a hundred-foot mirrored sphere on a tilted mast"),
+  piece("big-rig-jig", "Big Rig Jig", "Mike Ross", 2007, "9:30", 1150, 50, 190, "two tanker trucks bent nose to tail into an arch"),
+  piece("space-whale", "Space Whale", "The Pier Group", 2016, "10:30", 2200, 60, 195, "a stained-glass humpback and her calf breaching fifty feet up"),
+  piece("tara-mechani", "Tara Mechani", "Dana Albany", 2017, "5:30", 2200, 45, 45, "a seated goddess of salvaged gears and bronze on a lotus"),
+  piece("medusa-madness", "Medusa Madness", "Kevin Clark", 2015, "3:30", 1400, 50, 90, "a 36-foot medusa head, steel snakes for hair breathing fire"),
+  piece("tree-of-tenere", "Tree of Ténéré", "Patrick Deegan, Zachary Smith & crew", 2017, "7:15", 2100, 55, 120, "a lifelike tree with 25,000 LED leaves washing colour at night"),
+  piece("lodestar", "Lodestar", "Randy Polumbo", 2019, "11:30", 4300, 55, 150, "a lockheed jetstar stood on its tail, a glass garden in its belly"),
+  piece("head-maze", "Head Maze", "Matt Schultz", 2019, "12:30", 3600, 55, 35, "a giant wooden head you walk into, a maze inside"),
+  piece("shrumen-lumen", "Shrumen Lumen", "FoldHaus", 2016, "4:00", 2150, 55, 170, "five giant origami mushrooms folding open and closed"),
+  piece("ursa-mater", "Ursa Mater", "Mr & Mrs Ferguson", 2017, "8:30", 1450, 50, 20, "a mother bear and her cub clad in 200,000 pennies"),
 ];
 
 /* ── the sound camps: a stage at the address, a parking bay cut into the block in front ── */
@@ -252,7 +267,11 @@ export function spotAt(address: string, o: { along?: number; nudge?: number; dep
 /** Agave Lounge: its dome behind its own bay, on the playa-facing frontage of the Esplanade. */
 export function agaveSpot(address = AGAVE_ADDRESS) {
   const s = spotAt(address, { along: 140, depth: 70, half: 38, stageR: 70 });
-  return { ...s, dome: { ...s.stage } };
+  // the Earth dome behind the bay, and the smaller Moon dome beside it (asked 2026-10-23): along the street,
+  // a little deeper into the block
+  const d = Math.hypot(s.stage.x, s.stage.y) || 1, ux = s.stage.x / d, uy = s.stage.y / d, moonR = 30;
+  const moon = { x: s.stage.x - uy * (s.stage.r + moonR + 14) + ux * 12, y: s.stage.y + ux * (s.stage.r + moonR + 14) + uy * 12, r: moonR, name: "the Moon dome" };
+  return { ...s, dome: { ...s.stage }, moon };
 }
 export const AGAVE = agaveSpot();
 
@@ -308,12 +327,14 @@ export const OBSTACLES: readonly Circle[] = [
   { ...CENTER_CAMP, r: CAFE_R, name: "Center Camp café" },
   ...ART,
   ...SPOTS.map((s) => s.stage),
+  AGAVE.moon,
 ];
 
 /** The camps inside the blocks (camps.ts), clear of the stages, the bays and Center Camp. */
 let CITY: BlockPlan[] | null = null;
 export const cityPlan = () => CITY ??= planCity([
   ...SPOTS.flatMap((s) => [{ x: s.stage.x, y: s.stage.y, r: s.stage.r + 14 }, { x: s.mid.x, y: s.mid.y, r: s.bay.half + 30 }]),
+  { x: AGAVE.moon.x, y: AGAVE.moon.y, r: AGAVE.moon.r + 14 },
   { x: CENTER_CAMP.x, y: CENTER_CAMP.y, r: CENTER_CAMP_R + 30 },
 ]);
 
@@ -539,6 +560,22 @@ export function makeNpcs(rand: () => number): Npc[] {
   for (let i = 0; i < 12; i++) {
     out.push({ kind: "ebike", path: "loop", r: (300 + rand() * 1700) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (30 + rand() * 20), phase: rand() * 720, hue: 200 + Math.floor(rand() * 60) });
   }
+  // more people again (asked 2026-10-23): 120 more bikes and 100 more walkers on the streets, 40 bikes and
+  // 40 walkers out on the open playa
+  for (let i = 0; i < 120; i++) {
+    const ring = Math.floor(rand() * ARC_R.length);
+    out.push({ kind: "bike", path: "arc", r: ARC_R[ring] + (rand() - 0.5) * arcWidth(ring) * 0.7, from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (14 + rand() * 18), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+  }
+  for (let i = 0; i < 100; i++) {
+    const ring = Math.floor(rand() * ARC_R.length), edge = rand() < 0.5 ? -1 : 1;
+    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - 6 - rand() * 6), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+  }
+  for (let i = 0; i < 40; i++) {
+    out.push({ kind: "bike", path: "loop", r: (250 + rand() * 1800) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (16 + rand() * 16), phase: rand() * 720, hue: Math.floor(rand() * 360) });
+  }
+  for (let i = 0; i < 40; i++) {
+    out.push({ kind: "walker", path: "loop", r: (140 + rand() * 1500) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 3), phase: rand() * 720, hue: Math.floor(rand() * 360) });
+  }
   // a few ambulances on their rounds (asked 2026-10-22): no music, not art cars, never on the maps
   for (let i = 0; i < 4; i++) {
     out.push({ kind: "ambulance", path: "loop", r: (400 + i * 380) * CITY_SCALE, speed: (i % 2 ? -1 : 1) * 12, phase: i * 170, hue: 0, name: "an ambulance" });
@@ -601,7 +638,7 @@ export const JOBS: readonly Job[] = [
   ride("agave", "mutant:robot-heart", "two burners", "take two burners from Agave to the sunrise set at Robot Heart before it moves on"),
   ride("center", "camp:pink-mammoth", "a bag of ice", "deliver ice from Center Camp to Pink Mammoth"),
   ride("temple", "7:30 & G", "a lost burner", "a lost burner at the Temple needs a ride home to 7:30 & G"),
-  { kind: "moop", from: "", to: "art:the Dust Whale", who: "MOOP", need: 5, line: "collect 5 MOOP on the way to the Dust Whale" },
+  { kind: "moop", from: "", to: "art:Space Whale", who: "MOOP", need: 5, line: "collect 5 MOOP on the way to the Space Whale" },
   { kind: "follow", from: "mutant:mayan-warrior", to: "mutant:mayan-warrior", who: "Mayan Warrior", need: 20, line: "find Mayan Warrior on the open playa and follow it for 20 s" },
   ride("2:00 & B", "agave", "a DJ", "a DJ at 2:00 & B is late for their set at Agave Lounge"),
   ride("camp:disorient", "mutant:titanics-end", "a dancer", "a dancer at Disorient wants to catch Titanic's End out on deep playa"),
@@ -610,7 +647,7 @@ export const JOBS: readonly Job[] = [
   ride("camp:the-kazbah", "camp:opulent-temple", "a camper", "a camper at the Kazbah is due on the dancefloor at Opulent Temple"),
   { kind: "follow", from: "mutant:robot-heart", to: "mutant:robot-heart", who: "Robot Heart", need: 20, line: "find Robot Heart on deep playa and follow it for 20 s" },
   ride("6:00 & K", "agave", "two dancers", "pick up two dancers at 6:00 & K: it's sunset at Agave Lounge"),
-  { kind: "moop", from: "", to: "art:the Tin Owl", who: "MOOP", need: 5, line: "collect 5 MOOP on the way to the Tin Owl" },
+  { kind: "moop", from: "", to: "art:Penny the Goose", who: "MOOP", need: 5, line: "collect 5 MOOP on the way to Penny the Goose" },
   ride("center", "camp:bubbles-and-bass", "a crate of ice", "carry ice from Center Camp to Bubbles and Bass for the sunrise champagne"),
   ride("camp:playalchemist", "mutant:dancetronauts", "a raver", "a raver at PlayAlchemist wants a lift to Dancetronauts"),
   ride("9:00 & H", "center", "a camper", "a camper at 9:00 & H lost their bike: get them to Center Camp for coffee"),
@@ -835,12 +872,46 @@ export function moopSpot(rand: () => number): Vec {
   return polar(360, ARC_R[0]);
 }
 
-export function newGame(seed = 1, vehicle: VehicleId = "bike"): Game {
-  const rand = seeded(seed);
+/**
+ * The place a URL names (asked 2026-10-23): burningman.chat/dragonlady starts you beside the Dragon Lady. The path is
+ * matched to a camp's or art car's id (soundcamps.ts), an art piece's id (ART), or agave / man / temple / center, ignoring
+ * case and punctuation ("DragonLady", "dragon-lady", "dragon_lady" all find it), or to the start of one ("titanic" is
+ * Titanic's End); null when nothing matches.
+ */
+export function startKey(path: string): string | null {
+  const slug = path.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!slug) return null;
+  if (["agave", "agavelounge", "man", "theman", "temple", "thetemple", "center", "centercamp"].includes(slug)) return slug.replace(/^the/, "").replace("lounge", "").replace("camp", "");
+  const key = (id: string) => id.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // the whole name first, then the start of one ("titanic" is Titanic's End), then any part of one
+  for (const hit of [(k: string) => k === slug, (k: string) => k.startsWith(slug), (k: string) => k.includes(slug)]) {
+    const c = SOUND_CAMPS.find((x) => x.kind !== "fence" && x.kind !== "art" && (hit(key(x.id)) || hit(key(x.name))));
+    if (c) return `${c.kind === "mutant" ? "mutant" : "camp"}:${c.id}`;
+    const a = ART.find((x) => hit(key(x.id)) || hit(key(x.name)));
+    if (a) return `art:${a.name}`;
+  }
+  return null;
+}
+/** Where and which way to start for a place key: beside an art car (to its right, heading its way), at a camp's curb
+ * facing along the street, or in front of a piece facing it; Agave Lounge's curb by default. */
+function startPose(key: string | null): { at: Vec; h: number } {
   // at Agave Lounge, on the Esplanade beside its bay with the dome in view, facing clockwise along the street
-  const start = AGAVE.curb;
+  if (!key || key === "agave") return { at: AGAVE.curb, h: (AGAVE.curbMin / 720) * Math.PI * 2 + Math.PI / 2 };
+  if (key.startsWith("mutant:")) { const p = npcAt(mutantOf(key)!, 0), r = right(p.h); return { at: { x: p.x + r.x * 30, y: p.y + r.y * 30 }, h: p.h }; }
+  if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.curb, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.curb.y, sp.stage.x - sp.curb.x) + Math.PI / 2 }; }
+  if (key.startsWith("art:")) { // far enough back on the Man's side that the whole piece is on the screen ahead
+    const a = ART.find((x) => x.name === key.slice(4))!, d = Math.hypot(a.x, a.y) || 1, k = (d - a.r - 170) / d, at = { x: a.x * k, y: a.y * k };
+    return { at, h: Math.atan2(a.y - at.y, a.x - at.x) + Math.PI / 2 };
+  }
+  const to = key === "man" ? { x: 0, y: 0 } : key === "temple" ? TEMPLE : CENTER_CAMP, at = place(key).at;
+  return { at, h: Math.atan2(to.y - at.y, to.x - at.x) + Math.PI / 2 };
+}
+
+export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null = null): Game {
+  const rand = seeded(seed);
+  const start = startPose(at);
   return {
-    t: 0, car: newCar(start, (AGAVE.curbMin / 720) * Math.PI * 2 + Math.PI / 2), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
+    t: 0, car: newCar(start.at, start.h), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
     moop: Array.from({ length: MOOP_N }, () => moopSpot(rand)), moopCount: 0,
     storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: 0.1 * DAY_SECONDS, dust: [], bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
     parking: newParking(), alt: 0, chute: false, plane: null,

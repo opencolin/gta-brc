@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
+  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
@@ -82,6 +82,8 @@ test("collisions: a block bounces the car back onto the street, slower", () => {
 test("collisions: the Man, the art and the fence are solid; open playa is not", () => {
   assert.ok(solidAt({ x: 0, y: 10 }), "the Man");
   for (const o of ART) assert.ok(solidAt(o), o.name);
+  assert.ok(solidAt(AGAVE.moon), "the Moon dome beside the Earth dome (asked 2026-10-23)");
+  assert.ok(Math.hypot(AGAVE.moon.x - AGAVE.dome.x, AGAVE.moon.y - AGAVE.dome.y) > AGAVE.dome.r + AGAVE.moon.r, "the two domes stand apart");
   assert.ok(solidAt({ x: 0, y: 14000 }), "past the fence");
   assert.equal(solidAt(polar(300, 1500)), null);
   assert.equal(solidAt(pointAt("7:30", "E")), null);
@@ -90,7 +92,7 @@ test("collisions: the Man, the art and the fence are solid; open playa is not", 
   const hit = bounce(c, { depth: 1, nx: 0, ny: 1 });
   assert.equal(hit, 50);
   assert.ok(c.vy > 0 && Math.abs(c.vx) < 10 + 1e-9);
-  for (const o of OBSTACLES.filter((o) => !SPOTS.some((s) => s.stage === o))) assert.equal(surfaceAt(o).kind === "block", false, `${o.name} sits outside the camps`);
+  for (const o of OBSTACLES.filter((o) => !SPOTS.some((s) => s.stage === o) && o !== AGAVE.moon)) assert.equal(surfaceAt(o).kind === "block", false, `${o.name} sits outside the camps`);
 });
 
 test("Agave Lounge: on the Esplanade at 8:30, its dome on the playa-facing frontage and its curb drivable", () => {
@@ -576,4 +578,19 @@ test("e-bikes ride the streets faster than the cruisers", () => {
   assert.ok(e.length >= 30, `${e.length} e-bikes`);
   const avg = (l) => l.reduce((a, n) => a + Math.abs(n.speed), 0) / l.length;
   assert.ok(avg(e) > avg(b) * 1.4, `e-bikes ${avg(e).toFixed(0)} vs bikes ${avg(b).toFixed(0)}`);
+});
+
+test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the Dragon Lady, any spelling", () => {
+  for (const p of ["dragonlady", "DragonLady", "dragon-lady", "dragon_lady/"]) assert.equal(startKey(p), "mutant:dragon-lady", p);
+  assert.equal(startKey("robot-heart"), "mutant:robot-heart");
+  assert.equal(startKey("titanic"), "mutant:titanics-end", "the start of a name is enough");
+  assert.equal(startKey("mayan"), "mutant:mayan-warrior"); assert.equal(startKey("orb"), "art:The Orb");
+  assert.equal(startKey("the-orb"), "art:The Orb");
+  assert.equal(startKey("agave"), "agave"); assert.equal(startKey("temple"), "temple");
+  assert.equal(startKey(""), null); assert.equal(startKey("nowhere-at-all"), null);
+  const g = newGame(1, "bike", "mutant:dragon-lady"), car = npcAt(mutantOf("mutant:dragon-lady"), 0);
+  assert.ok(Math.hypot(g.car.x - car.x, g.car.y - car.y) < 40, "beside the yacht at the start");
+  const orb = ART.find((a) => a.id === "the-orb"), g2 = newGame(1, "bike", "art:The Orb");
+  assert.ok(Math.hypot(g2.car.x - orb.x, g2.car.y - orb.y) < orb.r + 200, "in front of the Orb");
+  assert.deepEqual([newGame(1).car.x, newGame(1).car.y], [newGame(1, "bike", null).car.x, newGame(1, "bike", null).car.y], "no place: Agave Lounge as before");
 });
