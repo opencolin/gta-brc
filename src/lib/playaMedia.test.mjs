@@ -32,3 +32,14 @@ test("YouTube's messages read as ready, play, pause and finish; strangers are ig
   assert.equal(mediaEvent(YT_ORIGIN, JSON.stringify({ event: "onError", info: 150 })), "error", "embedding turned off: skip it");
   assert.equal(mediaEvent("https://evil.example", JSON.stringify({ event: "onReady" })), null);
 });
+
+test("seekTo goes out in seconds for YouTube and milliseconds for SoundCloud, and progress comes back in seconds", async () => {
+  const { mediaCommand, mediaProgress, YT_ORIGIN } = await import("./playaMedia.ts");
+  const yt = mediaCommand("https://www.youtube.com/watch?v=abcdefghijk", "seekTo", 754);
+  assert.deepEqual(JSON.parse(yt.msg), { event: "command", func: "seekTo", args: [754, true] });
+  const sc = mediaCommand("https://soundcloud.com/a/b", "seekTo", 754);
+  assert.deepEqual(JSON.parse(sc.msg), { method: "seekTo", value: 754000 });
+  assert.equal(mediaProgress(YT_ORIGIN, JSON.stringify({ event: "infoDelivery", info: { currentTime: 12.5, playerState: 1 } })), 12.5);
+  assert.equal(mediaProgress("https://w.soundcloud.com", JSON.stringify({ method: "playProgress", value: { currentPosition: 9000 } })), 9);
+  assert.equal(mediaProgress("https://w.soundcloud.com", JSON.stringify({ method: "play" })), null);
+});

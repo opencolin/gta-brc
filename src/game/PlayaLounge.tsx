@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { SETS } from "@/lib/agave";
-import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, playerSrc, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
+import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, mediaProgress, playerSrc, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
+import { loadListened, saveListened, noteProgress, noteDone, resumeAt, nextUnheard } from "@/lib/listened";
 import { campTracks, soundCamp } from "@/lib/soundcamps";
 import { VEHICLES, VEHICLE_IDS, type VehicleId } from "@/lib/playa";
 import { gate, type Voice } from "@/lib/playaSound";
@@ -59,6 +60,21 @@ const post = (w: Window | null | undefined, url: string, method: MediaMethod, va
   const c = mediaCommand(url, method, value);
   try { if (c) w?.postMessage(c.msg, c.origin); } catch {}
 };
+/**
+ * What this device has heard (lib/listened.ts, asked 2026-10-22): each set's place, and the ones played to the end.
+ * Written back every few seconds while something plays and whenever a set ends.
+ */
+const heard = { l: typeof localStorage !== "undefined" ? loadListened() : {}, savedAt: 0 };
+const markProgress = (url: string, pos: number) => {
+  const now = Date.now(); heard.l = noteProgress(heard.l, url, pos, now);
+  if (now - heard.savedAt > 4000) { heard.savedAt = now; saveListened(heard.l); }
+};
+const markDone = (url: string) => { heard.l = noteDone(heard.l, url, Date.now()); heard.savedAt = Date.now(); saveListened(heard.l); };
+/** The set a place starts on: the first not yet heard to its end, then the one heard longest ago. */
+export const nextSetIndex = (key: string) => nextUnheard(heard.l, playable(key).map((t) => t.url));
+export const startSetFor = (key: string): Track | undefined => { const t = soundOf(key).tracks; return t[nextUnheard(heard.l, t.map((x) => x.url))]; };
+/** A player just ready: ask SoundCloud to report progress, and pick the set up where it was left. */
+const resume = (w: Window, url: string) => { if (!isVideo(url)) post(w, url, "addEventListener", "playProgress"); const at = resumeAt(heard.l, url); if (at > 0) post(w, url, "seekTo", at); };
 /** YouTube's player reports nothing until told someone is listening: say so once it has loaded. */
 const hello = (f: HTMLIFrameElement | null, url: string) => { try { if (f && isVideo(url)) f.contentWindow?.postMessage(ytListening(), YT_ORIGIN); } catch {} };
 
@@ -124,16 +140,18 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
       if (main && e.source === main) { u = nowUrl.current; w = main; }
       else for (const [url, f] of stack.current) if (f.contentWindow && e.source === f.contentWindow) { u = url; w = f.contentWindow; }
       if (!u || !w) return;
+      const pos = mediaProgress(e.origin, e.data);
+      if (pos != null) markProgress(u, pos);
       const ev = mediaEvent(e.origin, e.data), isNow = u === nowUrl.current;
       // a set you tapped is told to play as soon as its player is ready, besides its autoplay setting; one that was
       // playing when its frame was swapped (the panel made big or small again) carries on
-      if (ev === "ready") { post(w, u, "addEventListener", "play"); post(w, u, "addEventListener", "pause"); post(w, u, "addEventListener", "finish"); if (isNow && (nowAuto.current || nowPlaying.current)) post(w, u, "play"); }
+      if (ev === "ready") { post(w, u, "addEventListener", "play"); post(w, u, "addEventListener", "pause"); post(w, u, "addEventListener", "finish"); resume(w, u); if (isNow && (nowAuto.current || nowPlaying.current)) post(w, u, "play"); }
       else if (ev === "play") {
         if (isNow) onPlaying(true);
         else { for (const [url, f] of stack.current) if (url !== u) post(f.contentWindow, url, "pause"); if (main) post(main, nowUrl.current, "pause"); pickUrl.current(u); }
       }
       else if (ev === "pause") { if (isNow) onPlaying(false); }
-      else if (ev === "finish" || ev === "error") { if (!isNow) return; if (isVideo(u)) next.current(); else onPlaying(false); }
+      else if (ev === "finish" || ev === "error") { if (ev === "finish") markDone(u); if (!isNow) return; if (isVideo(u)) next.current(); else onPlaying(false); }
     };
     window.addEventListener("message", on);
     return () => window.removeEventListener("message", on);
@@ -250,7 +268,7 @@ export function AmbientVoices({ voices, ios, setOf, show, onSkip, onOpen }: { vo
   return (
     <div className="pl-amb">
       {voices.map((v) => {
-        const i = setOf[v.key] ?? 0, url = ambientUrl(v.key, i), t = playable(v.key);
+        const i = setOf[v.key] ?? nextSetIndex(v.key), url = ambientUrl(v.key, i), t = playable(v.key);
         const track = t[i % Math.max(1, t.length)];
         return <AmbientVoice key={`${v.key}|${url}`} url={url} title={track?.title ?? ""} vol={v.vol} ios={ios} shown={v.key === show} name={soundOf(v.key).name} onSkip={() => onSkip(v.key)} onOpen={() => track && onOpen(v.key, track)} />;
       })}
@@ -275,11 +293,13 @@ function AmbientVoice({ url, title, vol, ios, shown, name, onSkip, onOpen }: { u
   useEffect(() => {
     const on = (e: MessageEvent) => {
       if (!ref.current || e.source !== ref.current.contentWindow) return;
+      const pos = mediaProgress(e.origin, e.data);
+      if (pos != null) markProgress(url, pos);
       const ev = mediaEvent(e.origin, e.data);
-      if (ev === "ready") { st.current.ready = true; st.current.sent = -1; apply(); }
+      if (ev === "ready") { st.current.ready = true; st.current.sent = -1; resume(ref.current.contentWindow!, url); apply(); }
       else if (ev === "play" || ev === "pause") setPlaying(ev === "play");
-      // a video that ends or won't play here: on to the camp's next set
-      else if ((ev === "finish" || ev === "error") && isVideo(url)) skip.current();
+      // a set that ends is done (the place moves on next time); a video that ends or won't play here: on to the camp's next set
+      else if (ev === "finish" || ev === "error") { if (ev === "finish") markDone(url); if (isVideo(url)) skip.current(); }
     };
     window.addEventListener("message", on);
     const w = ref.current?.contentWindow;

@@ -3,7 +3,7 @@ import "./playa.css";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useIsMobile } from "@/lib/mobile";
 import { useBoardFocus } from "./useBoardFocus";
-import { AmbientVoices, ClipPeek, Lounge, clipsOnly, playable, soundOf, type Now, type Track } from "./PlayaLounge";
+import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
 import { ART_CARS } from "./artcars";
 import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
@@ -1085,7 +1085,7 @@ export default function PlayaWin() {
   // the last camp you rode up to keeps playing (playaSound.ts stepSticky); which of its sets, per camp
   const sticky = useRef(newSticky());
   const [setOf, setSetOf] = useState<Record<string, number>>({});
-  const skipSet = (key: string) => setSetOf((o) => ({ ...o, [key]: ((o[key] ?? 0) + 1) % Math.max(1, playable(key).length) }));
+  const skipSet = (key: string) => setSetOf((o) => ({ ...o, [key]: ((o[key] ?? nextSetIndex(key)) + 1) % Math.max(1, playable(key).length) }));
   /** the clip-only place you are passing, shown silently in a corner */
   const [peek, setPeek] = useState<string | null>(null);
   const peekEl = useRef<HTMLDivElement>(null);
@@ -1125,7 +1125,8 @@ export default function PlayaWin() {
     // a phone keeps the game in view: the "now playing" bar or the mini player opens the full-screen panel (asked 2026-10-22)
     // beside an art car the panel opens on every screen (asked 2026-10-22): ride along, drive it, its sets
     setParked(key); if (!mobile || key.startsWith("mutant:")) setLounge(true);
-    setNow((n) => (n?.playing ? n : (() => { const t = soundOf(key).tracks[0]; return t ? { key, url: t.url, title: t.title, auto: false, playing: false } : null; })()));
+    // the set you have not heard yet, picked up where it was left (lib/listened.ts, asked 2026-10-22)
+    setNow((n) => (n?.playing ? n : (() => { const t = startSetFor(key); return t ? { key, url: t.url, title: t.title, auto: false, playing: false } : null; })()));
   };
   // driving off keeps a playing set or video open where it is (asked 2026-10-22); an idle panel folds away
   onLeave.current = () => { setParked(null); if (!nowRef.current?.playing) setLounge(false); setNow((n) => (n?.playing ? n : null)); };

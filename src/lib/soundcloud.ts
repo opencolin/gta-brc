@@ -3,7 +3,7 @@ export const SC_WIDGET_ORIGIN = "https://w.soundcloud.com";
 export const SC_WIDGET_SRC = /^https:\/\/w\.soundcloud\.com\/player\//i;
 
 /** A command for the widget, in the shape api.js posts: a JSON string of { method, value }. */
-export function scWidgetCommand(method: "pause" | "play" | "addEventListener" | "setVolume", value?: string | number): string {
+export function scWidgetCommand(method: "pause" | "play" | "addEventListener" | "setVolume" | "seekTo", value?: string | number): string {
   return JSON.stringify(value === undefined ? { method } : { method, value });
 }
 
