@@ -1032,6 +1032,7 @@ export default function PlayaWin() {
     return () => ro.disconnect();
   }, []);
   const root = useRef<HTMLDivElement>(null);
+  const playerH = useRef(0);
   const board = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
@@ -1235,6 +1236,12 @@ export default function PlayaWin() {
         mix.current = stepMix(was, target, Math.min(0.5, (now - (hudAt || now)) / 1000 || 0.1));
         if (mix.current.length !== was.length || mix.current.some((v, i) => v.key !== was[i]?.key || Math.abs(v.vol - was[i].vol) >= 2)) setVoices(mix.current.map((v) => ({ key: v.key, vol: Math.round(v.vol) })));
         hudAt = now;
+        {
+          // the mini player's height, for the buttons that sit under it on a phone (playa.css --pl-player-h)
+          const pl = root.current?.querySelector<HTMLElement>(".pl-lounge[data-mini], .pl-amb > .pl-amb-on");
+          const ph = pl ? Math.round(pl.getBoundingClientRect().height) : 0;
+          if (ph !== playerH.current) { playerH.current = ph; root.current?.style.setProperty("--pl-player-h", `${ph}px`); }
+        }
         setAboard(!!g.aboard);
         setVehicleState(g.vehicle);
         const seen = nearest(g.car, clipSources(g.t));
@@ -1389,7 +1396,11 @@ export default function PlayaWin() {
                 {sound ? <><path d="M16 9a4 4 0 0 1 0 6" /><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11" /></> : <path d="M17 9l5 6M22 9l-5 6" />}
               </svg>
             </button>
-            <button type="button" className="pl-btn" onClick={toggleNight}>{hud.night ? "day" : "night"}</button>
+            <button type="button" className="pl-btn pl-icon" onClick={toggleNight} aria-pressed={hud.night} aria-label={hud.night ? "night: switch to day" : "day: switch to night"} title={hud.night ? "night" : "day"}>
+              {hud.night
+                ? <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.3A8 8 0 0 1 14.5 2.5z" /></svg>
+                : <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /></svg>}
+            </button>
           </div>
         </div>
         </div>
