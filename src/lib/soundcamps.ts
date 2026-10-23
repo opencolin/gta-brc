@@ -106,6 +106,9 @@ export const SOUND_CAMPS: readonly SoundCamp[] = [
   { id: "duck-pond", name: "Duck Pond", kind: "camp", address: "9:30 & D", year: 2025, blurb: "a bar camp with cold drinks and bumping music", soundcloud: "https://soundcloud.com/overdubbed/duck-pond-2024" },
   // Address: iBurn 2026 camp.json (shares 2:00 & F with the Kazbah's 2025 spot, so nudged along F). SoundCloud: the Mystic Arts Foundation, the nonprofit behind the camp.
   { id: "mystic", name: "Mystic", kind: "camp", address: "2:00 & F", year: 2026, nudge: 220, blurb: "twenty-plus years of live and electronic music, and the Mystic Flyer", soundcloud: "https://soundcloud.com/user-577231428" },
+  // Address: iBurn 2026 camp.json (7:00 & F, as in 2025; 4:30 & D in 2024). SoundCloud: the sheep's own profile (soundcloud.com/baaahs); the sets are the art car's. Asked for by Collin 2026-10-23.
+  { id: "baaahs-station", name: "BAAAHS Station", kind: "camp", address: "7:00 & F", year: 2026, blurb: "home depot of the big gay sheep: the flock grazes here between rides", soundcloud: "https://soundcloud.com/baaahs",
+    sets: [{ url: "https://soundcloud.com/bexnaj/live-on-baaahs-burning-man-2024", title: "Bex Naj · live on BAAAHS · Burning Man 2024" }, { url: "https://www.youtube.com/watch?v=TtwFlyqpt3s", title: "BAAAHS Trance Night · Afik Cohen · Burning Man 2023" }] },
   // Address: iBurn 2026 camp.json. SoundCloud: a live set at the camp, Burning Man 2017.
   { id: "comfort-and-joy", name: "Comfort & Joy", kind: "camp", address: "7:00 & E", year: 2026, blurb: "queer camp: dayglo art, a lounge and late-night dancing", soundcloud: "https://soundcloud.com/djpeternapoli/burning-man-2017-comfort-joy-part1" },
   // Address: iBurn 2026 camp.json ("Abraxas Camp"). SoundCloud: "Legendary Burning Man Dragon Art Car family since 2006".
