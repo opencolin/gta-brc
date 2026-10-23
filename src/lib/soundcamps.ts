@@ -484,6 +484,8 @@ export const soundCamp = (id: string) => SOUND_CAMPS.find((c) => c.id === id);
 /** Videos that are clips rather than sets (asked 2026-10-22): under 20 minutes (10 from an official channel), most of
  * them filmed on a phone. They never take over the music; riding past, one shows silently and plays with sound on a tap. */
 export const VIDEO_CLIPS: ReadonlySet<string> = new Set([
+  // Fire Conclave's videos are drums and fire, not music (asked 2026-10-22): every one is a clip, so it stays muted like the others
+  "NvrJGjrPf74", "ZRO8zU3FT0w", "c4gRCYPkJrk", "n_PAzFWfn84", "o8lP5VsCUa8", "sNxTXYogY6A",
   "-6wnDcOE_So", "0-JIOljYYeg", "00u9-96I_7E", "1ZyKWoYWAJE", "4gi8MpxJ2ao", "5MAUCozCn0Y", "5S0S5MWGlFY", "5caPeiKq8lo",
   "6UIVvZdsO28", "6h9IjbnHko4", "6nLSzPE_Fh4", "7aP0RpDt4Z0", "8TtlBB9b2qg", "8uAzw0VnfGs", "8zThJmZDFnA", "98PaFIkVJXA",
   "9S0jodRgbKY", "AEz3Y7GQgTs", "Agmi1s8qNg8", "BHvFw0mx4oo", "BS3p4l6Ci9U", "D_qC8lDjrdQ", "DgNsd_hCwv8", "EFtpfRZ5HH4",
