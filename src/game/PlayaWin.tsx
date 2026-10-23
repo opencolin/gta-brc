@@ -1246,6 +1246,9 @@ export default function PlayaWin() {
         onBlur={() => { keys.current = { ...NO_INPUT }; }}>
         <canvas ref={canvas} className="pl-canvas" aria-hidden="true" />
 
+        {/* the top: the pager across, then the where-and-points box left and the minimap and buttons right, each
+            below the pager however many lines it takes (asked 2026-10-22: a long job overlapped the box) */}
+        <div className="pl-top">
         <div className="pl-pager" aria-live="polite">
           <span className="pl-pager-txt">{hud.pager}</span>
           {hud.time != null && <b className={hud.time < 10 ? "pl-late" : undefined}>{fmt(hud.time)}</b>}
@@ -1288,6 +1291,7 @@ export default function PlayaWin() {
             </button>
             <button type="button" className="pl-btn" onClick={toggleNight}>{hud.night ? "day" : "night"}</button>
           </div>
+        </div>
         </div>
 
         {hud.warn && phase === "play" && <div className="pl-warn" role="status">{hud.warn}</div>}

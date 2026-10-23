@@ -13,8 +13,10 @@
 .pl .pl-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* the pager: one line along the top, like the old game's */
+.pl .pl-top { position: absolute; top: 8px; left: 8px; right: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; pointer-events: none; }
+.pl .pl-top > * { pointer-events: auto; }
 .pl .pl-pager {
-  position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 12px;
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 12px;
   padding: 6px 12px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
   font-family: var(--mono); font-size: var(--t-secondary); line-height: var(--lh-secondary); min-height: 34px;
 }
@@ -24,7 +26,7 @@
 
 /* where you are and how fast */
 .pl .pl-where {
-  position: absolute; top: 58px; left: 8px; display: flex; flex-direction: column; gap: 2px;
+  justify-self: start; display: flex; flex-direction: column; gap: 2px;
   padding: 6px 10px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); max-width: 60%;
 }
 .pl .pl-addr { font-family: var(--font-display, var(--font)); font-size: var(--t-title); font-weight: var(--w-heading); line-height: var(--lh-ui); color: var(--pl-ink); }
@@ -36,7 +38,7 @@
 .pl .pl-count b { color: var(--pl-gold); font-variant-numeric: tabular-nums; }
 
 /* the minimap and the tools under it, top right */
-.pl .pl-side { position: absolute; top: 58px; right: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pl .pl-side { position: relative; justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .pl .pl-mini { display: block; width: 150px; height: 144px; padding: 0; border: 0; border-radius: 0; background: none; cursor: zoom-in; overflow: visible; }
 /* just the pentagon, no black square round it (asked 2026-10-22): a soft shadow keeps it apart from the playa */
 .pl .pl-mini canvas { filter: drop-shadow(0 2px 6px rgba(27, 31, 59, .45)); }
@@ -76,7 +78,8 @@
 .pl .pl-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .pl .pl-map .pl-map-x { position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); min-height: 52px; padding: 10px 28px; border-radius: 14px; font-size: var(--t-title); box-shadow: 0 6px 20px rgba(27, 31, 59, .35); }
 /* with the map up (asked 2026-10-22): the pager, the where-and-points box and the music player stay on top of it */
-.pl[data-map] .pl-pager, .pl[data-map] .pl-where, .pl[data-map] .pl-lounge, .pl[data-map] .pl-amb { z-index: 41; }
+.pl[data-map] .pl-top, .pl[data-map] .pl-lounge, .pl[data-map] .pl-amb { z-index: 41; }
+.pl[data-map] .pl-side { visibility: hidden; } /* the map has its own buttons; the minimap is the map */
 .pl .pl-map-zoom { position: absolute; top: 58px; right: 18px; display: flex; flex-direction: column; gap: 6px; }
 .pl .pl-map-zoom .pl-btn { min-width: 44px; min-height: 44px; padding: 0 10px; font-size: var(--t-title); }
 .pl .pl-btn.pl-icon { display: inline-grid; place-items: center; min-width: 40px; padding: 4px 8px; }
@@ -110,8 +113,7 @@
 }
 
 /* a small window or a phone: a tighter HUD */
-.pl[data-phone] .pl-pager { top: calc(6px + env(safe-area-inset-top, 0px)); left: 6px; right: 6px; }
-.pl[data-phone] .pl-where, .pl[data-phone] .pl-side { top: calc(64px + env(safe-area-inset-top, 0px)); }
+.pl[data-phone] .pl-top { top: calc(6px + env(safe-area-inset-top, 0px)); left: 6px; right: 6px; gap: 6px; }
 .pl[data-phone] .pl-addr { font-size: var(--t-heading); }
 .pl[data-phone] .pl-mini { width: 110px; height: 106px; }
 /* a wide desk gets a map you can read (asked 2026-10-22) */
