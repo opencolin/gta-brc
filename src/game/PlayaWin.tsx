@@ -1466,7 +1466,7 @@ export default function PlayaWin() {
       </button>
     );
   };
-  // the one-thumb stick (asked 2026-10-23): push where to go, further is faster; pull back to brake and reverse
+  // the one-thumb stick (asked 2026-10-23, bottom right): push where to go, further is faster; pull back to brake and reverse
   const stickEl = useRef<HTMLDivElement>(null), knobEl = useRef<HTMLDivElement>(null);
   const stickMove = (e: ReactPointerEvent) => {
     const el = stickEl.current, knob = knobEl.current; if (!el || !knob) return;
@@ -1549,7 +1549,7 @@ export default function PlayaWin() {
         {touchUi && phase === "play" && (
           <div className="pl-pads" role="group" aria-label="driving controls">
             <div className="pl-stick" ref={stickEl} role="application" aria-label="joystick: push where to go, further is faster; pull back to brake and reverse"
-              onPointerDown={stickDown} onPointerMove={(e) => { if (e.buttons) stickMove(e); }} onPointerUp={stickUp} onPointerCancel={stickUp} onLostPointerCapture={stickUp} onContextMenu={(e) => e.preventDefault()}>
+              onPointerDown={stickDown} onPointerMove={(e) => { if (e.buttons || e.pointerType === "touch") stickMove(e); }} onPointerUp={stickUp} onPointerCancel={stickUp} onLostPointerCapture={stickUp} onContextMenu={(e) => e.preventDefault()}>
               <div className="pl-knob" ref={knobEl} />
             </div>
             {pad("brake", "brake and reverse", "▼", "pl-brake")}
