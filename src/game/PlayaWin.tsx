@@ -702,6 +702,8 @@ const MAP_H = MAP_BOX;
 /** The big map's zoom and the city point at its middle (asked 2026-10-22); null while drawing the minimap. */
 type MapView = { z: number; cx: number; cy: number; /** keep you in the middle as you drive (asked 2026-10-22); a drag or "all" lets go */ follow?: boolean };
 let mapView: MapView | null = null;
+/** The night's light map (asked 2026-10-23), one offscreen canvas reused frame to frame. */
+let lightMap: HTMLCanvasElement | null = null;
 const MAP_MID = () => (MAP_H.top + MAP_H.bottom) / 2;
 function mapFit(w: number, h: number) {
   const s0 = Math.min(w / (2 * MAP_H.half), h / (MAP_H.bottom - MAP_H.top));
@@ -987,15 +989,48 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     ctx.save(); ctx.translate(q.x, q.y); const k = 1 + q.alt / 400; ctx.scale(k, k); ctx.rotate(q.h); drawPlane(ctx, t, night); ctx.restore();
   }
 
-  // night: the city goes dark, then the lights
+  // night: the city goes dark, then the lights. The dark is a light map (asked 2026-10-23: night felt blurry): a
+  // layer of night with a pool of plain daylight punched out round every lamp, car, stage and piece, so what is lit
+  // is seen sharp and bright, and only then the coloured glow laid over it.
   if (night > 0) {
-    screen();
-    ctx.fillStyle = `rgba(${C.night}, ${0.72 * night})`; ctx.fillRect(0, 0, w, h);
+    const dpr = dprOf(ctx), W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (!lightMap) lightMap = document.createElement("canvas");
+    if (lightMap.width !== W || lightMap.height !== H) { lightMap.width = W; lightMap.height = H; }
+    const lx = lightMap.getContext("2d")!;
+    lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalCompositeOperation = "source-over"; lx.clearRect(0, 0, W, H);
+    lx.fillStyle = `rgba(${C.night}, ${0.78 * night})`; lx.fillRect(0, 0, W, H);
+    lx.globalCompositeOperation = "destination-out";
+    lx.setTransform(z * dpr, 0, 0, z * dpr, (w / 2 - cam.x * z) * dpr, (h / 2 - cam.y * z) * dpr);
+    const pool = (x: number, y: number, r: number, a: number) => {
+      const gr = lx.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(0.45, `rgba(0,0,0,${a * 0.8})`); gr.addColorStop(1, "rgba(0,0,0,0)");
+      lx.fillStyle = gr; lx.beginPath(); lx.arc(x, y, r, 0, Math.PI * 2); lx.fill();
+    };
+    // the headlight: the cone ahead of you is lit plain
+    lx.save(); lx.translate(g.car.x, g.car.y); lx.rotate(g.car.h);
+    const beam = lx.createLinearGradient(0, -VEHICLES[g.vehicle].len / 2, 0, -210);
+    beam.addColorStop(0, "rgba(0,0,0,.9)"); beam.addColorStop(1, "rgba(0,0,0,0)");
+    lx.fillStyle = beam; lx.beginPath(); lx.moveTo(-8, -VEHICLES[g.vehicle].len / 2); lx.lineTo(-80, -210); lx.lineTo(80, -210); lx.lineTo(8, -VEHICLES[g.vehicle].len / 2); lx.closePath(); lx.fill();
+    lx.restore();
+    pool(g.car.x, g.car.y, 70, 0.9);
+    for (const { n, p } of npcs) pool(p.x, p.y, n.kind === "mutant" ? 130 : n.kind === "artcar" ? 60 : n.kind === "walker" ? 9 : 16, n.kind === "mutant" ? 0.95 : 0.7);
+    for (const sp of spots) pool(sp.stage.x, sp.stage.y, sp.stage.r * 2.8, 0.95);
+    if (seen(0, 0, 400)) pool(0, 0, 340, 0.95);
+    if (seen(TEMPLE.x, TEMPLE.y, 300)) pool(TEMPLE.x, TEMPLE.y, 260, 0.9);
+    if (seen(AGAVE.dome.x, AGAVE.dome.y, 260)) { pool(AGAVE.dome.x, AGAVE.dome.y, 200, 0.95); pool(AGAVE.moon.x, AGAVE.moon.y, 70, 0.8); }
+    if (seen(CENTER_CAMP.x, CENTER_CAMP.y, 300)) pool(CENTER_CAMP.x, CENTER_CAMP.y, 240, 0.85);
+    for (const a of ART) if (seen(a.x, a.y, 220)) pool(a.x, a.y, a.r * 2.6, 0.95);
+    for (const b of vis) for (const it of b.items) {
+      if (!seen(it.x, it.y, 60)) continue;
+      if (it.kind === "arch" || it.kind === "sign") pool(it.x, it.y, 34, 0.8);
+      else if (it.kind === "dome" || it.kind === "canopy" || it.kind === "stage" || it.kind === "shade") pool(it.x, it.y, Math.max(30, it.w * 0.8), 0.7);
+    }
+    screen(); ctx.globalCompositeOperation = "source-over"; ctx.drawImage(lightMap, 0, 0, w, h);
     world();
     ctx.globalCompositeOperation = "lighter";
     const glow = (x: number, y: number, r: number, col: string, a: number) => {
       const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, col.replace("A", String(a))); gr.addColorStop(1, col.replace("A", "0"));
+      gr.addColorStop(0, col.replace("A", String(a * 0.7))); gr.addColorStop(0.3, col.replace("A", String(a * 0.45))); gr.addColorStop(1, col.replace("A", "0"));
       ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     };
     // headlights: a cone ahead of the art car

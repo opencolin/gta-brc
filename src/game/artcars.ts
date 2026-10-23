@@ -298,7 +298,16 @@ function dragonLady(c: Ctx, t: number, night: number) {
       c.closePath(); c.fill();
     }
     c.restore();
-    if (night > 0.3) { c.fillStyle = "#fff3b0"; for (const v of [-h / 2 + 2, h / 2 - 2]) for (const u of [-L * 0.25, 0, L * 0.3]) { disc(c, u, v, 1.1); c.fill(); } }
+    if (night > 0.3) {
+      // RGB LEDs along the rails (asked 2026-10-23): a rainbow chasing down both sides and across the transom
+      glow(c, night, "#ffffff", 6);
+      for (let u = -L * 0.44; u <= L * 0.47; u += 3.2) {
+        const taper = u < -L * 0.3 ? (u + L * 0.5) / (L * 0.2) : 1; // the rails close in toward the bow
+        for (const side of [-1, 1]) { c.fillStyle = hsl((u * 5 + t * 160 + (side > 0 ? 90 : 0)) % 360, 100, 62); disc(c, u, side * (h / 2 - 1.6) * taper, 0.9); c.fill(); }
+      }
+      for (let v = -h / 2 + 4; v <= h / 2 - 4; v += 3.2) { c.fillStyle = hsl((v * 12 + t * 160 + 200) % 360, 100, 62); disc(c, L * 0.47, v, 0.9); c.fill(); }
+      noGlow(c);
+    }
     c.restore();
     return;
   }
