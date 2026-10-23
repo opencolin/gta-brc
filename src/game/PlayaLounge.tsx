@@ -73,8 +73,16 @@ const markDone = (url: string) => { heard.l = noteDone(heard.l, url, Date.now())
 /** The set a place starts on: the first not yet heard to its end, then the one heard longest ago. */
 export const nextSetIndex = (key: string) => nextUnheard(heard.l, playable(key).map((t) => t.url));
 export const startSetFor = (key: string): Track | undefined => { const t = soundOf(key).tracks; return t[nextUnheard(heard.l, t.map((x) => x.url))]; };
-/** A player just ready: ask SoundCloud to report progress, and pick the set up where it was left. */
-const resume = (w: Window, url: string) => { if (!isVideo(url)) post(w, url, "addEventListener", "playProgress"); const at = resumeAt(heard.l, url); if (at > 0) post(w, url, "seekTo", at); };
+/**
+ * A player just ready: ask SoundCloud to report progress. The seek to where the set was left waits for its first
+ * "play" (seekPending): seeking a SoundCloud widget before it plays made it start and stop again at the game's start.
+ */
+const seekPending = new Map<string, number>();
+const resume = (w: Window, url: string) => {
+  if (!isVideo(url)) { post(w, url, "addEventListener", "playProgress"); post(w, url, "addEventListener", "play"); post(w, url, "addEventListener", "finish"); }
+  const at = resumeAt(heard.l, url); if (at > 0) seekPending.set(url, at); else seekPending.delete(url);
+};
+const seekIfPending = (w: Window, url: string) => { const at = seekPending.get(url); if (at) { seekPending.delete(url); post(w, url, "seekTo", at); } };
 /** YouTube's player reports nothing until told someone is listening: say so once it has loaded. */
 const hello = (f: HTMLIFrameElement | null, url: string) => { try { if (f && isVideo(url)) f.contentWindow?.postMessage(ytListening(), YT_ORIGIN); } catch {} };
 
@@ -147,6 +155,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
       // playing when its frame was swapped (the panel made big or small again) carries on
       if (ev === "ready") { post(w, u, "addEventListener", "play"); post(w, u, "addEventListener", "pause"); post(w, u, "addEventListener", "finish"); resume(w, u); if (isNow && (nowAuto.current || nowPlaying.current)) post(w, u, "play"); }
       else if (ev === "play") {
+        seekIfPending(w, u);
         if (isNow) onPlaying(true);
         else { for (const [url, f] of stack.current) if (url !== u) post(f.contentWindow, url, "pause"); if (main) post(main, nowUrl.current, "pause"); pickUrl.current(u); }
       }
@@ -297,7 +306,7 @@ function AmbientVoice({ url, title, vol, ios, shown, name, onSkip, onOpen }: { u
       if (pos != null) markProgress(url, pos);
       const ev = mediaEvent(e.origin, e.data);
       if (ev === "ready") { st.current.ready = true; st.current.sent = -1; resume(ref.current.contentWindow!, url); apply(); }
-      else if (ev === "play" || ev === "pause") setPlaying(ev === "play");
+      else if (ev === "play" || ev === "pause") { if (ev === "play" && ref.current.contentWindow) seekIfPending(ref.current.contentWindow, url); setPlaying(ev === "play"); }
       // a set that ends is done (the place moves on next time); a video that ends or won't play here: on to the camp's next set
       else if (ev === "finish" || ev === "error") { if (ev === "finish") markDone(url); if (isVideo(url)) skip.current(); }
     };
