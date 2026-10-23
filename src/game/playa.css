@@ -16,7 +16,7 @@
 .pl .pl-top { position: absolute; top: 8px; left: 8px; right: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; pointer-events: none; }
 .pl .pl-top > * { pointer-events: auto; }
 .pl .pl-pager {
-  grid-column: 1 / -1; display: flex; align-items: center; gap: 12px;
+  grid-column: 1 / -1; justify-self: start; max-width: 100%; display: flex; align-items: center; gap: 12px; /* as wide as the job, not the screen (asked 2026-10-22) */
   padding: 6px 12px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
   font-family: var(--mono); font-size: var(--t-secondary); line-height: var(--lh-secondary); min-height: 34px;
 }
