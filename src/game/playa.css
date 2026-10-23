@@ -199,6 +199,11 @@
 .pl .pl-lounge[data-mini] .pl-lg-player { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
 .pl .pl-lounge[data-mini] .pl-lg-player iframe { width: 300px; height: 120px; } /* its own size behind the clip: the widget's waveform breaks at 1px */
 .pl .pl-lg-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; }
+/* a phone (asked 2026-10-23): the folded panel is SoundCloud's own compact player, not the one-line bar, so its play
+   button is right there (a phone never autoplays); a video keeps the bar. The HUD's ♪ line skips and stops. */
+.pl[data-phone] .pl-lounge[data-mini]:has(.pl-lg-player:not(.pl-lg-video)) .pl-lg-bar { display: none; }
+.pl[data-phone] .pl-lounge[data-mini] .pl-lg-player:not(.pl-lg-video) { position: static; width: 100%; height: 120px; opacity: 1; overflow: hidden; pointer-events: auto; }
+.pl[data-phone] .pl-lounge[data-mini] .pl-lg-player:not(.pl-lg-video) iframe { display: block; width: 100%; height: 120px; border: 0; }
 .pl .pl-lg-note { color: var(--pl-pink); }
 .pl .pl-lg-now {
   flex: 1; min-width: 0; display: flex; gap: 4px; padding: 4px 0; border: 0; background: transparent; color: var(--pl-ink); cursor: pointer; text-align: left;
