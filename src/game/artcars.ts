@@ -282,8 +282,8 @@ function dragonLady(c: Ctx, t: number, night: number) {
     const h = L * YACHT.naturalHeight / YACHT.naturalWidth;
     c.save(); c.rotate(Math.PI / 2); c.drawImage(YACHT, -L / 2, -h / 2, L, h);
     // in the picture's own frame (bow at −x): the hot tub's water in its black rim, and the radar turning on the mast (asked 2026-10-23)
-    glow(c, night, "#3fc8ff", 12); c.fillStyle = night > 0.3 ? "#3fc8ff" : "#2f8fd0"; disc(c, 23.5, -7.3, 4.6); c.fill(); noGlow(c);
-    c.fillStyle = "rgba(255,255,255,.5)"; disc(c, 22, -8.8, 1.3); c.fill();
+    glow(c, night, "#3fc8ff", 12); c.fillStyle = night > 0.3 ? "#3fc8ff" : "#2f8fd0"; disc(c, 18.6, -9.8, 5.8); c.fill(); noGlow(c); // the tub's rim in the picture is centred at (18.6, −9.8), r 7.7
+    c.fillStyle = "rgba(255,255,255,.5)"; disc(c, 16.8, -11.6, 1.6); c.fill();
     c.fillStyle = "#f4f4f1"; disc(c, 2, -1, 2.2); c.fill(); c.strokeStyle = "#8a8f99"; c.lineWidth = 0.6; c.stroke();
     c.save(); c.translate(2, -1); c.rotate(t * 2.5); c.strokeStyle = "#4b515e"; c.lineWidth = 1.3; c.lineCap = "round"; c.beginPath(); c.moveTo(-7, 0); c.lineTo(7, 0); c.stroke(); c.lineCap = "butt"; c.restore();
     // the rainbow pride flag flying from the mast top (asked 2026-10-23), streaming aft and rippling
