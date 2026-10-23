@@ -104,15 +104,16 @@
 .pl .pl-hb { right: 12px; bottom: 208px; width: 84px; height: 44px; font-size: var(--t-control); }
 /* portrait (asked 2026-10-22): bigger thumbs, the steering pair side by side with room between, gas and brake taller */
 @media (orientation: portrait) {
-  .pl[data-phone] .pl-left { left: 12px; bottom: 28px; width: 82px; height: 92px; }
-  .pl[data-phone] .pl-right { left: 102px; bottom: 28px; width: 82px; height: 92px; }
+  /* the steering pair as tall as the brake (asked 2026-10-23), so the mini player above them has room */
+  .pl[data-phone] .pl-left { left: 12px; bottom: 28px; width: 82px; height: 80px; }
+  .pl[data-phone] .pl-right { left: 102px; bottom: 28px; width: 82px; height: 80px; }
   .pl[data-phone] .pl-brake { right: 12px; bottom: 28px; width: 92px; height: 80px; }
   .pl[data-phone] .pl-gas { right: 12px; bottom: 118px; width: 92px; height: 108px; }
   .pl[data-phone] .pl-hb { right: 12px; bottom: 236px; width: 92px; height: 48px; }
   /* the mini player sits above the steering thumbs, its play button by your left thumb (asked 2026-10-23: a phone
      never autoplays, so the button has to be in reach); the minimap tucks under the top block on the right */
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
-    top: auto; right: auto; left: 8px; bottom: calc(136px + env(safe-area-inset-bottom, 0px)); width: min(62vw, 320px); z-index: 6;
+    top: auto; right: auto; left: 8px; bottom: calc(124px + env(safe-area-inset-bottom, 0px)); width: min(62vw, 320px); z-index: 6;
   }
   .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; right: 6px; top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); left: auto; bottom: auto; width: 112px; height: 108px; z-index: 1; }
