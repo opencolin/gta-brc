@@ -111,12 +111,13 @@
   /* the mini player and the minimap swap places (asked 2026-10-22): the player tucks under the top block on the
      right, clear of you and the thumbs; the minimap sits small above the steering thumbs */
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
-    top: calc(var(--pl-top-h, 160px) + 6px + env(safe-area-inset-top, 0px)); right: 6px; left: auto; bottom: auto; width: min(64vw, 320px);
+    top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); right: 6px; left: auto; bottom: auto; width: min(60vw, 320px);
   }
+  .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; left: 8px; bottom: calc(136px + env(safe-area-inset-bottom, 0px)); width: 112px; height: 108px; z-index: 5; }
   /* the ride, sound and day/night buttons sit under the player, not over it (asked 2026-10-22): --pl-player-h is the player's height, 0 without one */
   .pl[data-phone] .pl-side { position: static; }
-  .pl[data-phone] .pl-tools { position: absolute; right: 0; top: calc(var(--pl-top-h, 160px) + var(--pl-player-h, 0px) + 6px); z-index: 5; }
+  .pl[data-phone] .pl-tools { position: absolute; right: 0; top: calc(max(var(--pl-pager-h, 40px) + var(--pl-player-h, 0px) + 6px, var(--pl-top-h, 160px)) + 6px); z-index: 5; }
   .pl[data-phone][data-map] .pl-mini { visibility: hidden; }
 }
 
@@ -263,3 +264,13 @@
 .pl .pl-lg-player.pl-lg-stacked { flex: none; height: 166px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; }
 .pl .pl-lg-player.pl-lg-stacked[data-now] { border-color: var(--pl-pink); }
 .pl[data-phone] .pl-lg-widen { display: none; }
+
+/* a phone on its side (asked 2026-10-22): the player under the pager too (last in the file: it beats the phone and touch rules above), between the where-and-points box and the minimap */
+@media (orientation: landscape) {
+  .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
+    top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); right: 130px; left: auto; bottom: auto; width: min(44vw, 320px);
+  }
+  /* and the buttons go under the where-and-points box on the left: the right side is the minimap and the thumbs */
+  .pl[data-phone] .pl-side { position: static; }
+  .pl[data-phone] .pl-tools { position: absolute; left: 0; right: auto; top: calc(var(--pl-top-h, 160px) + 6px); justify-content: flex-start; z-index: 5; }
+}

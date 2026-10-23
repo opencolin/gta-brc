@@ -1026,9 +1026,14 @@ export default function PlayaWin() {
   const top = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = top.current, r = root.current; if (!el || !r) return;
-    const set = () => r.style.setProperty("--pl-top-h", `${Math.round(el.getBoundingClientRect().height)}px`);
+    const pager = el.querySelector<HTMLElement>(".pl-pager");
+    const set = () => {
+      r.style.setProperty("--pl-top-h", `${Math.round(el.getBoundingClientRect().height)}px`);
+      // and the pager alone: on a phone the mini player sits right under it, beside the where-and-points box (asked 2026-10-22)
+      if (pager) r.style.setProperty("--pl-pager-h", `${Math.round(pager.getBoundingClientRect().height)}px`);
+    };
     set();
-    const ro = new ResizeObserver(set); ro.observe(el);
+    const ro = new ResizeObserver(set); ro.observe(el); if (pager) ro.observe(pager);
     return () => ro.disconnect();
   }, []);
   const root = useRef<HTMLDivElement>(null);
@@ -1051,6 +1056,7 @@ export default function PlayaWin() {
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
+  const touchUiRef = useRef(false); touchUiRef.current = touchUi; // for the camera's safe box, read inside the frame loop
   // what you ride, and the menu to change it
   const [vehicle, setVehicleState] = useState<VehicleId>(game.current.vehicle);
   const [rides, setRides] = useState(false);
@@ -1204,8 +1210,17 @@ export default function PlayaWin() {
       const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / 450); // up in the air the ground pulls away
       const k = 1 - Math.exp(-5 * dt);
       const lead = portrait ? (0.16 * h) / Math.max(0.5, cam.z) : 0;
-      cam.x += (g.car.x + g.car.vx * 0.45 + Math.sin(g.car.h) * lead - cam.x) * k;
-      cam.y += (g.car.y + g.car.vy * 0.45 - Math.cos(g.car.h) * lead - cam.y) * k;
+      // the lead (along your speed, and up the road in portrait) is held inside a safe box on the screen (asked 2026-10-22),
+      // so at speed you never slide under the HUD or the player at the top, or the thumbs at the bottom
+      let ox = (g.car.vx * 0.45 + Math.sin(g.car.h) * lead) * cam.z, oy = (g.car.vy * 0.45 - Math.cos(g.car.h) * lead) * cam.z;
+      const css = root.current ? getComputedStyle(root.current) : null;
+      const hudH = parseFloat(css?.getPropertyValue("--pl-top-h") || "0") || 0, miniH = parseFloat(css?.getPropertyValue("--pl-player-h") || "0") || 0;
+      const topSafe = Math.min(h * 0.45, hudH + (touchUiRef.current ? miniH : 0) + 24), bottomSafe = h - (touchUiRef.current ? 280 : 48), sideSafe = w * 0.14;
+      // you sit at (w/2 − ox, h/2 − oy) on the screen: keep that inside the box
+      ox = Math.max(-(w / 2 - sideSafe), Math.min(w / 2 - sideSafe, ox));
+      oy = Math.max(h / 2 - bottomSafe, Math.min(h / 2 - topSafe, oy));
+      cam.x += (g.car.x + ox / cam.z - cam.x) * k;
+      cam.y += (g.car.y + oy / cam.z - cam.y) * k;
       // zoomed in at a crawl, pulled well back at speed (to about half at the top), so you see what is coming
       // a small ride (a bike, the unicycle) gets the camera closer still, so it reads at the size an art car does
       const near = VEHICLES[g.vehicle].len < 20 ? 1.6 : 1;
