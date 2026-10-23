@@ -276,3 +276,10 @@
   .pl[data-phone] .pl-side { position: static; }
   .pl[data-phone] .pl-tools { position: absolute; left: 0; right: auto; top: calc(var(--pl-top-h, 160px) + 6px); justify-content: flex-start; z-index: 5; }
 }
+
+/* with the big map up the mini player sits bottom left on every screen (asked 2026-10-22), clear of the map's buttons on the right */
+.pl[data-map] .pl-lounge[data-mini], .pl[data-map] .pl-amb > .pl-amb-on {
+  top: auto; right: auto; left: 8px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100% - 16px)); z-index: 41;
+}
+.pl[data-map] .pl-tools { visibility: hidden; }
+.pl[data-phone][data-map] .pl-map-x { bottom: calc(18px + var(--pl-player-h, 0px) + env(safe-area-inset-bottom, 0px)); } /* above the player on a phone */
