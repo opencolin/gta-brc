@@ -194,7 +194,6 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
             </div>
             <button type="button" className="pl-lg-btn pl-lg-widen" onClick={() => setWide((w) => !w)} aria-pressed={wide} aria-label={wide ? "make the panel smaller" : "make the panel fill the screen"} title={wide ? "smaller" : "bigger"}>{wide ? "⤡" : "⤢"}</button>
             <button type="button" className="pl-lg-btn" onClick={onCollapse} aria-label="fold the panel to a bar">–</button>
-            <button type="button" className="pl-lg-btn" onClick={onClose} aria-label="close and stop the music">×</button>
           </div>
           <p className="pl-lg-blurb">{s.blurb}</p>
           {vehicle === "found" && key.startsWith("mutant:") && (
@@ -252,6 +251,8 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           <button type="button" className="pl-lg-btn" onClick={onClose} aria-label="stop the music">×</button>
         </div>
       )}
+      {/* a phone (asked 2026-10-23): a down arrow by the player folds the panel to its bar; the × in the head is gone, the bar's × stops the music */}
+      {open && <button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button>}
       {now && !(stacked && !isVideo(now.url)) && (
         <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lg-clip-player" : ""}`}>
           {isVideo(now.url) ? (
