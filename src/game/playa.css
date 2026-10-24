@@ -198,6 +198,7 @@
 .pl .pl-lounge[data-mini] { max-height: none; }
 .pl .pl-lounge[data-mini] .pl-lg-player { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
 .pl .pl-lounge[data-mini] .pl-lg-player iframe { width: 300px; height: 120px; } /* its own size behind the clip: the widget's waveform breaks at 1px */
+.pl .pl-lg-site { color: var(--pl-gold, #ffd27a); text-decoration: underline; text-underline-offset: 2px; }
 .pl .pl-lg-bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; }
 /* a phone (asked 2026-10-23): the folded panel is SoundCloud's own compact player, not the one-line bar, so its play
    button is right there (a phone never autoplays); a video keeps the bar. The HUD's ♪ line skips and stops. */

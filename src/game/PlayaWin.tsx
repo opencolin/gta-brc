@@ -442,7 +442,7 @@ function drawAirport(ctx: CanvasRenderingContext2D, t: number, night: number, pa
 function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t: number, night: number) {
   let h = 0; for (const ch of sp.key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
-  const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.kind === "art" ? 12 : 20;
+  const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.camp?.piece ? 8 : sp.kind === "art" ? 12 : 20; // a few people looking at a piece
   for (let i = 0; i < n; i++) {
     const a = dir + (rnd() - 0.5) * 3.2, d = st.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360), ph = rnd() * Math.PI * 2, rate = 5 + rnd() * 3;
     const dancing = rnd() < 0.72, bob = dancing ? Math.sin(t * rate + ph) : 0, up = dancing && Math.sin(t * rate * 0.5 + ph) > 0.3;
@@ -726,7 +726,7 @@ function drawCity(ctx: CanvasRenderingContext2D, w: number, h: number, labels: b
   }
   // the sound camps: gold dots (the fence stage too)
   ctx.fillStyle = C.gold; ctx.strokeStyle = C.navy; ctx.lineWidth = 40;
-  for (const sp of SPOTS) if (sp.kind !== "agave") { ctx.beginPath(); ctx.arc(sp.stage.x, sp.stage.y, labels ? 110 : 170, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  for (const sp of SPOTS) if (sp.kind !== "agave" && !sp.camp?.piece) { ctx.beginPath(); ctx.arc(sp.stage.x, sp.stage.y, labels ? 110 : 170, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); } // the pieces have their diamonds
   ctx.fillStyle = C.pink; ctx.strokeStyle = C.white; ctx.lineWidth = 80; ctx.beginPath(); ctx.arc(AGAVE.dome.x, AGAVE.dome.y, labels ? 300 : 460, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   // the major art on the open playa: a diamond each in its own colour, named on the full map
   ctx.strokeStyle = C.navy; ctx.lineWidth = 30;
@@ -887,7 +887,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   // the sound camps: their bays, then their stages
   const spots = SPOTS.filter((sp) => seen(sp.mid.x, sp.mid.y, 260));
   for (const sp of spots) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
-  for (const sp of spots) if (sp.kind !== "agave") drawStage(ctx, sp, t, night);
+  for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) drawStage(ctx, sp, t, night); // a piece is its own stage (drawArt)
   for (const sp of spots) drawCrowd(ctx, sp, t, night);
   // the next ride, parked at the side of Agave's bay: stop in the bay to hop on
   if (spots.some((sp) => sp.kind === "agave")) {
@@ -930,7 +930,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   ctx.fillStyle = C.navy;
   for (const a of ART) if (seen(a.x, a.y, a.r + 40)) ctx.fillText(a.name, a.x, a.y + a.r + 16 / z);
   if (seen(AGAVE.dome.x, AGAVE.dome.y, 140)) { ctx.fillStyle = "#b83a66"; ctx.fillText("Agave Lounge", AGAVE.dome.x, AGAVE.dome.y - AGAVE.dome.r - 14 / z); }
-  for (const sp of spots) if (sp.kind !== "agave") {
+  for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) { // a piece is named with the art above
     const label = sp.name, tw = ctx.measureText(label).width + 10 / z;
     const ly = sp.stage.y - sp.stage.r - 14 / z;
     ctx.fillStyle = "rgba(27, 31, 59, .85)"; ctx.fillRect(sp.stage.x - tw / 2, ly - 9 / z, tw, 18 / z);

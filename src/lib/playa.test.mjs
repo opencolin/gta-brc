@@ -608,3 +608,19 @@ test("the one-thumb stick (asked 2026-10-23): point it and the bike turns and go
   const dead = run(newCar({ x: 0, y: 0 }, 0), { ...NO_INPUT, stick: { a: 1, k: 0.05 } }, 2);
   assert.equal(speedOf(dead), 0, "the dead zone does nothing");
 });
+
+test("parked at one art car, stopping beside another within 300 ft parks you there (2026-10-24): ride does not put you back on the first", () => {
+  const g = newGame(1, "bike", "mutant:dragon-lady"), dl = mutantOf("mutant:dragon-lady"), rh = mutantOf("mutant:robot-heart");
+  const p = npcAt(dl, 0); g.car.x = p.x; g.car.y = p.y; g.car.h = p.h; setVehicle(g, "found"); setDriven("mutant:dragon-lady");
+  const step = (secs, input) => { for (let i = 0; i < secs * 60; i++) stepGame(g, input, 1 / 60); };
+  step(2, NO_INPUT); leaveDriven(g); step(1, NO_INPUT);
+  assert.equal(g.parking.at, "mutant:dragon-lady", "beside the yacht you left");
+  // Robot Heart happens to stand 120 ft away: stop beside it
+  const q = npcAt(rh, g.t); const dlAt = npcAt(dl, g.t); g.car.x = dlAt.x + 120; g.car.y = dlAt.y; g.car.vx = 0; g.car.vy = 0;
+  // put Robot Heart there for the test by parking it beside you
+  setDriven("mutant:robot-heart"); g.vehicle = "found"; g.car.x = dlAt.x + 160; g.car.y = dlAt.y; leaveDriven(g); g.car.x = dlAt.x + 130; g.car.y = dlAt.y; g.car.vx = 0; g.car.vy = 0;
+  step(2, NO_INPUT);
+  assert.equal(g.parking.at, "mutant:robot-heart", `parked at the nearer car now: ${g.parking.at}`);
+  assert.ok(hopOn(g) && g.aboard === "mutant:robot-heart", "ride means Robot Heart");
+  void q;
+});

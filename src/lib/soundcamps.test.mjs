@@ -34,6 +34,11 @@ test("camps have addresses that parse on the grid; art cars and the fence stage 
 
 test("every link is https://soundcloud.com/… or a YouTube video, and each camp has something to play", () => {
   for (const c of SOUND_CAMPS) {
+    if (c.piece) { // a big art piece: no link of its own, its videos in artmedia.ts (every one a YouTube video)
+      assert.equal(c.soundcloud, "", `${c.name} is a piece`);
+      for (const t of campTracks(c)) assert.match(t.url, /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${t.url}`);
+      continue;
+    }
     assert.match(c.soundcloud, /^https:\/\/soundcloud\.com\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+){0,2}$|^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${c.soundcloud}`);
     for (const u of (c.sets ?? []).map((s) => s.url)) assert.match(u, /^https:\/\/soundcloud\.com\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+){0,2}$|^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${u}`);
     assert.ok(campTracks(c).length >= 1);

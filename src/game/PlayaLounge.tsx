@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type R
 import { SETS } from "@/lib/agave";
 import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, mediaProgress, playerSrc, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
 import { loadListened, saveListened, noteProgress, noteDone, resumeAt, nextUnheard } from "@/lib/listened";
-import { campTracks, soundCamp } from "@/lib/soundcamps";
+import { campTracks, siteOf, soundCamp } from "@/lib/soundcamps";
 import { VEHICLES, VEHICLE_IDS, type VehicleId } from "@/lib/playa";
 import { gate, type Voice } from "@/lib/playaSound";
 
@@ -24,13 +24,15 @@ export type Track = { url: string; title: string; clip?: boolean };
 export type Now = { key: string; url: string; title: string; auto: boolean; playing: boolean };
 
 /** The name, line and sets for a place key: "agave", "camp:<id>", "mutant:<id>". */
-export function soundOf(key: string): { name: string; blurb: string; tracks: Track[] } {
+export function soundOf(key: string): { name: string; blurb: string; tracks: Track[]; site?: string } {
   if (key === "agave") {
     return { name: "Agave Lounge", blurb: "the camp's own DJ sets, recorded in the dome", tracks: SETS.map((s) => ({ url: s.url, title: `${s.artist}: ${s.title}` })) };
   }
   const c = soundCamp(key.slice(key.indexOf(":") + 1));
   if (!c) return { name: key, blurb: "", tracks: [] };
-  return { name: c.name, blurb: c.blurb, tracks: campTracks(c) };
+  // a big art piece (2026-10-24): the artist and year with its line, and its page
+  const blurb = c.piece ? `${c.blurb} · ${c.piece.artist}${c.piece.year ? `, ${c.piece.year}` : ""}` : c.blurb;
+  return { name: c.name, blurb, tracks: campTracks(c), site: siteOf(c) };
 }
 /** What a place plays from afar: its first set. */
 /** A place's sets with real sound: its clips (VIDEO_CLIPS) are shown, never played in passing. */
@@ -195,7 +197,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
             <button type="button" className="pl-lg-btn pl-lg-widen" onClick={() => setWide((w) => !w)} aria-pressed={wide} aria-label={wide ? "make the panel smaller" : "make the panel fill the screen"} title={wide ? "smaller" : "bigger"}>{wide ? "⤡" : "⤢"}</button>
             <button type="button" className="pl-lg-btn" onClick={onCollapse} aria-label="fold the panel to a bar">–</button>
           </div>
-          <p className="pl-lg-blurb">{s.blurb}</p>
+          <p className="pl-lg-blurb">{s.blurb}{s.site && <> · <a className="pl-lg-site" href={s.site} target="_blank" rel="noopener noreferrer">the artist's page ↗</a></>}</p>
           {vehicle === "found" && key.startsWith("mutant:") && (
             <div className="pl-lg-hop">
               <button type="button" className="pl-lg-btn pl-lg-ride" onClick={onRideAlong}>hop off</button>

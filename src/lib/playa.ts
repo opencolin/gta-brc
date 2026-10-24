@@ -19,7 +19,7 @@ import {
   clockToAngle, fenceDepth, parseClock, pointAt, polar, surfaceAt, toPolar, type ArcName, type Vec,
 } from "./brc.ts";
 import { planAt, planCity, structPush, type BlockPlan } from "./camps.ts";
-import { SOUND_CAMPS, type SoundCamp } from "./soundcamps.ts";
+import { SOUND_CAMPS, campTracks, type SoundCamp } from "./soundcamps.ts";
 
 /** Where Agave Lounge camps: the Esplanade at 8:30, its dome facing the open playa. */
 export const AGAVE_ADDRESS = "8:30 & Esplanade";
@@ -177,7 +177,8 @@ export function carPoints(c: Car, v: Vehicle = CAR): Vec[] {
 export type Circle = { x: number; y: number; r: number; name: string };
 
 /**
- * The big art on the open playa (asked 2026-10-23): real pieces, each drawn in detail in game/artpieces.ts.
+ * The big art on the open playa (asked 2026-10-23): real pieces, each drawn in detail in game/artpieces.ts and listed
+ * in soundcamps.ts (kind "art" with `piece`), so each is a place with a bay and a panel of its videos (2026-10-24).
  * `clock` and `ft` are the piece's published placement from Burning Man's art data as mirrored by iBurn
  * (github.com/iBurnApp/iBurn-Data and Burning-Man-Earth/iBurn-Data, data/<year>/APIData/art.json) for the
  * year given, nudged by up to 100 ft where an art-car loop runs through it; the classics from before 2023
@@ -185,33 +186,10 @@ export type Circle = { x: number; y: number; r: number; name: string };
  * `r` is the footprint the car bounces off; `hue` colours its diamond on the maps and its glow at night.
  */
 export type ArtPiece = Circle & { id: string; hue: number; artist: string; year: number; clock: string; ft: number; blurb: string };
-const piece = (id: string, name: string, artist: string, year: number, clock: string, ft: number, r: number, hue: number, blurb: string): ArtPiece =>
-  ({ id, name, artist, year, clock, ft, r, hue, blurb, ...polar(parseClock(clock)!, ft * CITY_SCALE) });
-export const ART: readonly ArtPiece[] = [
-  piece("real-love", "REAL LOVE", "Alexander Milov", 2026, "11:55", 900, 50, 200, "two wire adults sit back to back, the children inside them reaching for each other"),
-  piece("muxalove", "#MUXALOVE", "Misha Libertee", 2026, "2:09", 2200, 60, 110, "an 82-foot venus flytrap, its jaws opening and closing"),
-  piece("fire-horse", "Fire Horse", "Victor Spinelli", 2026, "2:55", 1900, 45, 30, "a rearing steampunk horse of brass gears, its mane on fire at night"),
-  piece("penny-the-goose", "Penny the Goose", "Mr & Mrs Ferguson", 2026, "5:55", 1720, 45, 25, "a giant copper goose, wings half spread"),
-  piece("elemental-dragon", "Elemental Dragon", "Arterra Techtonics", 2026, "6:30", 2100, 60, 0, "a steel-plated dragon winding across the playa, breathing fire"),
-  piece("black-rock-observatory", "Black Rock Observatory", "Black Rock Observatory", 2026, "3:00", 4815, 55, 220, "two white domes and a telescope out past the city"),
-  piece("elder-mother", "Elder Mother", "Charles A. Gadeken", 2023, "2:06", 1235, 55, 280, "a fifty-foot steel tree with thousands of LEDs in its canopy"),
-  piece("mariposa", "Mariposa", "Christopher Schardt", 2023, "7:00", 1100, 45, 300, "a 26-foot aluminium butterfly hovering overhead, wings slowly flapping"),
-  piece("chapel-of-babel", "Chapel of Babel", "Michael Garlington", 2023, "1:00", 2200, 50, 40, "a tiered wooden chapel tower collaged with photographs"),
-  piece("bliss-dance", "Bliss Dance", "Marco Cochrane", 2010, "10:00", 1500, 50, 320, "a forty-foot mesh woman dancing on one foot, lit from within"),
-  piece("truth-is-beauty", "Truth is Beauty", "Marco Cochrane", 2013, "9:00", 2200, 50, 330, "a 55-foot mesh woman stretching up on tiptoe"),
-  piece("r-evolution", "R-Evolution", "Marco Cochrane", 2015, "3:00", 2150, 45, 340, "a 48-foot mesh woman standing square and breathing"),
-  piece("embrace", "Embrace", "The Pier Group", 2014, "12:20", 1500, 70, 15, "two 72-foot wooden figures leaning into a hug, hearts glowing inside"),
-  piece("the-orb", "The Orb", "Bjarke Ingels & Jakob Lange", 2018, "1:00", 1500, 65, 210, "a hundred-foot mirrored sphere on a tilted mast"),
-  piece("big-rig-jig", "Big Rig Jig", "Mike Ross", 2007, "9:30", 1150, 50, 190, "two tanker trucks bent nose to tail into an arch"),
-  piece("space-whale", "Space Whale", "The Pier Group", 2016, "10:30", 2200, 60, 195, "a stained-glass humpback and her calf breaching fifty feet up"),
-  piece("tara-mechani", "Tara Mechani", "Dana Albany", 2017, "5:30", 2200, 45, 45, "a seated goddess of salvaged gears and bronze on a lotus"),
-  piece("medusa-madness", "Medusa Madness", "Kevin Clark", 2015, "3:30", 1400, 50, 90, "a 36-foot medusa head, steel snakes for hair breathing fire"),
-  piece("tree-of-tenere", "Tree of Ténéré", "Patrick Deegan, Zachary Smith & crew", 2017, "7:15", 2100, 55, 120, "a lifelike tree with 25,000 LED leaves washing colour at night"),
-  piece("lodestar", "Lodestar", "Randy Polumbo", 2019, "11:30", 4300, 55, 150, "a lockheed jetstar stood on its tail, a glass garden in its belly"),
-  piece("head-maze", "Head Maze", "Matt Schultz", 2019, "12:30", 3600, 55, 35, "a giant wooden head you walk into, a maze inside"),
-  piece("shrumen-lumen", "Shrumen Lumen", "FoldHaus", 2016, "4:00", 2150, 55, 170, "five giant origami mushrooms folding open and closed"),
-  piece("ursa-mater", "Ursa Mater", "Mr & Mrs Ferguson", 2017, "8:30", 1450, 50, 20, "a mother bear and her cub clad in 200,000 pennies"),
-];
+export const ART: readonly ArtPiece[] = SOUND_CAMPS.filter((c) => c.piece && c.playa).map((c) => ({
+  id: c.id, name: c.name, artist: c.piece!.artist, year: c.piece!.year, clock: c.playa!.clock, ft: c.playa!.ft, r: c.piece!.r, hue: c.piece!.hue, blurb: c.blurb,
+  ...polar(parseClock(c.playa!.clock)!, c.playa!.ft * CITY_SCALE),
+}));
 
 /* ── the sound camps: a stage at the address, a parking bay cut into the block in front ── */
 
@@ -301,8 +279,15 @@ function openSpot(c: SoundCamp, min: number, r: number, kind: "fence" | "art"): 
   const mid = polar(min, (bay.r0 + bay.r1) / 2);
   return { key: `camp:${c.id}`, name: c.name, kind, min, arc: null, stage: { ...polar(min, r), r: 52, name: c.name }, bay, curb: mid, curbMin: min, mid, hue: kind === "art" ? hueOf(c.id) : 300, camp: c };
 }
-/** An art place's spot (soundcamps.ts `playa`): real feet scaled to the game's city. */
-function artSpot(c: SoundCamp): Spot { return openSpot(c, parseClock(c.playa!.clock) ?? 0, c.playa!.ft * CITY_SCALE, "art"); }
+/** An art place's spot (soundcamps.ts `playa`): real feet scaled to the game's city. A big piece (`piece`) is its own
+ * stage, as wide as its footprint, with the bay in front of it on the Man's side. */
+function artSpot(c: SoundCamp): Spot {
+  const s = openSpot(c, parseClock(c.playa!.clock) ?? 0, c.playa!.ft * CITY_SCALE, "art");
+  if (!c.piece) return s;
+  const r = c.playa!.ft * CITY_SCALE, bay: Bay = { min: s.min, r0: r - c.piece.r - 170, r1: r - c.piece.r - 20, half: Math.max(60, c.piece.r) };
+  const mid = polar(s.min, (bay.r0 + bay.r1) / 2);
+  return { ...s, stage: { ...s.stage, r: c.piece.r }, bay, curb: mid, mid, hue: c.piece.hue };
+}
 
 /** Whether a spot sits wholly in its block: the stage's rim and the bay on block ground, the curb on a street. */
 function spotFits(s: ReturnType<typeof spotAt>): boolean {
@@ -331,6 +316,7 @@ export const SPOTS: readonly Spot[] = (() => {
   const out: Spot[] = [{ key: "agave", name: "Agave Lounge", kind: "agave", ...AGAVE, stage: { ...AGAVE.dome, name: "Agave Lounge" }, hue: 330 }];
   for (const c of SOUND_CAMPS) {
     if (c.kind === "mutant") continue;
+    if (c.piece && !campTracks(c).length) continue; // a piece with no videos yet is drawn, not a place to stop at
     out.push(c.kind === "art" ? artSpot(c) : c.kind === "fence" || !c.address ? fenceSpot(c) : placeCamp(c, out));
   }
   return out;
@@ -343,7 +329,7 @@ export const OBSTACLES: readonly Circle[] = [
   { ...TEMPLE, r: TEMPLE_R, name: "the Temple" },
   { ...CENTER_CAMP, r: CAFE_R, name: "Center Camp café" },
   ...ART,
-  ...SPOTS.map((s) => s.stage),
+  ...SPOTS.filter((s) => !s.camp?.piece).map((s) => s.stage), // a piece's stage is the piece, already listed
   AGAVE.moon,
 ];
 
@@ -792,8 +778,10 @@ export const newParking = (): Parking => ({ at: null, cand: null, still: 0 });
 /** The spot or art car a point is parked at, if any: inside a bay, or close beside an art car. */
 export function parkingAt(p: Vec, t: number): string | null {
   for (const s of SPOTS) if (inBay(p, s.bay)) return s.key;
-  for (const m of MUTANTS) { const q = npcAt(m, t); if (dist(p, q) < MUTANT_PARK_R) return m.key!; }
-  return null;
+  // the nearest art car in reach, not the first in the list (two can stand close)
+  let best: string | null = null, bd = MUTANT_PARK_R;
+  for (const m of MUTANTS) { const d = dist(p, npcAt(m, t)); if (d < bd) { bd = d; best = m.key!; } }
+  return best;
 }
 
 /** One step of parking: "park" once stopped in a bay for a second, "leave" on driving off. */
@@ -802,7 +790,18 @@ export function stepParking(pk: Parking, car: { x: number; y: number; speed: num
     const stay = pk.at.startsWith("mutant:")
       ? dist(car, npcAt(mutantOf(pk.at)!, t)) < MUTANT_LEAVE_R
       : inBay(car, spotOf(pk.at)!.bay, 12);
-    if (stay) return null;
+    if (stay) {
+      // still within reach of the art car you parked at, but stopped beside another one (or in a bay): after a
+      // second that one is where you are parked (2026-10-24: hopping off one car and stopping at the next kept
+      // the first, so "ride" put you back on it)
+      const next = car.speed < PARK_SPEED ? parkingAt(car, t) : null;
+      if (!next || next === pk.at) { pk.cand = null; pk.still = 0; return null; }
+      if (next !== pk.cand) { pk.cand = next; pk.still = 0; }
+      pk.still += dt;
+      if (pk.still < PARK_STILL) return null;
+      pk.at = next; pk.cand = null; pk.still = 0;
+      return "park";
+    }
     pk.at = null; pk.cand = null; pk.still = 0;
     return "leave";
   }
@@ -917,8 +916,9 @@ function startPose(key: string | null): { at: Vec; h: number } {
   if (key.startsWith("mutant:")) { const p = npcAt(mutantOf(key)!, 0), r = right(p.h); return { at: { x: p.x + r.x * 30, y: p.y + r.y * 30 }, h: p.h }; }
   // a camp: parked in its bay, so its music is playing from the start (the panel opens as you stop there)
   if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.mid, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.mid.y, sp.stage.x - sp.mid.x) + Math.PI / 2 }; }
-  if (key.startsWith("art:")) { // far enough back on the Man's side that the whole piece is on the screen ahead
-    const a = ART.find((x) => x.name === key.slice(4))!, d = Math.hypot(a.x, a.y) || 1, k = (d - a.r - 170) / d, at = { x: a.x * k, y: a.y * k };
+  if (key.startsWith("art:")) { // in the piece's bay if it has one (its panel opens as you stop), else far enough back that the whole piece is on screen ahead
+    const a = ART.find((x) => x.name === key.slice(4))!, sp = spotOf(`camp:${a.id}`);
+    const d = Math.hypot(a.x, a.y) || 1, k = (d - a.r - 170) / d, at = sp ? sp.mid : { x: a.x * k, y: a.y * k };
     return { at, h: Math.atan2(a.y - at.y, a.x - at.x) + Math.PI / 2 };
   }
   const to = key === "man" ? { x: 0, y: 0 } : key === "temple" ? TEMPLE : CENTER_CAMP, at = place(key).at;

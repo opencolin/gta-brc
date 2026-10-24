@@ -16,6 +16,8 @@
  * land on another's further along its street. No imports, no DOM.
  */
 
+import { ART_MEDIA, ART_CLIP_IDS } from "./artmedia.ts";
+
 export type SoundCamp = {
   /** a stable key: "camp:<id>" / "mutant:<id>" in playa.ts */
   id: string;
@@ -37,6 +39,11 @@ export type SoundCamp = {
   playa?: { clock: string; ft: number };
   /** feet along the street from the default spot, to keep two camps on one corner apart */
   nudge?: number;
+  /** a big art piece (asked 2026-10-23): drawn by game/artpieces.ts, `r` its footprint in game feet, `hue` its colour on
+   * the maps; its videos come from artmedia.ts, so `soundcloud` is "" here */
+  piece?: { r: number; hue: number; artist: string; year: number };
+  /** the artist's or project's own page, shown in the panel */
+  site?: string;
 };
 
 export const SOUND_CAMPS: readonly SoundCamp[] = [
@@ -482,9 +489,58 @@ export const SOUND_CAMPS: readonly SoundCamp[] = [
   // YouTube: title: bagpipes at the burning man 2010 double rainbow
   { id: "bagpipes-on-the-playa", name: "Bagpipes on the playa", kind: "art", playa: { clock: "9:27", ft: 2050 }, blurb: "a lone piper under a double rainbow", soundcloud: "https://www.youtube.com/watch?v=DgNsd_hCwv8", sets: [{ url: "https://www.youtube.com/watch?v=DgNsd_hCwv8", title: "Bagpipes at the Burning Man 2010 Double Rainbow" }] },
   // ── END found-2026-10-22
+  // ── the big art on the open playa (asked 2026-10-23, content 2026-10-24): real pieces, drawn in detail; a parking bay in front, their videos in the panel
+  // Address: iBurn art.json 2026. Videos: artmedia.ts (found 2026-10-24).
+  { id: "real-love", name: "REAL LOVE", kind: "art", playa: { clock: "11:55", ft: 900 }, piece: { r: 50, hue: 200, artist: "Alexander Milov", year: 2026 }, blurb: "two wire adults sit back to back, the children inside them reaching for each other", soundcloud: "" },
+  // Address: iBurn art.json 2026. Videos: artmedia.ts (found 2026-10-24).
+  { id: "muxalove", name: "#MUXALOVE", kind: "art", playa: { clock: "2:09", ft: 2200 }, piece: { r: 60, hue: 110, artist: "Misha Libertee", year: 2026 }, blurb: "an 82-foot venus flytrap, its jaws opening and closing", soundcloud: "" },
+  // Address: iBurn art.json 2026. Videos: artmedia.ts (found 2026-10-24).
+  { id: "fire-horse", name: "Fire Horse", kind: "art", playa: { clock: "2:55", ft: 1900 }, piece: { r: 45, hue: 30, artist: "Victor Spinelli", year: 2026 }, blurb: "a rearing steampunk horse of brass gears, its mane on fire at night", soundcloud: "" },
+  // Address: iBurn art.json 2026. Videos: artmedia.ts (found 2026-10-24).
+  { id: "penny-the-goose", name: "Penny the Goose", kind: "art", playa: { clock: "5:55", ft: 1720 }, piece: { r: 45, hue: 25, artist: "Mr & Mrs Ferguson", year: 2026 }, blurb: "a giant copper goose, wings half spread", soundcloud: "" },
+  // Address: iBurn art.json 2026. Videos: artmedia.ts (found 2026-10-24).
+  { id: "elemental-dragon", name: "Elemental Dragon", kind: "art", playa: { clock: "6:30", ft: 2100 }, piece: { r: 60, hue: 0, artist: "Arterra Techtonics", year: 2026 }, blurb: "a steel-plated dragon winding across the playa, breathing fire", soundcloud: "" },
+  // Address: iBurn art.json 2026 lists 3:00 & 4815', which in the game's city is the 3:00 street between the blocks; it stands on the open playa inside the Esplanade instead. Videos: artmedia.ts (found 2026-10-24).
+  { id: "black-rock-observatory", name: "Black Rock Observatory", kind: "art", playa: { clock: "2:45", ft: 2150 }, piece: { r: 55, hue: 220, artist: "Black Rock Observatory", year: 2026 }, blurb: "two white domes and a telescope out past the city", soundcloud: "" },
+  // Address: iBurn art.json 2023. Videos: artmedia.ts (found 2026-10-24).
+  { id: "elder-mother", name: "Elder Mother", kind: "art", playa: { clock: "2:06", ft: 1235 }, piece: { r: 55, hue: 280, artist: "Charles A. Gadeken", year: 2023 }, blurb: "a fifty-foot steel tree with thousands of LEDs in its canopy", soundcloud: "" },
+  // Address: iBurn art.json 2023. Videos: artmedia.ts (found 2026-10-24).
+  { id: "mariposa", name: "Mariposa", kind: "art", playa: { clock: "7:00", ft: 1100 }, piece: { r: 45, hue: 300, artist: "Christopher Schardt", year: 2023 }, blurb: "a 26-foot aluminium butterfly hovering overhead, wings slowly flapping", soundcloud: "" },
+  // Address: iBurn art.json 2023. Videos: artmedia.ts (found 2026-10-24).
+  { id: "chapel-of-babel", name: "Chapel of Babel", kind: "art", playa: { clock: "1:00", ft: 2200 }, piece: { r: 50, hue: 40, artist: "Michael Garlington", year: 2023 }, blurb: "a tiered wooden chapel tower collaged with photographs", soundcloud: "" },
+  // Address: iBurn art.json 2010. Videos: artmedia.ts (found 2026-10-24).
+  { id: "bliss-dance", name: "Bliss Dance", kind: "art", playa: { clock: "10:00", ft: 1500 }, piece: { r: 50, hue: 320, artist: "Marco Cochrane", year: 2010 }, blurb: "a forty-foot mesh woman dancing on one foot, lit from within", soundcloud: "" },
+  // Address: iBurn art.json 2013. Videos: artmedia.ts (found 2026-10-24).
+  { id: "truth-is-beauty", name: "Truth is Beauty", kind: "art", playa: { clock: "9:00", ft: 2200 }, piece: { r: 50, hue: 330, artist: "Marco Cochrane", year: 2013 }, blurb: "a 55-foot mesh woman stretching up on tiptoe", soundcloud: "" },
+  // Address: iBurn art.json 2015. Videos: artmedia.ts (found 2026-10-24).
+  { id: "r-evolution", name: "R-Evolution", kind: "art", playa: { clock: "3:00", ft: 2150 }, piece: { r: 45, hue: 340, artist: "Marco Cochrane", year: 2015 }, blurb: "a 48-foot mesh woman standing square and breathing", soundcloud: "" },
+  // Address: iBurn art.json 2014. Videos: artmedia.ts (found 2026-10-24).
+  { id: "embrace", name: "Embrace", kind: "art", playa: { clock: "12:20", ft: 1500 }, piece: { r: 70, hue: 15, artist: "The Pier Group", year: 2014 }, blurb: "two 72-foot wooden figures leaning into a hug, hearts glowing inside", soundcloud: "" },
+  // Address: iBurn art.json 2018. Videos: artmedia.ts (found 2026-10-24).
+  { id: "the-orb", name: "The Orb", kind: "art", playa: { clock: "1:00", ft: 1500 }, piece: { r: 65, hue: 210, artist: "Bjarke Ingels & Jakob Lange", year: 2018 }, blurb: "a hundred-foot mirrored sphere on a tilted mast", soundcloud: "" },
+  // Address: iBurn art.json 2007. Videos: artmedia.ts (found 2026-10-24).
+  { id: "big-rig-jig", name: "Big Rig Jig", kind: "art", playa: { clock: "9:30", ft: 1150 }, piece: { r: 50, hue: 190, artist: "Mike Ross", year: 2007 }, blurb: "two tanker trucks bent nose to tail into an arch", soundcloud: "" },
+  // Address: iBurn art.json 2016. Videos: artmedia.ts (found 2026-10-24).
+  { id: "space-whale", name: "Space Whale", kind: "art", playa: { clock: "10:30", ft: 2200 }, piece: { r: 60, hue: 195, artist: "The Pier Group", year: 2016 }, blurb: "a stained-glass humpback and her calf breaching fifty feet up", soundcloud: "" },
+  // Address: iBurn art.json 2017. Videos: artmedia.ts (found 2026-10-24).
+  { id: "tara-mechani", name: "Tara Mechani", kind: "art", playa: { clock: "5:30", ft: 2200 }, piece: { r: 45, hue: 45, artist: "Dana Albany", year: 2017 }, blurb: "a seated goddess of salvaged gears and bronze on a lotus", soundcloud: "" },
+  // Address: iBurn art.json 2015. Videos: artmedia.ts (found 2026-10-24).
+  { id: "medusa-madness", name: "Medusa Madness", kind: "art", playa: { clock: "3:30", ft: 1400 }, piece: { r: 50, hue: 90, artist: "Kevin Clark", year: 2015 }, blurb: "a 36-foot medusa head, steel snakes for hair breathing fire", soundcloud: "" },
+  // Address: iBurn art.json 2017. Videos: artmedia.ts (found 2026-10-24).
+  { id: "tree-of-tenere", name: "Tree of Ténéré", kind: "art", playa: { clock: "7:15", ft: 2100 }, piece: { r: 55, hue: 120, artist: "Patrick Deegan, Zachary Smith & crew", year: 2017 }, blurb: "a lifelike tree with 25,000 LED leaves washing colour at night", soundcloud: "" },
+  // Address: iBurn art.json 2019. Videos: artmedia.ts (found 2026-10-24).
+  { id: "lodestar", name: "Lodestar", kind: "art", playa: { clock: "11:30", ft: 4300 }, piece: { r: 55, hue: 150, artist: "Randy Polumbo", year: 2018 }, blurb: "a lockheed jetstar stood on its tail, a glass garden in its belly", soundcloud: "" },
+  // Address: iBurn art.json 2019. Videos: artmedia.ts (found 2026-10-24).
+  { id: "head-maze", name: "Head Maze", kind: "art", playa: { clock: "12:30", ft: 3600 }, piece: { r: 55, hue: 35, artist: "Matt Schultz", year: 2019 }, blurb: "a giant wooden head you walk into, a maze inside", soundcloud: "" },
+  // Address: iBurn art.json 2016. Videos: artmedia.ts (found 2026-10-24).
+  { id: "shrumen-lumen", name: "Shrumen Lumen", kind: "art", playa: { clock: "4:00", ft: 2150 }, piece: { r: 55, hue: 170, artist: "FoldHaus", year: 2016 }, blurb: "five giant origami mushrooms folding open and closed", soundcloud: "" },
+  // Address: iBurn art.json 2017. Videos: artmedia.ts (found 2026-10-24).
+  { id: "ursa-mater", name: "Ursa Mater", kind: "art", playa: { clock: "8:30", ft: 1450 }, piece: { r: 50, hue: 20, artist: "Mr & Mrs Ferguson", year: 2017 }, blurb: "a mother bear and her cub clad in 200,000 pennies", soundcloud: "" },
 ];
 
 export const soundCamp = (id: string) => SOUND_CAMPS.find((c) => c.id === id);
+/** The place's own page, if any: a piece's from its media file. */
+export const siteOf = (c: SoundCamp) => c.site ?? (c.piece ? ART_MEDIA[c.id]?.link ?? undefined : undefined);
 /** Everything the parked panel can play for a camp: its sets, or its one link. */
 // ── BEGIN clips-2026-10-22
 /** Videos that are clips rather than sets (asked 2026-10-22): under 20 minutes (10 from an official channel), most of
@@ -556,7 +612,7 @@ export const VIDEOS: Record<string, { url: string; title: string }[]> = {
 };
 // ── END videos-2026-10-22
 /** Whether a link is a video clip (VIDEO_CLIPS) rather than a set. */
-export const isClip = (url: string) => VIDEO_CLIPS.has(/[?&]v=([\w-]{11})/.exec(url)?.[1] ?? "");
+export const isClip = (url: string) => { const id = /[?&]v=([\w-]{11})/.exec(url)?.[1] ?? ""; return VIDEO_CLIPS.has(id) || ART_CLIP_IDS.has(id); };
 // ── BEGIN more-sets-2026-10-22
 /** Full sets found later for places that had one or two (research agents, 2026-10-22; every link answered oEmbed). campTracks folds them in. */
 export const MORE_SETS: Record<string, { url: string; title: string }[]> = {
@@ -685,6 +741,7 @@ export const MORE_SETS: Record<string, { url: string; title: string }[]> = {
 /** A set to lead a place's list regardless of kind. Empty since 2026-10-22: Robot Heart's SoundCloud comes first, Lee Burridge's video with the rest (asked). */
 export const PINNED_FIRST: Record<string, string> = {};
 export const campTracks = (c: SoundCamp): { url: string; title: string; clip?: boolean }[] => {
+  if (c.piece) return (ART_MEDIA[c.id]?.videos ?? []).map((v) => ({ ...v, clip: true }));
   const own = c.sets ?? [{ url: c.soundcloud, title: `${c.name} on SoundCloud` }];
   const extra = (MORE_SETS[c.id] ?? []).filter((v) => !own.some((o) => o.url === v.url));
   const all = [...own, ...extra, ...(VIDEOS[c.id] ?? []).filter((v) => !own.some((o) => o.url === v.url) && !extra.some((o) => o.url === v.url))];
