@@ -19,7 +19,7 @@ import {
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
-import { TAKEOVER, loudness, nearest, newSticky, stepMix, stepSticky, stopSticky, type Source, type Voice } from "@/lib/playaSound";
+import { TAKEOVER, loudness, nearest, newSticky, pendingSticky, stepMix, stepSticky, stopSticky, type Source, type Voice } from "@/lib/playaSound";
 
 /**
  * GTA:BRC — Agave Lounge's art car, driven top-down round Black Rock City the way the first
@@ -1090,7 +1090,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
-type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; alt: number; chute: boolean; pad: boolean };
+type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; alt: number; chute: boolean; pad: boolean };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -1150,7 +1150,7 @@ export default function PlayaWin() {
   useEffect(() => { game.current.ghost = map; }, [map]);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
-  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", alt: 0, chute: false, pad: false });
+  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, alt: 0, chute: false, pad: false });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
@@ -1175,6 +1175,7 @@ export default function PlayaWin() {
   // at the wheel of the Dragon Lady, where it was; one with no drawing of its own starts you on the bike beside it
   useEffect(() => {
     const key = startKey(typeof location === "undefined" ? "" : location.pathname.slice(1));
+    if (key === "airport") { takeOff(); return; } // burningman.chat/airport: at the controls on the pad (asked 2026-10-24)
     if (!key?.startsWith("mutant:")) return;
     const id = key.slice("mutant:".length), m = mutantOf(key);
     if (!m || !ART_CARS[id]) return;
@@ -1354,12 +1355,14 @@ export default function PlayaWin() {
         const near = nearest(g.car, soundSources(g.t));
         // riding up to a different camp or art car takes over from a set picked in the panel, as it
         // would from another camp: the picked set stops and the new one comes up (asked 2026-10-22)
-        const picked = nowRef.current;
-        if (picked?.playing && near && near.key !== picked.key && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
+        const picked = nowRef.current, dtm = Math.min(0.5, (now - (hudAt || now)) / 1000 || 0.1);
+        // a new place waits three seconds in earshot before it plays (asked 2026-10-24), unless you are parked at it or right beside it
+        const want = stepSticky(sticky.current, near, false, dtm, !!near && g.parking.at === near.key);
+        if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
         const quiet = phaseRef.current !== "play" || !soundRef.current || !!nowRef.current?.playing;
-        const target = stepSticky(sticky.current, near, quiet);
+        const target = quiet ? null : want;
         const was = mix.current;
-        mix.current = stepMix(was, target, Math.min(0.5, (now - (hudAt || now)) / 1000 || 0.1));
+        mix.current = stepMix(was, target, dtm);
         if (mix.current.length !== was.length || mix.current.some((v, i) => v.key !== was[i]?.key || Math.abs(v.vol - was[i].vol) >= 2)) setVoices(mix.current.map((v) => ({ key: v.key, vol: Math.round(v.vol) })));
         hudAt = now;
         {
@@ -1372,11 +1375,12 @@ export default function PlayaWin() {
         setVehicleState(g.vehicle);
         const seen = nearest(g.car, clipSources(g.t));
         setPeek(seen && loudness(seen.d) > 20 ? seen.key : null);
+        const soon = quiet ? null : pendingSticky(sticky.current); // the place in earshot that is about to play
         setHud({
           address: addressOf(g.car), mph: mph(spd), pager: pagerLine(m),
           time: m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow" ? m.timeLeft : null,
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
-          hear: target && target.vol > 4 ? soundOf(target.key).name : "", hearKey: target && target.vol > 4 ? target.key : "",
+          hear: target && target.vol > 4 ? soundOf(target.key).name : soon ? soundOf(soon).name : "", hearKey: target && target.vol > 4 ? target.key : soon ?? "", hearSoon: !(target && target.vol > 4) && !!soon,
           alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g),
         });
         const mc = mini.current, mx = mc?.getContext("2d");
@@ -1514,7 +1518,7 @@ export default function PlayaWin() {
           {hud.pad && <span className="pl-count">a plane on the pad · <b>E</b> takes it</span>}
           {hud.hear && (
             <span className="pl-hear">
-              <span className="pl-hear-name">♪ {hud.hear}</span>
+              <span className="pl-hear-name">♪ {hud.hear}{hud.hearSoon && <span className="pl-hear-soon"> · coming up</span>}</span>
               {soundOf(hud.hearKey).tracks.length > 1 && <button type="button" className="pl-hear-btn" onClick={() => skipSet(hud.hearKey)} aria-label={`next set from ${hud.hear}`}>⏭</button>}
               <button type="button" className="pl-hear-btn" onClick={() => stopSound(hud.hearKey)} aria-label={`stop ${hud.hear}`}>×</button>
             </span>

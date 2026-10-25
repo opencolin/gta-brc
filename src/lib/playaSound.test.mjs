@@ -2,12 +2,12 @@
 // The playa game's sound mix (playaSound.ts): distance → volume, the nearest camp, the crossfade.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loudness, nearest, stepMix, gate, HEAR_R, FULL_R, FADE, MAX_VOICES, FLOOR, TAKEOVER, newSticky, stepSticky, stopSticky } from "./playaSound.ts";
+import { loudness, nearest, stepMix, gate, HEAR_R, FULL_R, FADE, MAX_VOICES, FLOOR, TAKEOVER, newSticky, stepSticky, stopSticky, DWELL, CLOSE_R, pendingSticky } from "./playaSound.ts";
 
 test("sticky: approach a camp and it plays; ride off and it keeps playing at the floor; approach another and it takes over; mute silences", () => {
   const s = newSticky();
   assert.equal(stepSticky(s, null), null, "silence before any camp");
-  const far = stepSticky(s, { key: "a", d: HEAR_R - 50 });
+  const far = stepSticky(s, { key: "a", d: HEAR_R - 50 }, false, DWELL);
   const close = stepSticky(s, { key: "a", d: FULL_R + 40 });
   assert.equal(far.key, "a");
   assert.ok(far.vol < close.vol, "louder as you close in");
@@ -18,7 +18,7 @@ test("sticky: approach a camp and it plays; ride off and it keeps playing at the
   // B at the edge of earshot is too faint to take over
   assert.deepEqual(stepSticky(s, { key: "b", d: HEAR_R - 5 }), { key: "a", vol: FLOOR });
   // closer to B: it takes over (the mix crossfades), then keeps playing after
-  const v = stepSticky(s, { key: "b", d: 200 });
+  const v = stepSticky(s, { key: "b", d: 200 }, false, DWELL);
   assert.equal(v.key, "b");
   assert.ok(v.vol >= TAKEOVER);
   stepSticky(s, { key: "b", d: 50 });
@@ -37,7 +37,7 @@ test("sticky: approach a camp and it plays; ride off and it keeps playing at the
 test("sticky through the mix: the old camp fades out as the new one comes up", () => {
   const s = newSticky();
   let v = [];
-  for (let i = 0; i < 30; i++) v = stepMix(v, stepSticky(s, { key: "a", d: 40 }), 0.1);
+  for (let i = 0; i < 30; i++) v = stepMix(v, stepSticky(s, { key: "a", d: 40 }, false, 0.1), 0.1);
   for (let i = 0; i < 30; i++) v = stepMix(v, stepSticky(s, null), 0.1);
   assert.deepEqual(v, [{ key: "a", vol: FLOOR }]);
   v = stepMix(v, stepSticky(s, { key: "b", d: 40 }), 0.1);
@@ -92,4 +92,25 @@ test("the iOS gate switches with a little hysteresis", () => {
   assert.equal(gate(50, false), true);
   assert.equal(gate(30, true), true);
   assert.equal(gate(20, true), false);
+});
+
+test("a new place waits three seconds in earshot before it plays (asked 2026-10-24), unless you park at it or pull up beside it", () => {
+  const s = newSticky();
+  for (let i = 0; i < 40; i++) stepSticky(s, { key: "a", d: 40 }, false, 0.1);
+  assert.equal(s.key, "a");
+  // B at 300 ft: named as coming, but A keeps playing for the first three seconds
+  let v = stepSticky(s, { key: "b", d: 300 }, false, 1);
+  assert.deepEqual(v, { key: "a", vol: FLOOR }); assert.equal(pendingSticky(s), "b", "B is the one waiting");
+  v = stepSticky(s, { key: "b", d: 300 }, false, 1.5);
+  assert.equal(v.key, "a", "still A at 2.5 s");
+  v = stepSticky(s, { key: "b", d: 300 }, false, 0.6);
+  assert.equal(v.key, "b", "B after three seconds");
+  // leaving B's earshot before the wait is up forgets the wait
+  const s2 = newSticky(); for (let i = 0; i < 40; i++) stepSticky(s2, { key: "a", d: 40 }, false, 0.1);
+  stepSticky(s2, { key: "b", d: 300 }, false, 2); stepSticky(s2, null, false, 1); assert.equal(pendingSticky(s2), null);
+  assert.equal(stepSticky(s2, { key: "b", d: 300 }, false, 1).key, "a", "the wait starts over");
+  // parked at B, or right beside it: no wait
+  assert.equal(stepSticky(s2, { key: "b", d: 300 }, false, 0, true).key, "b", "parked at B");
+  const s3 = newSticky(); for (let i = 0; i < 40; i++) stepSticky(s3, { key: "a", d: 40 }, false, 0.1);
+  assert.equal(stepSticky(s3, { key: "b", d: CLOSE_R - 10 }, false, 0).key, "b", "right beside B");
 });

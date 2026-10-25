@@ -587,6 +587,7 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
   assert.equal(startKey("mayan"), "mutant:mayan-warrior"); assert.equal(startKey("orb"), "art:The Orb");
   assert.equal(startKey("the-orb"), "art:The Orb");
   assert.equal(startKey("agave"), "agave"); assert.equal(startKey("temple"), "temple");
+  assert.equal(startKey("airport"), "airport"); assert.equal(startKey("plane"), "airport"); assert.ok(atAirport(newGame(1, "bike", "airport")), "in reach of the plane on the pad");
   assert.equal(startKey(""), null); assert.equal(startKey("nowhere-at-all"), null);
   const g = newGame(1, "bike", "mutant:dragon-lady"), car = npcAt(mutantOf("mutant:dragon-lady"), 0);
   assert.ok(Math.hypot(g.car.x - car.x, g.car.y - car.y) < 40, "beside the yacht at the start");

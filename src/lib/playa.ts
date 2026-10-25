@@ -890,13 +890,14 @@ export function moopSpot(rand: () => number): Vec {
 
 /**
  * The place a URL names (asked 2026-10-23): burningman.chat/dragonlady starts you beside the Dragon Lady. The path is
- * matched to a camp's or art car's id (soundcamps.ts), an art piece's id (ART), or agave / man / temple / center, ignoring
+ * matched to a camp's or art car's id (soundcamps.ts), an art piece's id (ART), or agave / man / temple / center / airport, ignoring
  * case and punctuation ("DragonLady", "dragon-lady", "dragon_lady" all find it), or to the start of one ("titanic" is
  * Titanic's End); null when nothing matches.
  */
 export function startKey(path: string): string | null {
   const slug = path.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!slug) return null;
+  if (["airport", "theairport", "plane", "airplane", "88nv"].includes(slug)) return "airport"; // in the plane on the pad (asked 2026-10-24)
   if (["agave", "agavelounge", "man", "theman", "temple", "thetemple", "center", "centercamp"].includes(slug)) return slug.replace(/^the/, "").replace("lounge", "").replace("camp", "");
   const key = (id: string) => id.toLowerCase().replace(/[^a-z0-9]/g, "");
   // the whole name first, then the start of one ("titanic" is Titanic's End), then any part of one
@@ -913,6 +914,7 @@ export function startKey(path: string): string | null {
 function startPose(key: string | null): { at: Vec; h: number } {
   // at Agave Lounge, on the Esplanade beside its bay with the dome in view, facing clockwise along the street
   if (!key || key === "agave") return { at: AGAVE.curb, h: (AGAVE.curbMin / 720) * Math.PI * 2 + Math.PI / 2 };
+  if (key === "airport") { const r = right(AIRPORT.h); return { at: { x: AIRPORT.pad.x + r.x * 40, y: AIRPORT.pad.y + r.y * 40 }, h: AIRPORT.h }; } // beside the plane; PlayaWin takes it
   if (key.startsWith("mutant:")) { const p = npcAt(mutantOf(key)!, 0), r = right(p.h); return { at: { x: p.x + r.x * 30, y: p.y + r.y * 30 }, h: p.h }; }
   // a camp: parked in its bay, so its music is playing from the start (the panel opens as you stop there)
   if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.mid, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.mid.y, sp.stage.x - sp.mid.x) + Math.PI / 2 }; }

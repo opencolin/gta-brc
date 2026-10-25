@@ -74,19 +74,28 @@ export const TAKEOVER = 25;
  * What is playing: `key`, the camp that has it (once you got close enough to hear it at the
  * floor), and `hush`, a camp you stopped, which stays quiet until you have left its earshot.
  */
-export type Sticky = { key: string | null; hush: string | null };
-export const newSticky = (): Sticky => ({ key: null, hush: null });
+export type Sticky = { key: string | null; hush: string | null; /** the place in earshot waiting its turn, and for how long (s) */ cand: string | null; dwell: number };
+export const newSticky = (): Sticky => ({ key: null, hush: null, cand: null, dwell: 0 });
+/** A new place in earshot waits this long (seconds) before it plays (asked 2026-10-24: the music changed too suddenly),
+ * unless you are parked at it or within CLOSE_R feet of it. */
+export const DWELL = 3, CLOSE_R = 110;
+/** The place in earshot that is waiting its turn, named in the HUD before it plays. */
+export const pendingSticky = (s: Sticky) => (s.cand && s.cand !== s.key ? s.cand : null);
 
 /**
  * One step of the sticky music, choosing the voice the mix should move to (stepMix does the
  * fades). Approaching a camp from silence: it rises with closeness and, once it reaches the
  * floor, it is the one that plays. Riding away: it keeps playing at the floor, however far
  * you go. Another camp takes over (a crossfade) once it is loud enough to hear over it.
- * `quiet` (paused, muted, a set picked in the panel) silences it without forgetting it.
+ * `quiet` (paused, muted, a set picked in the panel) silences it without forgetting it. `dt` is the step in seconds
+ * for the wait, `now` that you are parked at the near place (no wait).
  */
-export function stepSticky(s: Sticky, near: { key: string; d: number } | null, quiet = false): Voice | null {
+export function stepSticky(s: Sticky, near: { key: string; d: number } | null, quiet = false, dt = 0, now = false): Voice | null {
   if (s.hush && (!near || near.key !== s.hush)) s.hush = null;
-  const n = near && near.key !== s.hush ? near : null;
+  let n = near && near.key !== s.hush ? near : null;
+  // a different place than the one playing: it waits DWELL seconds in earshot, unless you are parked at it or right beside it
+  if (n && n.key !== s.key) { if (n.key !== s.cand) { s.cand = n.key; s.dwell = 0; } s.dwell += dt; } else { s.cand = null; s.dwell = 0; }
+  if (n && n.key !== s.key && !now && n.d > CLOSE_R && s.dwell < DWELL) n = null;
   const l = n ? loudness(n.d) : 0;
   let target: Voice | null;
   if (n && n.key === s.key) target = { key: n.key, vol: Math.max(FLOOR, l) };
