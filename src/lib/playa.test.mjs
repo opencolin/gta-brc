@@ -585,7 +585,7 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
   assert.equal(startKey("robot-heart"), "mutant:robot-heart");
   assert.equal(startKey("titanic"), "mutant:titanics-end", "the start of a name is enough");
   assert.equal(startKey("goldenticket"), "mutant:golden-ticket", "the camp's own art car is on the playa (2026-10-26)");
-  { const g0 = newGame(1); const gt = npcAt(mutantOf("mutant:golden-ticket"), 0); assert.ok(Math.hypot(gt.x - AGAVE.curb.x, gt.y - AGAVE.curb.y) < 120, "parked at Agave Lounge"); assert.equal(solidAt(gt), null, "on the street"); void g0; }
+  { const g0 = newGame(1); const gt = npcAt(mutantOf("mutant:golden-ticket"), 0); const d = Math.hypot(gt.x - AGAVE.curb.x, gt.y - AGAVE.curb.y); assert.ok(d < 220 && d > 120, `parked at Agave Lounge, out of parking reach of the start (${Math.round(d)})`); assert.equal(solidAt(gt), null, "on the street"); void g0; }
   assert.equal(startKey("mayan"), "mutant:mayan-warrior"); assert.equal(startKey("orb"), "art:The Orb");
   assert.equal(startKey("the-orb"), "art:The Orb");
   assert.equal(startKey("agave"), "agave"); assert.equal(startKey("temple"), "temple");
