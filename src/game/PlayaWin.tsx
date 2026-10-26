@@ -526,6 +526,15 @@ function drawWalker(ctx: CanvasRenderingContext2D, hue: number, t: number, night
 }
 
 /** One thing in a camp (lib/games/camps.ts): `w` along × `l` deep, turned to `rot`. */
+/** A parked bike from above (asked 2026-10-26): two little wheels, a frame in its colour, the bars; `a` is the way it points. */
+function drawParkedBike(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, hue: number) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = "#15161d"; ctx.fillRect(-4.5, -0.8, 2.6, 1.6); ctx.fillRect(1.9, -0.8, 2.6, 1.6);
+  ctx.strokeStyle = hsl(hue, 70, 55); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-3.2, 0); ctx.lineTo(3.2, 0); ctx.stroke();
+  ctx.strokeStyle = "#8a8fa3"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(2.4, -2.2); ctx.lineTo(2.4, 2.2); ctx.stroke(); // the bars
+  ctx.fillStyle = "#5b4a35"; ctx.fillRect(-1.6, -1, 1.8, 2); // the saddle
+  ctx.restore();
+}
 function drawStruct(ctx: CanvasRenderingContext2D, it: Struct, night: number, z: number, font: string) {
   const hw = it.w / 2, hl = it.l / 2;
   ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
@@ -577,6 +586,11 @@ function drawStruct(ctx: CanvasRenderingContext2D, it: Struct, night: number, z:
     case "rack":
       ctx.strokeStyle = "#8a8fa3"; ctx.lineWidth = 1.5; ctx.strokeRect(-hw, -hl, it.w, it.l);
       ctx.beginPath(); for (let x = -hw + 3; x < hw; x += 4) { ctx.moveTo(x, -hl - 2); ctx.lineTo(x, hl + 2); } ctx.stroke();
+      // the bikes parked in it (asked 2026-10-26), front wheels in the rack, each its own colour
+      for (let k = 0; k < (it.n ?? 0); k++) { const x = -hw + 4 + k * 4; if (x > hw - 2) break; drawParkedBike(ctx, x, hl + 5, Math.PI / 2 + (hash(k * 3 + it.x) - 0.5) * 0.2, (it.hue + k * 67) % 360); }
+      break;
+    case "bikes": // a row of bikes leaning together by the way in, or dropped beside the shade
+      for (let k = 0; k < (it.n ?? 0); k++) drawParkedBike(ctx, -hw + 3 + k * 4.2, 0, Math.PI / 2 + (hash(k * 5 + it.y) - 0.5) * 0.5, (it.hue + k * 83) % 360);
       break;
     case "flag":
       ctx.fillStyle = "#5b4a35"; ctx.fillRect(-1, -1, 2, 2);

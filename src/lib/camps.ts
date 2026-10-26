@@ -13,12 +13,12 @@
  */
 import { ARC_R, RADIALS, blockBounds, clockToAngle, polar, surfaceAt, type Vec } from "./brc.ts";
 
-export type StructKind = "rv" | "pod" | "tent" | "shade" | "canopy" | "carpet" | "couch" | "dome" | "stage" | "speaker" | "rack" | "flag" | "arch" | "potty" | "sign";
+export type StructKind = "rv" | "pod" | "tent" | "shade" | "canopy" | "carpet" | "couch" | "dome" | "stage" | "speaker" | "rack" | "flag" | "arch" | "potty" | "sign" | "bikes";
 /**
  * One thing in a camp: a rectangle `w` along × `l` deep turned to `rot` (canvas radians), or
  * a circle of radius w / 2 when `round`. `solid` things are bounced off.
  */
-export type Struct = { kind: StructKind; x: number; y: number; rot: number; w: number; l: number; hue: number; solid: boolean; round?: boolean; label?: string };
+export type Struct = { kind: StructKind; x: number; y: number; rot: number; w: number; l: number; hue: number; solid: boolean; round?: boolean; label?: string; /** bikes on a rack, or leaning in a row (asked 2026-10-26) */ n?: number };
 export type BlockPlan = { ring: number; sector: number; cx: number; cy: number; br: number; structs: Struct[]; solids: Struct[] };
 export type Avoid = { x: number; y: number; r: number };
 
@@ -89,7 +89,10 @@ function layLot(U: number, W: number, seed: number, rnd: () => number): LotThing
   // the frontage: an LED arch over the way in, flags, a bike rack, a sign
   add("arch", 0, fy - 6, 22, 3, hue, false);
   for (const sx of [-1, 1]) add("flag", sx * 15, fy - 6, 3, 3, (hue + 120) % 360, false);
-  if (rnd() < 0.7) add("rack", -U / 2 + 20, fy - 12, 22, 3, 0, true);
+  if (rnd() < 0.7) add("rack", -U / 2 + 20, fy - 12, 22, 3, 0, true, 0, { n: 2 + Math.floor(rnd() * 5) }); // with bikes in it (asked 2026-10-26)
+  // parked bikes (asked 2026-10-26): a row leaning by the way in, and a few dropped by the shade
+  if (rnd() < 0.8) add("bikes", 18 + rnd() * 10, fy - 14, 4 + Math.floor(rnd() * 4) * 4, 6, Math.floor(rnd() * 360), false, 0, { n: 2 + Math.floor(rnd() * 4) });
+  if (rnd() < 0.5) add("bikes", -U / 2 + 30 + rnd() * 20, (inner.w0 + inner.w1) / 2 + 14, 12, 6, Math.floor(rnd() * 360), false, (rnd() - 0.5) * 0.8, { n: 2 + Math.floor(rnd() * 2) });
   if (rnd() < 0.55) add("sign", U / 2 - 20, fy - 8, 26, 6, hue, false, 0, { label: campName(seed) });
   return out;
 }
@@ -147,7 +150,7 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
             if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + rad)) continue;
             // keep everything inside its block, clear of the streets
             if (surfaceAt(p).kind !== "block") continue;
-            const st: Struct = { kind: s.kind, x: p.x, y: p.y, rot: a + s.r, w: s.w, l: s.l, hue: s.hue, solid: s.solid, ...(s.round ? { round: true } : {}), ...(s.label ? { label: s.label } : {}) };
+            const st: Struct = { kind: s.kind, x: p.x, y: p.y, rot: a + s.r, w: s.w, l: s.l, hue: s.hue, solid: s.solid, ...(s.round ? { round: true } : {}), ...(s.label ? { label: s.label } : {}), ...(s.n ? { n: s.n } : {}) };
             if (s.solid && !fits(st)) continue;
             plan.structs.push(st);
           }
