@@ -1339,7 +1339,7 @@ export default function PlayaWin() {
             else if (e === "takeoff") flash.current = { text: "wheels up. gas climbs, brake dives, R bails out", until: g.t + 3 };
             else if (e === "landed") {
               flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. choose your ride", until: g.t + 2.5 };
-              if (g.vehicle !== "plane") setTimeout(() => setRides(true), 700); // down under the chute: the garage opens (asked 2026-10-26)
+              if (g.vehicle !== "plane") setTimeout(() => { const gg = game.current; if (!gg.chute && gg.alt === 0) setRides(true); }, 700); // down under the chute, on the ground: the garage opens (asked 2026-10-26)
             }
             else if (e === "delivered") flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
@@ -1496,9 +1496,10 @@ export default function PlayaWin() {
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
     else if (e.key === "n" || e.key === "N") { e.preventDefault(); toggleNight(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
-    else if (e.key === "v" || e.key === "V") { e.preventDefault(); setRides((r) => !r); } // the garage (asked 2026-10-26)
+    else if (e.key === "v" || e.key === "V") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
-    else if (e.key === "r" || e.key === "R") { e.preventDefault(); setRides((r) => !r); } // the garage, the art car beside you first (asked 2026-10-26)
+    // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane") ridealong(); else if (!g.chute && g.alt === 0) setRides((r) => !r); }
     else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
@@ -1577,7 +1578,7 @@ export default function PlayaWin() {
           </button>
           <div className="pl-tools">
             <span className="pl-ride">
-              <button type="button" className="pl-btn" onClick={() => setRides((r) => !r)} aria-expanded={rides} aria-haspopup="dialog">ride: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name} ▾</button>
+              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog">ride: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name} ▾</button>
             </span>
             {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
