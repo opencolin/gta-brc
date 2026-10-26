@@ -970,7 +970,7 @@ export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null
 
 /* ── the airport and the plane (asked 2026-10-22) ──────────────────────── */
 /** Rolling faster than this, the plane lifts; slower than STALL in the air, it is held at STALL. */
-export const TAKEOFF = 200, STALL = 150, ALT_MAX = 900;
+export const TAKEOFF = 200, STALL = 150, ALT_MAX = 1000; // a thousand feet up (asked 2026-10-26)
 /** Within reach of the plane on the pad: E takes it. */
 export const atAirport = (g: Game) => g.vehicle !== "plane" && !g.chute && Math.hypot(g.car.x - AIRPORT.pad.x, g.car.y - AIRPORT.pad.y) < 160;
 /** Into the plane on the pad, lined up on the runway. */
