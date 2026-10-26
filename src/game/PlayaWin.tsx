@@ -1336,7 +1336,7 @@ export default function PlayaWin() {
       // portrait (asked 2026-10-22): a tall, narrow view pulls back a little and puts you in the lower
       // third, looking up the road the way you are pointed, so there is somewhere to go on the screen
       const portrait = h > w * 1.15;
-      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / 450); // up in the air the ground pulls away
+      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / 260); // up in the air the ground pulls away: a fifth of the zoom at a thousand feet (asked 2026-10-26)
       const k = 1 - Math.exp(-5 * dt);
       const lead = portrait ? (0.16 * h) / Math.max(0.5, cam.z) : 0;
       // the lead (along your speed, and up the road in portrait) is held inside a safe box on the screen (asked 2026-10-22),
