@@ -665,7 +665,7 @@ test("the Gate (asked 2026-10-26): out past the fence at 4:30 on open ground; st
   assert.ok(dustAngel(g)); assert.equal(g.mission.gifts, gifts + 1, "a second angel is just an angel");
 });
 
-test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Golden Ticket until you drive it, then the airport, then Agave; only in that car", () => {
+test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Golden Ticket until you drive it, then Robot Heart, then Agave; only in that car", () => {
   const g = newGame(1, "bike", "airport"); takePlane(g);
   const m = g.mission, w = (extra) => ({ t: 0, moop: 0, ...extra });
   stepMission(m, { x: AGAVE.dome.x, y: AGAVE.dome.y, speed: 0 }, 0.1, w({ alt: SKYDIVE_ALT }));
@@ -676,12 +676,12 @@ test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Gol
   const gt = npcAt(mutantOf("mutant:golden-ticket"), 0);
   assert.ok(Math.hypot(missionTarget(m, 0).at.x - gt.x, missionTarget(m, 0).at.y - gt.y) < 1, "first the parked Golden Ticket");
   assert.match(pagerLine(m), /parked at Agave Lounge/);
-  // at the airport on a bike: nothing
-  const pad = place("airport").at;
+  // at Robot Heart on a bike: nothing
+  const rh = npcAt(mutantOf("mutant:robot-heart"), 0), pad = { x: rh.x, y: rh.y };
   assert.equal(stepMission(m, { ...pad, speed: 0 }, 0.1, w({ driving: null })), null); assert.equal(m.phase, "pickup");
-  // at its wheel: the airport is the target, and stopping there picks them up
+  // at its wheel: Robot Heart is the target (not the airport, too far a run), and stopping beside it picks them up
   stepMission(m, { x: gt.x, y: gt.y, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" }));
-  assert.match(missionTarget(m, 0).label, /airport/); assert.match(pagerLine(m), /go and get them/);
+  assert.match(missionTarget(m, 0).label, /Robot Heart/); assert.match(pagerLine(m), /go and get them/);
   assert.equal(stepMission(m, { ...pad, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" })), "picked");
   assert.match(pagerLine(m), /bring them to Agave Lounge/);
   const gifts = m.gifts;

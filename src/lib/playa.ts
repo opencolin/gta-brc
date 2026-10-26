@@ -655,8 +655,8 @@ export const JOBS: readonly Job[] = [
   ride("10:00 & L", "man", "a dusty walker", "a dusty walker at 10:00 & L wants a ride to the Man"),
   // the skydive (asked 2026-10-26): taking the plane makes this the job; it also comes up on its own, pointing you to the airport
   { kind: "skydive", from: "airport", to: "agave", who: "you", need: 350, line: "take the plane at the airport, climb over the city and bail out: land within 350 ft of Agave Lounge" },
-  // the job after the jump (asked 2026-10-26): the Golden Ticket, parked at Agave, fetches Polo & Pan from the airport for their set
-  { kind: "ride", from: "airport", to: "agave", who: "Polo & Pan", drive: "mutant:golden-ticket", line: "Polo & Pan have landed at the airport: take the Golden Ticket parked at Agave Lounge and bring them back for their set" },
+  // the job after the jump (asked 2026-10-26): the Golden Ticket, parked at Agave, fetches Polo & Pan from Robot Heart (the airport was too far a run) for their set
+  { kind: "ride", from: "mutant:robot-heart", to: "agave", who: "Polo & Pan", drive: "mutant:golden-ticket", line: "Polo & Pan are out at Robot Heart: take the Golden Ticket parked at Agave Lounge and bring them back for their set" },
   ride("agave", "camp:daft-punk-fence", "two dancers", "drive two dancers from Agave out to the Daft Punk sets at the trash fence"),
   ride("camp:the-kazbah", "camp:opulent-temple", "a camper", "a camper at the Kazbah is due on the dancefloor at Opulent Temple"),
   { kind: "follow", from: "mutant:robot-heart", to: "mutant:robot-heart", who: "Robot Heart", need: 20, line: "find Robot Heart on deep playa and follow it for 20 s" },
@@ -803,7 +803,7 @@ export function pagerLine(m: Mission): string {
     return `${job.who} got away in the dust`;
   }
   if (job.drive && !m.moop0 && (m.phase === "pickup" || m.phase === "dropoff")) return `take the ${place(job.drive).label} parked at Agave Lounge: pull up beside it and press E, or "drive" in the garage`;
-  if (m.phase === "pickup") return job.drive ? `${job.who} have landed at ${place(job.from).label}: go and get them` : `pick up ${job.who} at ${place(job.from).label}. stop there to let them on`;
+  if (m.phase === "pickup") return job.drive ? `${job.who} are at ${place(job.from).label}: go and get them` : `pick up ${job.who} at ${place(job.from).label}. stop there to let them on`;
   if (m.phase === "dropoff") return job.drive ? `${job.who} aboard the Golden Ticket: bring them to ${place(job.to).label} for their set` : `${job.who} on board: drop them at ${place(job.to).label}`;
   if (m.phase === "done") return job.drive ? `${job.who} are on at Agave Lounge. the whole Esplanade is dancing` : `delivered. ${job.who} gifted you something. radical gifting`;
   return `too slow: ${job.who} caught a ride on a passing bike`;
