@@ -607,6 +607,7 @@ export function place(key: string, t = 0): Place {
   if (key === "center") return { label: "Center Camp", at: polar(360, ARC_R[0] - 40) };
   if (key === "temple") return { label: "the Temple", at: polar(0, TEMPLE_DIST + TEMPLE_R + 70) };
   if (key === "man") return { label: "the Man", at: polar(360, MAN_R + 90) };
+  if (key === "airport") return { label: "the airport, past the fence at 4:12", at: AIRPORT.pad };
   if (key.startsWith("camp:")) {
     const s = spotOf(key);
     if (!s) throw new Error(`no such camp: ${key}`);
@@ -633,7 +634,7 @@ export const placeKeys = (j: Job) => (j.kind === "moop" ? [j.to] : [j.from, j.to
  * A job: a ride (pick up `who` at `from`, drop them at `to`), a MOOP sweep (collect `need`
  * pieces, then get to `to`), or a follow (find the art car `from` and stay with it `need` s).
  */
-export type Job = { kind: "ride" | "moop" | "follow"; from: string; to: string; who: string; line: string; need?: number };
+export type Job = { kind: "ride" | "moop" | "follow" | "skydive"; from: string; to: string; who: string; line: string; need?: number };
 const ride = (from: string, to: string, who: string, line: string): Job => ({ kind: "ride", from, to, who, line });
 export const JOBS: readonly Job[] = [
   ride("4:30 & C", "agave", "a burner", "pick up a burner at 4:30 & C and bring them to Agave Lounge for a mezcal"),
@@ -646,6 +647,8 @@ export const JOBS: readonly Job[] = [
   ride("2:00 & B", "agave", "a DJ", "a DJ at 2:00 & B is late for their set at Agave Lounge"),
   ride("camp:disorient", "mutant:titanics-end", "a dancer", "a dancer at Disorient wants to catch Titanic's End out on deep playa"),
   ride("10:00 & L", "man", "a dusty walker", "a dusty walker at 10:00 & L wants a ride to the Man"),
+  // the skydive (asked 2026-10-26): taking the plane makes this the job; it also comes up on its own, pointing you to the airport
+  { kind: "skydive", from: "airport", to: "agave", who: "you", need: 350, line: "take the plane at the airport, climb over the city and bail out: land within 350 ft of Agave Lounge" },
   ride("agave", "camp:daft-punk-fence", "two dancers", "drive two dancers from Agave out to the Daft Punk sets at the trash fence"),
   ride("camp:the-kazbah", "camp:opulent-temple", "a camper", "a camper at the Kazbah is due on the dancefloor at Opulent Temple"),
   { kind: "follow", from: "mutant:robot-heart", to: "mutant:robot-heart", who: "Robot Heart", need: 20, line: "find Robot Heart on deep playa and follow it for 20 s" },
@@ -679,13 +682,22 @@ const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 export function timeFor(from: Vec, job: Job, t = 0): number {
   if (job.kind === "moop") return Math.ceil(dist(from, place(job.to, t).at) / 105 + 70);
   if (job.kind === "follow") return Math.ceil(dist(from, place(job.from, t).at) / 105 + (job.need ?? 20) + 30);
+  if (job.kind === "skydive") return Math.ceil(dist(from, AIRPORT.pad) / 105 + SKYDIVE_TIME);
   const a = place(job.from, t).at, b = place(job.to, t).at;
   return Math.ceil((dist(from, a) + dist(a, b)) / 105 + 18);
 }
 
 export type MissionEvent = "start" | "picked" | "delivered" | "failed";
+/** The skydive: the height (feet) the jump is on from, and the job's clock. */
+export const SKYDIVE_ALT = 400, SKYDIVE_TIME = 240;
+export const SKYDIVE_JOB = JOBS.findIndex((j) => j.kind === "skydive");
+/** Taking the plane makes the skydive the job (asked 2026-10-26), unless it already is. */
+export function startSkydive(m: Mission) {
+  if (m.job === SKYDIVE_JOB && m.phase !== "done" && m.phase !== "failed") return;
+  m.job = SKYDIVE_JOB; m.phase = "pickup"; m.timeLeft = SKYDIVE_TIME; m.wait = 0; m.progress = 0; m.moop0 = 1; // moop0 doubles as "aboard the plane" for this job
+}
 /** What the pager needs to know of the world: the time (for the art cars) and the MOOP picked up. */
-export type MissionWorld = { t: number; moop: number };
+export type MissionWorld = { t: number; moop: number; /** the skydive: in the plane, how high you are, and whether you touched down this step */ plane?: boolean; alt?: number; landed?: boolean };
 const atStop = (key: string, car: { x: number; y: number; speed: number }, w: MissionWorld) =>
   dist(car, place(key, w.t).at) < STOP_R + (key.startsWith("mutant:") ? NPC_R.mutant + 30 : 0) && car.speed < STOP_SPEED;
 
@@ -709,7 +721,7 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
     if (m.wait > 0) return null;
     m.phase = "pickup";
     m.timeLeft = timeFor(car, job, w.t);
-    m.moop0 = w.moop; m.progress = 0;
+    m.moop0 = job.kind === "skydive" ? (w.plane ? 1 : 0) : w.moop; m.progress = 0;
     return "start";
   }
   if (m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow") {
@@ -722,6 +734,15 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
       const near = dist(car, place(job.from, w.t).at) < FOLLOW_R;
       if (m.phase === "pickup" && near) { m.phase = "follow"; return "picked"; }
       if (m.phase === "follow" && near) { m.progress += dt; if (m.progress >= (job.need ?? 20)) return deliver(); }
+    } else if (job.kind === "skydive") {
+      // up in the plane: high enough and the jump is on; under the chute: where you touch down decides it
+      m.progress = dist(car, AGAVE.dome);
+      if (w.plane) m.moop0 = 1;
+      if (m.phase === "pickup" && (w.alt ?? 0) >= SKYDIVE_ALT) { m.phase = "dropoff"; return "picked"; }
+      if (w.landed) {
+        if (m.phase === "dropoff" && m.progress <= (job.need ?? 350) * CITY_SCALE) return deliver();
+        m.timeLeft = 0; m.phase = "failed"; m.failed++; m.wait = 4; return "failed";
+      }
     } else if (atStop(m.phase === "pickup" ? job.from : job.to, car, w)) {
       if (m.phase === "pickup") { m.phase = "dropoff"; m.timeLeft += 8; return "picked"; }
       return deliver();
@@ -737,6 +758,7 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
 /** Where the pager points: the pickup, the drop or the art car to follow, or nowhere between jobs. */
 export function missionTarget(m: Mission, t = 0): Place | null {
   const job = JOBS[m.job % JOBS.length];
+  if (job.kind === "skydive") return m.phase === "pickup" || m.phase === "dropoff" ? place(m.phase === "pickup" && !m.moop0 ? "airport" : "agave", t) : null;
   if (m.phase === "pickup") return place(job.kind === "moop" ? job.to : job.from, t);
   if (m.phase === "dropoff" || m.phase === "follow") return place(job.to, t);
   return null;
@@ -751,6 +773,13 @@ export function pagerLine(m: Mission): string {
     if (m.phase === "dropoff") return `MOOP bagged: now get to ${place(job.to).label}`;
     if (m.phase === "done") return "the playa thanks you. leave no trace";
     return "too slow: the MOOP blew away";
+  }
+  if (job.kind === "skydive") {
+    const ft = Math.round(m.progress / CITY_SCALE);
+    if (m.phase === "pickup") return m.moop0 ? `climb to ${SKYDIVE_ALT} ft over the city, then R bails out: land by Agave Lounge` : "get to the airport and take the plane (E on the pad)";
+    if (m.phase === "dropoff") return `bail out (R) and steer the chute to Agave Lounge · ${ft} ft from the dome`;
+    if (m.phase === "done") return `you landed ${ft} ft from the dome. the camp cheers and pours you a mezcal`;
+    return ft ? `you came down ${ft} ft from Agave Lounge. the mezcal is still there if you ride over` : "the jump was the point: you landed the plane instead";
   }
   if (job.kind === "follow") {
     if (m.phase === "pickup") return `find ${job.who} on the open playa`;
@@ -950,6 +979,7 @@ export function takePlane(g: Game): boolean {
   if (g.aboard) hopOff(g);
   g.vehicle = "plane"; g.alt = 0;
   g.car = newCar(AIRPORT.pad, AIRPORT.h);
+  startSkydive(g.mission);
   return true;
 }
 /** Out of the plane: in the air, under a parachute, the plane flying on without you (it disappears off the screen); on the ground, onto the bike beside it. */
@@ -1082,7 +1112,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
     if (Math.hypot(m.x - g.car.x, m.y - g.car.y) < MOOP_R) { g.moopCount++; g.moop[i] = moopSpot(g.rand); ev.push("moop"); }
   }
 
-  const me = stepMission(g.mission, { x: g.car.x, y: g.car.y, speed: spd }, dt, { t: g.t, moop: g.moopCount });
+  const me = stepMission(g.mission, { x: g.car.x, y: g.car.y, speed: spd }, dt, { t: g.t, moop: g.moopCount, plane: g.vehicle === "plane", alt: g.alt, landed: ev.includes("landed") });
   if (me) ev.push(me);
   const pe = stepParking(g.parking, { x: g.car.x, y: g.car.y, speed: spd }, dt, g.t);
   if (pe) ev.push(pe);

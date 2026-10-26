@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
+  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
@@ -624,4 +624,23 @@ test("parked at one art car, stopping beside another within 300 ft parks you the
   assert.equal(g.parking.at, "mutant:robot-heart", `parked at the nearer car now: ${g.parking.at}`);
   assert.ok(hopOn(g) && g.aboard === "mutant:robot-heart", "ride means Robot Heart");
   void q;
+});
+
+test("the skydive (asked 2026-10-26): taking the plane makes it the job; high enough the jump is on; touching down by Agave delivers, far off fails", () => {
+  const g = newGame(1, "bike", "airport");
+  assert.ok(takePlane(g)); assert.equal(g.mission.job, SKYDIVE_JOB); assert.equal(g.mission.phase, "pickup");
+  assert.match(pagerLine(g.mission), /climb to 400 ft/);
+  const m = g.mission, car = { x: AGAVE.dome.x + 60, y: AGAVE.dome.y, speed: 0 };
+  assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: SKYDIVE_ALT }), "picked"); assert.equal(m.phase, "dropoff");
+  assert.match(pagerLine(m), /bail out/);
+  assert.equal(missionTarget(m, 0).label.slice(0, 5), "Agave");
+  const g1 = m.gifts;
+  assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: 0, landed: true }), "delivered"); assert.ok(m.gifts > g1);
+  // again, coming down a mile off
+  startSkydive(m); stepMission(m, car, 0.1, { t: 0, moop: 0, alt: SKYDIVE_ALT });
+  assert.equal(stepMission(m, { x: AGAVE.dome.x + 3000, y: AGAVE.dome.y, speed: 0 }, 0.1, { t: 0, moop: 0, alt: 0, landed: true }), "failed");
+  assert.match(pagerLine(m), /ft from Agave Lounge/);
+  // the job on its own points you to the airport first
+  const m2 = newMission(1); m2.job = SKYDIVE_JOB; m2.phase = "pickup"; m2.timeLeft = 100; m2.progress = 0; m2.moop0 = 0;
+  assert.match(missionTarget(m2, 0).label, /airport/);
 });
