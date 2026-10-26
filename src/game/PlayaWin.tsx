@@ -1271,7 +1271,7 @@ export default function PlayaWin() {
     if (!cv || !stage) return;
     const ctx = cv.getContext("2d");
     if (!ctx) return;
-    let w = 0, h = 0, raf = 0, last = performance.now(), acc = 0, hudAt = 0, clock = 0;
+    let w = 0, h = 0, raf = 0, last = performance.now(), hudAt = 0, clock = 0;
     const font = getComputedStyle(stage).fontFamily || "system-ui, sans-serif";
     const g0 = game.current;
     const cam: Cam = { x: g0.car.x, y: g0.car.y, z: 1 };
@@ -1295,10 +1295,12 @@ export default function PlayaWin() {
       const g = game.current;
       const inp = input();
       if (phaseRef.current === "play") {
-        acc += dt;
-        let n = 0;
-        while (acc >= DT && n < 6) {
-          for (const e of stepGame(g, inp, DT)) {
+        // the whole frame's time is stepped, in sub-steps no longer than 1/60 s (2026-10-26): the old fixed-step
+        // accumulator moved nothing on every other frame of a 120 Hz screen and twice as far on the next, which at
+        // speed read as jitter and a doubled plane or e-bike
+        const n = Math.min(6, Math.max(1, Math.ceil(dt / DT))), hStep = Math.min(DT, dt / n);
+        for (let i = 0; i < n; i++) {
+          for (const e of stepGame(g, inp, hStep)) {
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
             else if (e === "takeoff") flash.current = { text: "wheels up. gas climbs, brake dives, R bails out", until: g.t + 3 };
             else if (e === "landed") flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. on the bike", until: g.t + 2.5 };
@@ -1308,10 +1310,8 @@ export default function PlayaWin() {
             else if (e === "park" && g.parking.at) onPark.current(g.parking.at);
             else if (e === "leave") onLeave.current();
           }
-          acc -= DT; n++;
         }
-        if (n === 6) acc = 0;
-      } else acc = 0;
+      }
       // the camera: trails the car and leads it along its velocity, and pulls back with speed
       const spd = speedOf(g.car);
       // close in, so the art car reads big in the middle (it still pulls back with speed)
