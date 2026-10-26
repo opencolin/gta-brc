@@ -850,7 +850,9 @@ function speckle(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   return (SPECK = ctx.createPattern(c, "repeat"));
 }
 
-function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam: Cam, input: Input, font: string) {
+/** The last frame, at half size, for the trip's trails (asked 2026-10-26): drawn faintly under the next one. */
+let echo: HTMLCanvasElement | null = null;
+function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam: Cam, input: Input, font: string, trip = 0) {
   const t = g.t, night = nightLevel(g.dayT), storm = stormLevel(g.storm), z = cam.z;
   const vw = w / z, vh = h / z;
   const view = { x0: cam.x - vw / 2, y0: cam.y - vh / 2, x1: cam.x + vw / 2, y1: cam.y + vh / 2 };
@@ -864,6 +866,14 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   // outside the fence: darker deep playa
   ctx.fillStyle = "rgba(160, 130, 90, .28)";
   ctx.beginPath(); ctx.rect(view.x0 - 2, view.y0 - 2, vw + 4, vh + 4); FENCE.slice().reverse().forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.fill("evenodd");
+  // the trip (asked 2026-10-26): what you saw a moment ago lingers under what you see now, a touch bigger and turned,
+  // so everything that moves leaves a trail and the playa breathes; the colour wash and the sway are CSS on the canvas
+  if (trip > 0 && echo && echo.width) {
+    ctx.save(); screen(); ctx.globalAlpha = 0.62 * trip;
+    ctx.translate(w / 2, h / 2); ctx.rotate(0.012 * trip * Math.sin(t * 0.8)); ctx.scale(1 + 0.014 * trip, 1 + 0.014 * trip); ctx.translate(-w / 2, -h / 2);
+    ctx.drawImage(echo, 0, 0, w, h);
+    ctx.restore(); world();
+  }
 
   // the streets: packed dust, a shade lighter than the open playa
   ctx.strokeStyle = C.road;
@@ -1086,6 +1096,14 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
       ctx.restore();
     }
   }
+
+  // keep this frame for the next one's trails
+  if (trip > 0) {
+    const ew = Math.max(1, Math.round(ctx.canvas.width / 2)), eh = Math.max(1, Math.round(ctx.canvas.height / 2));
+    if (!echo) echo = document.createElement("canvas");
+    if (echo.width !== ew || echo.height !== eh) { echo.width = ew; echo.height = eh; }
+    const ex = echo.getContext("2d")!; ex.globalCompositeOperation = "copy"; ex.drawImage(ctx.canvas, 0, 0, ew, eh);
+  } else if (echo) echo.width = 0;
 }
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
@@ -1337,7 +1355,12 @@ export default function PlayaWin() {
       // a small ride (a bike, the unicycle) gets the camera closer still, so it reads at the size an art car does
       const near = VEHICLES[g.vehicle].len < 20 ? 1.6 : 1;
       cam.z += (base * near * (1 - 0.52 * Math.min(1, spd / VEHICLES[g.vehicle].maxSpeed)) - cam.z) * (1 - Math.exp(-1.6 * dt));
-      if (w && h) paint(ctx, w, h, g, cam, inp, font);
+      // the trip's level eases toward on or off; the colour wash and the sway ride on the canvas element itself
+      { const want = tripRef.current ? 1 : 0, lv = tripLevel.current; tripLevel.current = want > lv ? Math.min(want, lv + dt / 3) : Math.max(want, lv - dt / 2); }
+      { const tl = tripLevel.current, tt = g.t;
+        cv.style.filter = tl > 0 ? `hue-rotate(${(40 * tl * Math.sin(tt * 0.45)).toFixed(1)}deg) saturate(${(1 + 0.7 * tl).toFixed(2)})` : "";
+        cv.style.transform = tl > 0 ? `rotate(${(1.6 * tl * Math.sin(tt * 0.37)).toFixed(2)}deg) scale(${(1 + 0.05 * tl + 0.025 * tl * Math.sin(tt * 1.1)).toFixed(3)})` : ""; }
+      if (w && h) paint(ctx, w, h, g, cam, inp, font, tripLevel.current);
       // the clip in passing floats just above its place on the playa, kept inside the screen
       const pk = peekEl.current, at = pk?.dataset.key ? placeAt(pk.dataset.key, g.t) : null;
       if (pk && at) {
@@ -1435,6 +1458,9 @@ export default function PlayaWin() {
 
   const go = () => { setPhase("play"); setMap(false); setLayout(false); board.current?.focus({ preventScroll: true }); };
   const toggleNight = () => { const g = game.current; g.dayT = flipDay(g.dayT); };
+  // the trip (asked 2026-10-26): trails, a colour wash and a sway, eased in and out over a few seconds; T or the ✶ button
+  const [trip, setTrip] = useState(false); const tripRef = useRef(false); tripRef.current = trip; const tripLevel = useRef(0);
+  const toggleTrip = () => { setTrip((v) => { flash.current = { text: v ? "coming down" : "far out. T brings you down", until: game.current.t + 2.5 }; return !v; }); board.current?.focus({ preventScroll: true }); };
   const toggleMap = () => setMap((m) => { if (!m) { const c = game.current.car; bigView.current = { z: 2.2, cx: c.x, cy: c.y, follow: true }; } return !m; });
 
   const onKey = (e: KeyboardEvent, down: boolean) => {
@@ -1450,6 +1476,7 @@ export default function PlayaWin() {
     if (!down) return;
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
     else if (e.key === "n" || e.key === "N") { e.preventDefault(); toggleNight(); }
+    else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "v" || e.key === "V") { e.preventDefault(); ride(nextVehicle(game.current.vehicle)); }
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); ridealong(); }
@@ -1547,6 +1574,9 @@ export default function PlayaWin() {
                 {sound ? <><path d="M16 9a4 4 0 0 1 0 6" /><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11" /></> : <path d="M17 9l5 6M22 9l-5 6" />}
               </svg>
             </button>
+            <button type="button" className="pl-btn pl-icon pl-trip" onClick={toggleTrip} aria-pressed={trip} aria-label={trip ? "trip: come down (T)" : "trip: visuals (T)"} title={trip ? "come down" : "trip"}>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0M12 7a5 5 0 1 1-5 5M12 3a9 9 0 1 1-9 9" /></svg>
+            </button>
             <button type="button" className="pl-btn pl-icon" onClick={toggleNight} aria-pressed={hud.night} aria-label={hud.night ? "night: switch to day" : "day: switch to night"} title={hud.night ? "night" : "day"}>
               {hud.night
                 ? <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.3A8 8 0 0 1 14.5 2.5z" /></svg>
@@ -1580,7 +1610,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night</li><li>beside an art car: R ride along or hop off · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night · T trip</li><li>beside an art car: R ride along or hop off · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
