@@ -59,20 +59,18 @@ function cruiser(c: Ctx, t: number, night: number, electric = false) {
   lamp(c, 40, -44, night); lamp(c, -42, -20, night, "#ff4d4d");
   if (night > 0.3) { for (let k = 0; k < 6; k++) { c.fillStyle = `hsl(${(k * 60 + t * 120) % 360} 100% 65%)`; disc(c, -30 + Math.cos(t * 2 + k) * 9, -14 + Math.sin(t * 2 + k) * 9, 1.2); c.fill(); } } // wheel lights
 }
-/** The tuk-tuk: a three-wheeled cab, a striped canopy, the driver in front, a passenger bench behind. */
+/** The tuk-tuk (redrawn 2026-10-26): a cruiser pulling a little covered trailer, a green box on two wheels under a striped canopy, someone riding in it. */
 function tuktuk(c: Ctx, t: number, night: number) {
-  shadow(c, 50);
-  c.fillStyle = "#2f9e5a"; c.beginPath(); c.moveTo(-40, -16); c.lineTo(-40, -40); c.lineTo(-8, -40); c.lineTo(30, -40); c.lineTo(44, -24); c.lineTo(44, -16); c.closePath(); c.fill(); // the body
-  c.fillStyle = "#ffd23f"; rr(c, -40, -22, 84, 5, 1); c.fill(); // the yellow skirt
-  c.fillStyle = "#1e2233"; rr(c, -36, -62, 72, 4, 2); c.fill(); for (const x of [-34, 32]) { c.fillStyle = "#4b5068"; c.fillRect(x, -58, 3, 18); } // the canopy
-  c.fillStyle = "#ffd23f"; for (let x = -36; x < 36; x += 12) c.fillRect(x, -62, 6, 4);
-  c.fillStyle = "rgba(255,255,255,.35)"; rr(c, 20, -58, 22, 18, 2); c.fill(); // the windscreen
-  rider(c, 18, -40, "#ff8c42", Math.sin(t * 5) * 0.5); // the driver
-  c.fillStyle = "#c0392b"; rr(c, -34, -46, 28, 7, 2); c.fill(); // the bench
-  c.fillStyle = "#5bd6c8"; rr(c, -30, -56, 10, 12, 3); c.fill(); c.fillStyle = SKIN; disc(c, -25, -60, 5); c.fill(); // a passenger
-  wheel(c, 36, -12, 12, t, true); wheel(c, -28, -12, 12, t, true);
-  lamp(c, 46, -30, night);
-  if (night > 0.3) { c.fillStyle = `hsl(${(t * 90) % 360} 100% 65%)`; for (let x = -36; x < 40; x += 8) { disc(c, x, -20, 1.2); c.fill(); } }
+  c.save(); c.translate(32, 0); c.scale(0.78, 0.78); cruiser(c, t, night, false); c.restore(); // the bike in front
+  c.strokeStyle = "#5b5f73"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-10, -24); c.lineTo(8, -14); c.stroke(); // the hitch to the rear axle
+  c.fillStyle = "#2f9e5a"; rr(c, -66, -42, 58, 24, 3); c.fill(); // the trailer's box
+  c.fillStyle = "#ffd23f"; rr(c, -66, -24, 58, 5, 1); c.fill(); // the yellow skirt
+  c.fillStyle = "#4b5068"; for (const x of [-62, -14]) c.fillRect(x, -60, 3, 18); // the canopy posts
+  c.fillStyle = "#1e2233"; rr(c, -68, -64, 62, 4, 2); c.fill(); c.fillStyle = "#ffd23f"; for (let x = -66; x < -8; x += 12) c.fillRect(x, -64, 6, 4); // the striped canopy
+  c.fillStyle = "#5bd6c8"; rr(c, -46, -56, 11, 14, 3); c.fill(); c.fillStyle = SKIN; disc(c, -40, -60, 5.5); c.fill(); // someone riding in it
+  wheel(c, -40, -12, 11, t, true);
+  lamp(c, -68, -30, night, "#ff4d4d");
+  if (night > 0.3) { c.fillStyle = `hsl(${(t * 90) % 360} 100% 65%)`; for (let x = -62; x < -10; x += 8) { disc(c, x, -21, 1.2); c.fill(); } }
 }
 /** The cuttlefish art car: a long mantle on a chassis, a rippling fin, eight arms trailing from the head, colours rolling. */
 function cuttlefish(c: Ctx, t: number, night: number) {

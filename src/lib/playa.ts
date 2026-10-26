@@ -429,8 +429,8 @@ export function collide(c: Car, v: Vehicle = CAR): number {
 
 type NpcBase = {
   kind: "bike" | "ebike" | "walker" | "artcar" | "mutant" | "ambulance"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
-  /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line */
-  lead?: Npc; lag?: number; side?: number;
+  /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line, `rank` its place in the pack */
+  lead?: Npc; lag?: number; side?: number; rank?: number;
 };
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" });
 export const NPC_R = { bike: 7, ebike: 7, walker: 5, artcar: 24, mutant: 32, ambulance: 14 } as const;
@@ -445,7 +445,7 @@ export const FOLLOW_GAP = 30;
 const driven: { key: string | null; trail: { t: number; x: number; y: number; h: number }[] } = { key: null, trail: [] };
 /** Art cars left where their driver hopped off (asked 2026-10-22): parked there until someone drives them again. */
 const parkedCars = new Map<string, { x: number; y: number; h: number }>();
-export function setDriven(key: string | null) { if (key) parkedCars.delete(key); driven.key = key; driven.trail = []; }
+export function setDriven(key: string | null) { if (key) parkedCars.delete(key); driven.key = key; driven.trail = []; if (key !== packFor) { pack.clear(); packFor = key; } }
 export const drivenKey = () => driven.key;
 export const parkedCarAt = (key: string) => parkedCars.get(key) ?? null;
 /**
@@ -473,19 +473,81 @@ function drivenAt(t: number): { x: number; y: number; h: number } | null {
   for (let i = tr.length - 1; i >= 0; i--) if (tr[i].t <= t) return tr[i];
   return tr[0];
 }
+/* ── the pack behind the car you drive (asked 2026-10-26) ─────────────────────────────────────────────────────── */
+/**
+ * The bikers riding with the art car you drive used to sit on its trail, so when it stopped they all landed on one
+ * point. Now each has a position of its own: it rides toward its place a set distance back along the trail at up
+ * to PACK_SPEED (a little under the Golden Ticket, so they keep up), is held clear of the others and of the car, and when the car stops
+ * (or is left parked) they pull up in rows of four behind it, beside each other.
+ */
+export const PACK_SPEED = 340, PACK_SEP = NPC_R.bike * 2 + 4;
+const pack = new Map<Npc, { x: number; y: number; h: number }>();
+let packFor: string | null = null;
+/** Place `k` of a pack pulled up behind a stopped art car: rows of four, a bike's clearance apart, a little more between rows. */
+export function packSlot(lead: { x: number; y: number; h: number }, k: number) {
+  const f = fwd(lead.h), r = right(lead.h), back = NPC_R.mutant + NPC_R.bike + FOLLOW_GAP + Math.floor(k / 4) * (PACK_SEP + 3), side = ((k % 4) - 1.5) * (PACK_SEP + 1);
+  return { x: lead.x - f.x * back + r.x * side, y: lead.y - f.y * back + r.y * side, h: lead.h };
+}
+/** Where a biker riding with an art car is: beside the car's trail `lag` seconds back, held outside the car. */
+function followSpot(n: Npc, t: number) {
+  const lead = n.lead!, p = npcAt(lead, t - (n.lag ?? 2)), rt = right(p.h), side = n.side ?? 0;
+  // a slow art car is still close to where it was, so keep the biker outside it with room for a rider between
+  const at = { x: p.x + rt.x * side, y: p.y + rt.y * side }, now = npcAt(lead, t);
+  const dx = at.x - now.x, dy = at.y - now.y, d = Math.hypot(dx, dy), clear = NPC_R[lead.kind] + NPC_R[n.kind] + FOLLOW_GAP;
+  if (d < clear) {
+    const ux = d > 1e-6 ? dx / d : -Math.cos(now.h), uy = d > 1e-6 ? dy / d : -Math.sin(now.h);
+    return { x: now.x + ux * clear, y: now.y + uy * clear, h: p.h };
+  }
+  return { x: at.x, y: at.y, h: p.h };
+}
+/** The point `d` feet back along the trail of the car you drive: the pack rides there, a distance behind rather than seconds, so it keeps up at speed. */
+function drivenBehind(car: { x: number; y: number; h: number }, d: number) {
+  const tr = driven.trail; let px = car.x, py = car.y, left = d;
+  for (let i = tr.length - 1; i >= 0; i--) {
+    const q = tr[i], seg = Math.hypot(px - q.x, py - q.y);
+    if (seg >= left) { const k = seg > 1e-6 ? left / seg : 0; return { x: px + (q.x - px) * k, y: py + (q.y - py) * k, h: Math.atan2(px - q.x, -(py - q.y)) }; }
+    left -= seg; px = q.x; py = q.y;
+  }
+  const f = fwd(car.h); return { x: px - f.x * left, y: py - f.y * left, h: car.h };
+}
+/** A step of the pack behind the car you drive; the pack of a car you left parked keeps where it pulled up. */
+export function stepPack(g: Game, dt: number) {
+  if (!driven.key || g.vehicle !== "found") return;
+  if (driven.key !== packFor) { pack.clear(); packFor = driven.key; }
+  const car = g.car, stopped = speedOf(car) < 6, ps: { x: number; y: number; h: number }[] = [];
+  for (const n of g.npcs) {
+    if (!n.lead || n.lead.key !== driven.key) continue;
+    const k = n.rank ?? 0;
+    let tgt: { x: number; y: number; h: number };
+    if (stopped) tgt = packSlot(car, k);
+    else { const b = drivenBehind(car, NPC_R.mutant + 4 + k * 9), r = right(b.h), side = (n.side ?? 0) * 0.5; tgt = { x: b.x + r.x * side, y: b.y + r.y * side, h: b.h }; }
+    let p = pack.get(n); if (!p) { p = { ...tgt }; pack.set(n, p); }
+    const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy);
+    const step = Math.min(d, Math.min(PACK_SPEED, 40 + d * 2.5) * dt);
+    if (d > 1e-6) { p.x += (dx / d) * step; p.y += (dy / d) * step; }
+    p.h = d > 6 ? Math.atan2(dx, -dy) : tgt.h;
+    ps.push(p);
+  }
+  const clear = NPC_R.mutant + NPC_R.bike + 2;
+  for (let i = 0; i < ps.length; i++) {
+    const a = ps[i];
+    for (let j = i + 1; j < ps.length; j++) { // beside each other, never on top of each other
+      const b = ps[j]; let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if (d >= PACK_SEP) continue;
+      if (d < 1e-6) { dx = Math.cos(i * 2.4 + j); dy = Math.sin(i * 2.4 + j); d = 1; }
+      const push = (PACK_SEP - d) / 2; a.x -= (dx / d) * push; a.y -= (dy / d) * push; b.x += (dx / d) * push; b.y += (dy / d) * push;
+    }
+    let dx = a.x - car.x, dy = a.y - car.y, d = Math.hypot(dx, dy); // and clear of the car
+    if (d < clear) { if (d < 1e-6) { const f = fwd(car.h); dx = -f.x; dy = -f.y; d = 1; } a.x = car.x + (dx / d) * clear; a.y = car.y + (dy / d) * clear; }
+  }
+}
 export function npcAt(n: Npc, t: number): { x: number; y: number; h: number } {
   if (driven.key && n.key === driven.key) { const p = drivenAt(t); if (p) return p; }
   if (n.key) { const pk = parkedCars.get(n.key); if (pk) return pk; }
   if (n.lead) {
-    const p = npcAt(n.lead, t - (n.lag ?? 2)), rt = right(p.h), side = n.side ?? 0;
-    // a slow art car is still close to where it was, so keep the biker outside it with room for a rider between
-    const at = { x: p.x + rt.x * side, y: p.y + rt.y * side }, now = npcAt(n.lead, t);
-    const dx = at.x - now.x, dy = at.y - now.y, d = Math.hypot(dx, dy), clear = NPC_R[n.lead.kind] + NPC_R[n.kind] + FOLLOW_GAP;
-    if (d < clear) {
-      const ux = d > 1e-6 ? dx / d : -Math.cos(now.h), uy = d > 1e-6 ? dy / d : -Math.sin(now.h);
-      return { x: now.x + ux * clear, y: now.y + uy * clear, h: p.h };
-    }
-    return { x: at.x, y: at.y, h: p.h };
+    const pp = pack.get(n); if (pp) return pp; // riding behind the car you drive, or pulled up where you left it
+    if (n.lead.key) { const pk = parkedCars.get(n.lead.key); if (pk) return packSlot(pk, n.rank ?? 0); } // behind a parked car, in rows
+    return followSpot(n, t);
   }
   const perMin = (n.r * Math.PI * 2) / 720; // feet per clock minute at this radius
   let min: number, dir: number;
@@ -614,7 +676,7 @@ export function makeNpcs(rand: () => number): Npc[] {
   for (const lead of packs) {
     const k = lead.kind === "mutant" ? 8 + Math.floor(rand() * 5) : 4 + Math.floor(rand() * 3);
     for (let j = 0; j < k; j++) {
-      out.push({ kind: "bike", path: "loop", r: lead.r, speed: lead.speed, phase: 0, hue: Math.floor(rand() * 360), lead, lag: 1.2 + j * 0.55 + rand() * 0.5, side: (rand() - 0.5) * 90 });
+      out.push({ kind: "bike", path: "loop", r: lead.r, speed: lead.speed, phase: 0, hue: Math.floor(rand() * 360), lead, lag: 1.2 + j * 0.55 + rand() * 0.5, side: (rand() - 0.5) * 90, rank: j });
     }
   }
   return out;
@@ -1140,6 +1202,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   // Squeezed between two of them (a biker riding beside an art car) or pinned for a moment, you slip
   // through everyone for a second instead of being shoved back and forth on the spot.
   if (driven.key && g.vehicle === "found") noteDriven(g.t, g.car);
+  stepPack(g, dt);
   // the art car you drive is you: no bumping into yourself
   const others = riding || g.ghost || airborne ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
   const touching = others.filter((n) => { const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < NPC_R[n.kind] + v.wid / 2 + 5; }).length;

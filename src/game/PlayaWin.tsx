@@ -288,15 +288,22 @@ function drawUnicycle(ctx: CanvasRenderingContext2D, t: number, night: number) {
 /** The famous art car you are driving, if that is your ride (PlayaWin's garage). */
 let rideSkin: string | null = null;
 /** Whatever you ride, nose up. */
-/** The tuk-tuk from above (asked 2026-10-26): a green cab with a yellow skirt under a striped canopy, one wheel in front, two behind. */
+/** The tuk-tuk from above (redrawn 2026-10-26): a bike pulling a little covered trailer, the rider in front, a green box on two wheels under a striped canopy behind. */
 function drawTuktuk(ctx: CanvasRenderingContext2D, t: number, night: number, brake: boolean) {
-  ctx.fillStyle = "#15161d"; ctx.fillRect(-1.5, -7.5, 3, 4); for (const x of [-4, 4]) ctx.fillRect(x - 1.5, 3, 3, 4);
-  ctx.fillStyle = "#2f9e5a"; ctx.beginPath(); ctx.moveTo(0, -8); ctx.quadraticCurveTo(4.5, -6, 4.5, -2); ctx.lineTo(4.5, 7); ctx.lineTo(-4.5, 7); ctx.lineTo(-4.5, -2); ctx.quadraticCurveTo(-4.5, -6, 0, -8); ctx.fill();
-  ctx.fillStyle = "#ffd23f"; ctx.fillRect(-4.5, 5.5, 9, 1.5);
-  ctx.fillStyle = "#1e2233"; ctx.fillRect(-4, -4, 8, 10); ctx.fillStyle = "#ffd23f"; for (let y = -4; y < 6; y += 2.5) ctx.fillRect(-4, y, 8, 1); // the canopy's stripes
-  ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fillRect(-3, -6, 6, 1.5); // the windscreen
-  ctx.fillStyle = brake ? "#ff4d4d" : "#7a2020"; ctx.fillRect(-4, 6.5, 2, 1); ctx.fillRect(2, 6.5, 2, 1);
-  if (night > 0.3) { ctx.fillStyle = "#fff3b0"; ctx.fillRect(-1, -8.5, 2, 1.5); ctx.fillStyle = hsl((t * 90) % 360, 100, 65); ctx.fillRect(-4.5, -1, 1, 1); ctx.fillRect(3.5, -1, 1, 1); }
+  // the bike: two wheels, a red frame, swept bars, the rider leaning in
+  ctx.fillStyle = "#15161d"; ctx.fillRect(-0.8, -8, 1.6, 2.6); ctx.fillRect(-0.8, -2.6, 1.6, 2.6);
+  ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(0, -6.8); ctx.lineTo(0, -1.2); ctx.stroke();
+  ctx.strokeStyle = "#8a8fa3"; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-2.6, -5.8); ctx.lineTo(2.6, -5.8); ctx.stroke();
+  ctx.fillStyle = "#ff8c42"; ctx.beginPath(); ctx.ellipse(0, -3.4, 1.7, 2.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#f2c6a0"; ctx.beginPath(); ctx.arc(0, -4.8, 1.1, 0, Math.PI * 2); ctx.fill();
+  // the hitch, then the trailer: two wheels, a green box with a yellow skirt, the striped canopy over it
+  ctx.strokeStyle = "#5b5f73"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(0, -0.4); ctx.lineTo(0, 1.8); ctx.stroke();
+  ctx.fillStyle = "#15161d"; for (const x of [-4.2, 4.2]) ctx.fillRect(x - 0.9, 3.6, 1.8, 3);
+  ctx.fillStyle = "#2f9e5a"; ctx.fillRect(-3.6, 1.6, 7.2, 6.2);
+  ctx.fillStyle = "#ffd23f"; ctx.fillRect(-3.6, 7, 7.2, 0.8);
+  ctx.fillStyle = "#1e2233"; ctx.fillRect(-3.2, 2, 6.4, 4.8); ctx.fillStyle = "#ffd23f"; for (let y = 2.4; y < 6.6; y += 1.6) ctx.fillRect(-3.2, y, 6.4, 0.7);
+  ctx.fillStyle = brake ? "#ff4d4d" : "#7a2020"; ctx.fillRect(-3.4, 7.9, 1.5, 0.7); ctx.fillRect(1.9, 7.9, 1.5, 0.7);
+  if (night > 0.3) { ctx.fillStyle = "#fff3b0"; ctx.fillRect(-0.8, -9, 1.6, 1.2); ctx.fillStyle = hsl((t * 90) % 360, 100, 65); ctx.fillRect(-3.8, 4, 0.8, 0.8); ctx.fillRect(3, 4, 0.8, 0.8); }
 }
 function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night: number, brake: boolean) {
   if (id === "tuktuk") { drawTuktuk(ctx, t, night, brake); return; }
@@ -1569,7 +1576,8 @@ export default function PlayaWin() {
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane") ridealong(); else if (!g.chute && g.alt === 0) setRides((r) => !r); }
-    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
+    // E: at the wheel of an art car it parks it and puts you on the bike (asked 2026-10-26: it used to take the wheel again); beside one it takes the wheel; at the airport, the plane
+    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (g.vehicle === "found") { e.preventDefault(); ridealong(); } else if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
   };

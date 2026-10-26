@@ -126,6 +126,8 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const frame = useRef<HTMLIFrameElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const key = (open ? parked ?? now?.key : now?.key) ?? null;
+  // an art car is not a place you park at (asked 2026-10-26): you are beside it, riding on it, or at its wheel
+  const here = !key?.startsWith("mutant:") ? "now parked at" : vehicle === "found" ? "at the wheel of" : aboard ? "riding along on" : "now beside";
   const nowUrl = useRef(""); nowUrl.current = now?.url ?? "";
   const nowAuto = useRef(false); nowAuto.current = !!now?.auto;
   const nowPlaying = useRef(false); nowPlaying.current = !!now?.playing;
@@ -186,12 +188,12 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onCollapse(); } };
 
   return (
-    <section className={`pl-lounge${now && s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lounge-clip" : ""}${wide ? " pl-lounge-wide" : ""}`} data-mini={open ? undefined : ""} aria-label={open ? `${parked === key ? "parked at" : "playing from"} ${s.name}` : "now playing"} onKeyDown={esc}>
+    <section className={`pl-lounge${now && s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lounge-clip" : ""}${wide ? " pl-lounge-wide" : ""}`} data-mini={open ? undefined : ""} aria-label={open ? `${parked === key ? here : "playing from"} ${s.name}` : "now playing"} onKeyDown={esc}>
       {open ? (
         <div className="pl-lg-body">
           <div className="pl-lg-head">
             <div className="pl-lg-who">
-              <span className="pl-lg-eyebrow">{parked === key ? "now parked at" : "now playing from"}</span>
+              <span className="pl-lg-eyebrow">{parked === key ? here : "now playing from"}</span>
               <b className="pl-lg-name">{s.name}</b>
             </div>
             <button type="button" className="pl-lg-btn pl-lg-widen" onClick={() => setWide((w) => !w)} aria-pressed={wide} aria-label={wide ? "make the panel smaller" : "make the panel fill the screen"} title={wide ? "smaller" : "bigger"}>{wide ? "⤡" : "⤢"}</button>

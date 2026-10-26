@@ -1,7 +1,7 @@
 /**
  * The garage (asked 2026-10-26): choose your ride the way a racing game does, each one seen from the side on its
  * own card with its name and three bars (speed, handling, grip), the art cars you have found on the playa after
- * them. ← → or a tap moves the choice, Enter or a second tap takes it, Escape closes.
+ * them. One tap takes a ride (asked 2026-10-26); the arrows move the choice and Enter takes it, Escape closes.
  */
 import { useEffect, useRef, useState } from "react";
 import { VEHICLES, type VehicleId } from "@/lib/playa";
@@ -13,7 +13,7 @@ import { soundOf } from "./PlayaLounge";
 export const GARAGE_RIDES: { id: VehicleId; name: string; line: string }[] = [
   { id: "unicycle", name: "Unicycle", line: "one wheel, all balance: slow, turns on a dime, goes anywhere" },
   { id: "bike", name: "Playa Cruiser", line: "the fat-tyred beach bike every burner rides: 21 mph, through the camps" },
-  { id: "tuktuk", name: "Tuktuk", line: "a three-wheeled cab with a canopy: 30 mph, quick on its feet, sticks to the streets" },
+  { id: "tuktuk", name: "Tuktuk", line: "a bike pulling a little covered trailer: 30 mph, quick on its feet, sticks to the streets" },
   { id: "ebike", name: "Fat Tire eBike", line: "fat tyres and a battery: 50 mph, a strong pull, floats over the dust, still through the camps" },
   { id: "fish", name: "Cuttlefish Art Car", line: "a cuttlefish on wheels, colours rolling, 32 mph, loose in the dust" },
   { id: "artcar", name: "Golden Ticket Art Car", line: "a San Francisco meter-maid cart reborn in gold overnight: a bus seat, LEDs, Void sound, 50 mph" },
@@ -86,7 +86,7 @@ export function RidePicker({ open, current, skin, garage, night, near, onPick, o
       <div className="pl-garage-cards" role="listbox" aria-activedescendant={`pl-card-${sel}`}>
         {cards.map((card, i) => (
           <button type="button" key={card.key} id={`pl-card-${i}`} role="option" aria-selected={i === sel} className={`pl-card${i === sel ? " pl-card-sel" : ""}${card.found || card.near ? " pl-card-found" : ""}`}
-            onClick={() => (i === sel ? take(i) : setSel(i))} onDoubleClick={() => take(i)}>
+            onClick={() => take(i)} onMouseEnter={() => setSel(i)}>
             <canvas ref={(el) => { canvases.current[i] = el; }} width={220} height={124} aria-hidden="true" />
             <span className="pl-card-name">{card.found || card.near ? "★ " : ""}{card.name}{card.key === currentKey ? <span className="pl-card-now"> · yours now</span> : null}</span>
             <span className="pl-card-line">{card.line}</span>
@@ -104,7 +104,7 @@ export function RidePicker({ open, current, skin, garage, night, near, onPick, o
           </button>
         ))}
       </div>
-      <div className="pl-garage-hint">{cards[sel]?.near ? "ride along on it, or take its wheel" : cards[sel]?.found ? "tap again to take the wheel" : "tap again or press Enter to ride it"} · arrows to look · Esc to close</div>
+      <div className="pl-garage-hint">{cards[sel]?.near ? "ride along on it, or take its wheel" : cards[sel]?.found ? "tap it to take the wheel" : "tap it or press Enter to ride it"} · arrows to look · Esc to close</div>
     </div>
   );
 }
