@@ -326,6 +326,8 @@ function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night
 }
 /** The e-bike: the cruiser with a battery pack behind the saddle and an electric-blue glow. */
 function drawEBike(ctx: CanvasRenderingContext2D, t: number, night: number, brake: boolean) {
+  // fat tyres (asked 2026-10-26): wide dark tyres under the cruiser's wheels
+  ctx.fillStyle = "#15161d"; for (const y of [-12, 11]) { ctx.beginPath(); ctx.roundRect(-2.6, y - 5, 5.2, 10, 2.4); ctx.fill(); }
   ctx.save();
   ctx.shadowColor = "#5ee7ff"; ctx.shadowBlur = 6 + 3 * Math.sin(t * 6) + 6 * night;
   drawBikeRide(ctx, t, night, brake);

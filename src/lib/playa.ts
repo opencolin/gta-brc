@@ -58,7 +58,7 @@ export const VEHICLES = {
   },
   ebike: {
     // the cruiser with a battery: twice the bike's top speed, a stronger pull, same size (asked 2026-10-22)
-    name: "e-bike", len: 16, wid: 7,
+    name: "fat-tire e-bike", len: 16, wid: 8,
     maxSpeed: 350, maxReverse: 40, accel: 260, brake: 380, reverse: 60, handbrake: 280, // 50 mph on the HUD
     drag: 0.28, roll: 16, maxYaw: 2.8, hbYaw: 1.6, restitution: 0.35, dust: 1, grip: 1, throughCamps: true,
   },

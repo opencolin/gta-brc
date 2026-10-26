@@ -43,10 +43,11 @@ function unicycle(c: Ctx, t: number, night: number) {
   c.restore();
   void night;
 }
-/** The playa cruiser: a fat-tyred beach bike with a basket, lights front and back, a rider leaning on wide bars. */
+/** The playa cruiser: a beach bike with a basket, lights front and back, a rider leaning on wide bars; `electric` is the fat-tyre e-bike, its battery on the frame. */
 function cruiser(c: Ctx, t: number, night: number, electric = false) {
   shadow(c, 52);
-  wheel(c, -30, -14, 14, t); wheel(c, 30, -14, 14, t);
+  if (electric) { c.fillStyle = "#15161d"; for (const x of [-30, 30]) { disc(c, x, -15, 17); c.fill(); } c.fillStyle = "#2a2d3c"; for (const x of [-30, 30]) { disc(c, x, -15, 13.5); c.fill(); } } // fat tyres (asked 2026-10-26)
+  wheel(c, -30, electric ? -15 : -14, electric ? 11 : 14, t); wheel(c, 30, electric ? -15 : -14, electric ? 11 : 14, t);
   c.strokeStyle = electric ? "#2f8fd0" : PINK; c.lineWidth = 3.5; c.lineCap = "round";
   c.beginPath(); c.moveTo(-30, -14); c.lineTo(-8, -38); c.lineTo(22, -38); c.lineTo(30, -14); c.moveTo(-8, -38); c.lineTo(2, -14); c.lineTo(22, -38); c.moveTo(2, -14); c.lineTo(30, -14); c.stroke(); // frame
   c.beginPath(); c.moveTo(22, -38); c.lineTo(26, -50); c.stroke(); // the head tube

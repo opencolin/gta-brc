@@ -14,7 +14,7 @@ export const GARAGE_RIDES: { id: VehicleId; name: string; line: string }[] = [
   { id: "unicycle", name: "Unicycle", line: "one wheel, all balance: slow, turns on a dime, goes anywhere" },
   { id: "bike", name: "Playa Cruiser", line: "the fat-tyred beach bike every burner rides: 21 mph, through the camps" },
   { id: "tuktuk", name: "Tuktuk", line: "a three-wheeled cab with a canopy: 30 mph, quick on its feet, sticks to the streets" },
-  { id: "ebike", name: "eBike", line: "the cruiser with a battery: 50 mph, a strong pull, still through the camps" },
+  { id: "ebike", name: "Fat Tire eBike", line: "fat tyres and a battery: 50 mph, a strong pull, floats over the dust, still through the camps" },
   { id: "fish", name: "Cuttlefish Art Car", line: "a cuttlefish on wheels, colours rolling, 32 mph, loose in the dust" },
   { id: "artcar", name: "Golden Ticket Art Car", line: "a San Francisco meter-maid cart reborn in gold overnight: a bus seat, LEDs, Void sound, 36 mph" },
 ];
