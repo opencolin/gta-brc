@@ -965,6 +965,8 @@ function startPose(key: string | null): { at: Vec; h: number } {
 
 export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null = null): Game {
   const rand = seeded(seed);
+  // the Golden Ticket is parked at Agave Lounge (asked 2026-10-26), on the Esplanade a little past the camp's bay, until someone drives it off
+  { const a = clockToAngle(AGAVE.curbMin), tx = Math.cos(a), ty = Math.sin(a); parkedCars.set("mutant:golden-ticket", { x: AGAVE.curb.x + tx * 75, y: AGAVE.curb.y + ty * 75, h: a + Math.PI / 2 }); }
   const start = startPose(at);
   return {
     t: 0, car: newCar(start.at, start.h), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
