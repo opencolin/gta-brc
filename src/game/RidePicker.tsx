@@ -16,7 +16,7 @@ export const GARAGE_RIDES: { id: VehicleId; name: string; line: string }[] = [
   { id: "tuktuk", name: "Tuktuk", line: "a three-wheeled cab with a canopy: 30 mph, quick on its feet, sticks to the streets" },
   { id: "ebike", name: "eBike", line: "the cruiser with a battery: 50 mph, a strong pull, still through the camps" },
   { id: "fish", name: "Cuttlefish Art Car", line: "a cuttlefish on wheels, colours rolling, 32 mph, loose in the dust" },
-  { id: "artcar", name: "Golden Ticket Art Car", line: "Agave Lounge's dome on a bus: 36 mph, heavy, fastest on the open playa" },
+  { id: "artcar", name: "Golden Ticket Art Car", line: "a San Francisco meter-maid cart reborn in gold overnight: a bus seat, LEDs, Void sound, 36 mph" },
 ];
 type Card = { key: string; name: string; line: string; stats: [number, number, number]; draw: (c: CanvasRenderingContext2D, t: number, night: number) => void; found?: string; near?: boolean };
 

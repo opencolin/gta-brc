@@ -63,7 +63,7 @@ export const VEHICLES = {
     drag: 0.28, roll: 16, maxYaw: 2.8, hbYaw: 1.6, restitution: 0.35, dust: 1, grip: 1, throughCamps: true,
   },
   artcar: {
-    name: "Golden Ticket", len: 34, wid: 20, // Agave's Golden Ticket art car: the dome on wheels, its 21 × 36 pixel art
+    name: "Golden Ticket", len: 20, wid: 10, // the Golden Ticket (2026-10-26): a San Francisco meter-maid cart reborn in gold, LEDs, a bus seat and Void sound
     maxSpeed: 250, maxReverse: 70, accel: 115, brake: 280, reverse: 80, handbrake: 220,
     drag: 0.3, roll: 14, maxYaw: 1.9, hbYaw: 1.7, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: false,
   },

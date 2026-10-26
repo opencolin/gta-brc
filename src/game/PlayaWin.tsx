@@ -278,6 +278,21 @@ function drawDomeCar(ctx: CanvasRenderingContext2D, t: number, night: number, br
   }
   if (brake) DOME_CAR.tail.forEach((p) => px(p, "#ff2d55"));
 }
+/** The Golden Ticket from above (redesigned 2026-10-26): an old San Francisco meter-maid cart, three wheels, rebuilt in sparkly
+ * gold by Micah, Devon and friends in a night: LED strips down its sides, an old bus seat behind the cab, Void speakers at the back. */
+function drawGoldenTicket(ctx: CanvasRenderingContext2D, t: number, night: number, brake: boolean) {
+  ctx.fillStyle = "rgba(27, 31, 59, .22)"; ctx.beginPath(); ctx.roundRect(-4, -8, 10, 19, 3); ctx.fill();
+  ctx.fillStyle = "#15161d"; ctx.fillRect(-1.5, -9.5, 3, 4); for (const x of [-5, 5]) ctx.fillRect(x - 1.5, 4, 3, 4.5); // one wheel in front, two behind
+  ctx.fillStyle = "#e8b923"; ctx.beginPath(); ctx.moveTo(0, -10); ctx.quadraticCurveTo(5, -9, 5, -3); ctx.lineTo(5, 9); ctx.lineTo(-5, 9); ctx.lineTo(-5, -3); ctx.quadraticCurveTo(-5, -9, 0, -10); ctx.fill(); // the gold body
+  ctx.fillStyle = "#c9960c"; ctx.fillRect(-5, 8, 10, 1.2);
+  for (let k = 0; k < 9; k++) { const a = t * 3 + k * 2.1, x = Math.sin(a * 1.7) * 3.6, y = -6 + ((k * 2.3 + t * 2) % 14); ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.35 * Math.abs(Math.sin(a))})`; ctx.fillRect(x, y, 0.8, 0.8); } // the sparkle
+  ctx.fillStyle = "#2b3a4a"; ctx.beginPath(); ctx.roundRect(-3.8, -7.5, 7.6, 3, 1); ctx.fill(); // the windscreen
+  ctx.fillStyle = "#1e2233"; ctx.fillRect(-3.5, -4, 7, 4); ctx.fillStyle = "#f2c6a0"; ctx.beginPath(); ctx.arc(0, -2.5, 1.6, 0, Math.PI * 2); ctx.fill(); // the cab and the driver
+  ctx.fillStyle = "#7a3b1e"; ctx.beginPath(); ctx.roundRect(-4, 0.5, 8, 4, 1); ctx.fill(); ctx.fillStyle = "#9b5230"; ctx.fillRect(-4, 0.5, 8, 1.2); // the old bus seat
+  ctx.fillStyle = "#1d1f2b"; for (const x of [-4.5, 1.5]) { ctx.fillRect(x, 5.5, 3, 3); ctx.fillStyle = "#4b5068"; ctx.beginPath(); ctx.arc(x + 1.5, 7, 0.9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#1d1f2b"; } // the Void speakers
+  if (night > 0.3) { for (let y = -7; y < 9; y += 1.6) { ctx.fillStyle = hsl((y * 22 + t * 240) % 360, 100, 65); ctx.fillRect(-5.6, y, 1, 1); ctx.fillRect(4.6, y, 1, 1); } ctx.fillStyle = "#fff3b0"; ctx.fillRect(-2, -10.5, 1.4, 1); ctx.fillRect(0.6, -10.5, 1.4, 1); } // the LED strips and headlights
+  if (brake) { ctx.fillStyle = "#ff2d55"; ctx.fillRect(-4.5, 9, 2, 1); ctx.fillRect(2.5, 9, 2, 1); }
+}
 /** The unicycle, from above: the wheel under a rider in a pink shirt and a straw hat. */
 function drawUnicycle(ctx: CanvasRenderingContext2D, t: number, night: number) {
   ctx.fillStyle = night > 0.3 ? hsl((t * 200) % 360, 100, 62) : C.navy; ctx.fillRect(-1.5, -6, 3, 12);
@@ -301,7 +316,8 @@ function drawTuktuk(ctx: CanvasRenderingContext2D, t: number, night: number, bra
 function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night: number, brake: boolean) {
   if (id === "tuktuk") { drawTuktuk(ctx, t, night, brake); return; }
   if (id === "found" && rideSkin && ART_CARS[rideSkin]) ART_CARS[rideSkin](ctx, t, night); // full size: it is the art car itself
-  else if (id === "artcar" || id === "found") drawDomeCar(ctx, t, night, brake);
+  else if (id === "artcar") drawGoldenTicket(ctx, t, night, brake);
+  else if (id === "found") drawDomeCar(ctx, t, night, brake);
   else if (id === "fish") drawCuttlefish(ctx, t, night);
   else if (id === "unicycle") drawUnicycle(ctx, t, night);
   // the bikes at 0.55: about the size of the others on the road (asked 2026-10-22)

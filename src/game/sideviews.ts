@@ -87,23 +87,22 @@ function cuttlefish(c: Ctx, t: number, night: number) {
   c.lineCap = "butt";
   if (night > 0.3) for (let x = -60; x < 56; x += 8) { c.fillStyle = `hsl(${(hue + x * 3) % 360} 100% 70%)`; disc(c, x, -30, 1.5); c.fill(); }
 }
-/** Agave's Golden Ticket art car: a flat deck on a bus chassis, the geodesic dome on top glowing pink, gold trim. */
+/** The Golden Ticket (redesigned 2026-10-26): an old San Francisco meter-maid cart rebuilt in sparkly gold in one night, an old
+ * bus seat behind the little cab, LED strips along the skirt, Void speakers stacked on the back, three wheels. */
 function goldenTicket(c: Ctx, t: number, night: number) {
-  shadow(c, 70);
-  wheel(c, -42, -12, 12, t, true); wheel(c, 32, -12, 12, t, true);
-  c.fillStyle = "#e9e4d6"; rr(c, -62, -30, 124, 14, 4); c.fill(); // the deck
-  c.fillStyle = GOLD; rr(c, -62, -32, 124, 4, 1); c.fill(); rr(c, -62, -18, 124, 3, 1); c.fill(); // gold trim
-  c.fillStyle = "#2a2d3c"; rr(c, 40, -46, 22, 16, 3); c.fill(); c.fillStyle = "rgba(255,255,255,.35)"; rr(c, 44, -44, 14, 9, 2); c.fill(); // the cab
-  c.fillStyle = "#1d1f2b"; for (const x of [-58, -46]) { rr(c, x, -44, 10, 14, 2); c.fill(); } // speaker stack
-  const R = 30; c.fillStyle = "rgba(255,255,255,.92)"; c.beginPath(); c.arc(-6, -30, R, Math.PI, 0); c.closePath(); c.fill();
-  c.strokeStyle = night > 0.3 ? `hsl(${(t * 90) % 360} 100% 65%)` : PINK; c.lineWidth = 2.5; c.beginPath(); c.arc(-6, -30, R, Math.PI, 0); c.stroke();
-  c.strokeStyle = "rgba(27, 31, 59, .4)"; c.lineWidth = 1; c.beginPath();
-  for (let k = 1; k < 6; k++) { const a = Math.PI + (k / 6) * Math.PI; c.moveTo(-6, -30); c.lineTo(-6 + Math.cos(a) * R, -30 + Math.sin(a) * R); }
-  for (const f of [0.45, 0.75]) c.arc(-6, -30, R * f, Math.PI, 0);
-  c.stroke();
-  if (night > 0.3) { c.shadowColor = PINK; c.shadowBlur = 18; c.fillStyle = "rgba(255,107,154,.25)"; c.beginPath(); c.arc(-6, -30, R, Math.PI, 0); c.fill(); c.shadowBlur = 0; }
-  c.fillStyle = PINK; disc(c, -6, -34, 4); c.fill();
-  lamp(c, 62, -36, night);
+  shadow(c, 56);
+  c.fillStyle = "#e8b923"; c.beginPath(); c.moveTo(-50, -14); c.lineTo(-50, -34); c.lineTo(-14, -34); c.lineTo(10, -34); c.lineTo(22, -52); c.lineTo(44, -52); c.lineTo(52, -30); c.lineTo(52, -14); c.closePath(); c.fill(); // the body and the cab's back
+  c.fillStyle = "#c9960c"; rr(c, -50, -20, 102, 5, 1); c.fill(); // the skirt
+  for (let k = 0; k < 26; k++) { const a = t * 2 + k * 1.9, x = -46 + (k * 3.9) % 94, y = -48 + ((k * 7.3) % 30); if (x > 10 && y < -34) continue; c.fillStyle = `rgba(255,255,255,${0.35 + 0.45 * Math.abs(Math.sin(a))})`; c.fillRect(x, y, 1.6, 1.6); } // the sparkle
+  c.fillStyle = "#2b3a4a"; c.beginPath(); c.moveTo(24, -50); c.lineTo(42, -50); c.lineTo(48, -34); c.lineTo(24, -34); c.closePath(); c.fill(); c.fillStyle = "rgba(255,255,255,.3)"; c.beginPath(); c.moveTo(26, -48); c.lineTo(40, -48); c.lineTo(44, -38); c.lineTo(26, -38); c.closePath(); c.fill(); // the cab's windscreen
+  c.fillStyle = "#1e2233"; rr(c, 8, -56, 40, 5, 2); c.fill(); // the cab roof
+  rider(c, 32, -34, "#ff8c42", Math.sin(t * 5) * 0.4); // the driver in the cab
+  c.fillStyle = "#7a3b1e"; rr(c, -40, -46, 34, 12, 3); c.fill(); c.fillStyle = "#9b5230"; rr(c, -40, -58, 8, 14, 3); c.fill(); // the old bus seat, back and base
+  c.fillStyle = "#5bd6c8"; rr(c, -30, -58, 10, 12, 3); c.fill(); c.fillStyle = SKIN; disc(c, -25, -62, 5); c.fill(); // someone on the seat
+  c.fillStyle = "#1d1f2b"; for (const y of [-62, -48]) { rr(c, -62, y, 12, 13, 2); c.fill(); c.fillStyle = "#4b5068"; disc(c, -56, y + 6.5, 3.6); c.fill(); c.fillStyle = "#1d1f2b"; } // the Void stack on the back
+  wheel(c, 40, -12, 12, t, true); wheel(c, -30, -12, 12, t, true);
+  lamp(c, 52, -40, night);
+  if (night > 0.3) for (let x = -48; x < 50; x += 6) { c.fillStyle = `hsl(${(x * 4 + t * 240) % 360} 100% 65%)`; disc(c, x, -17, 1.3); c.fill(); }
 }
 
 export const SIDE_VIEWS: Record<string, (c: Ctx, t: number, night: number) => void> = {
