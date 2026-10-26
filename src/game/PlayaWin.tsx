@@ -16,7 +16,7 @@ import {
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, POLO_JOB, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
@@ -1177,6 +1177,8 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
 const SOUND_KEY = "agentcamp-playa-sound";
 const GARAGE_KEY = "agentcamp-playa-garage";
+/** Polo & Pan's opening set, recorded by Brunch Life at 1015 Folsom (SoundCloud, checked 2026-10-26): what plays at Agave once you have driven them there. */
+const POLO_SET = { url: "https://soundcloud.com/brunchlife/polo-pan-opening-set-live-recorded-at-1015-fulsom-san-francisco-ca", title: "Polo & Pan · opening set, recorded by Brunch Life" };
 const readSound = () => { try { return localStorage.getItem(SOUND_KEY) !== "off"; } catch { return true; } };
 const writeSound = (on: boolean) => { try { localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch {} };
 /** iOS Safari ignores the widget's volume: there a camp is simply on or off (playaSound.ts gate). */
@@ -1390,7 +1392,11 @@ export default function PlayaWin() {
               flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. choose your ride", until: g.t + 2.5 };
               if (g.vehicle !== "plane") setTimeout(() => { const gg = game.current; if (!gg.chute && gg.alt === 0) setRides(true); }, 700); // down under the chute, on the ground: the garage opens (asked 2026-10-26)
             }
-            else if (e === "delivered") flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
+            else if (e === "delivered") {
+              flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
+              // Polo & Pan delivered to Agave Lounge (asked 2026-10-26): their set, as Brunch Life recorded it, goes on
+              if (g.mission.job === POLO_JOB) { flash.current = { text: "Polo & Pan are on at Agave Lounge!", until: g.t + 3 }; pick("agave", POLO_SET); setLounge(true); }
+            }
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
             else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
             else if (e === "park" && g.parking.at) onPark.current(g.parking.at);

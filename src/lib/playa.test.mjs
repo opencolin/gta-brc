@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
+  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
@@ -663,4 +663,28 @@ test("the Gate (asked 2026-10-26): out past the fence at 4:30 on open ground; st
   for (let i = 0; i < ANGEL_T * 60; i++) stepGame(g, NO_INPUT, 1 / 60);
   assert.equal(g.angelT, 0);
   assert.ok(dustAngel(g)); assert.equal(g.mission.gifts, gifts + 1, "a second angel is just an angel");
+});
+
+test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Golden Ticket until you drive it, then the airport, then Agave; only in that car", () => {
+  const g = newGame(1, "bike", "airport"); takePlane(g);
+  const m = g.mission, w = (extra) => ({ t: 0, moop: 0, ...extra });
+  stepMission(m, { x: AGAVE.dome.x, y: AGAVE.dome.y, speed: 0 }, 0.1, w({ alt: SKYDIVE_ALT }));
+  stepMission(m, { x: AGAVE.dome.x, y: AGAVE.dome.y, speed: 0 }, 0.1, w({ alt: 0, landed: true }));
+  assert.equal(m.phase, "done");
+  for (let i = 0; i < 90; i++) stepMission(m, { x: AGAVE.dome.x, y: AGAVE.dome.y, speed: 0 }, 0.1, w({})); // four seconds of 'done', three of the brief
+  assert.equal(m.job, POLO_JOB, "the jump hands over to Polo & Pan"); assert.equal(m.phase, "pickup");
+  const gt = npcAt(mutantOf("mutant:golden-ticket"), 0);
+  assert.ok(Math.hypot(missionTarget(m, 0).at.x - gt.x, missionTarget(m, 0).at.y - gt.y) < 1, "first the parked Golden Ticket");
+  assert.match(pagerLine(m), /parked at Agave Lounge/);
+  // at the airport on a bike: nothing
+  const pad = place("airport").at;
+  assert.equal(stepMission(m, { ...pad, speed: 0 }, 0.1, w({ driving: null })), null); assert.equal(m.phase, "pickup");
+  // at its wheel: the airport is the target, and stopping there picks them up
+  stepMission(m, { x: gt.x, y: gt.y, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" }));
+  assert.match(missionTarget(m, 0).label, /airport/); assert.match(pagerLine(m), /go and get them/);
+  assert.equal(stepMission(m, { ...pad, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" })), "picked");
+  assert.match(pagerLine(m), /bring them to Agave Lounge/);
+  const gifts = m.gifts;
+  assert.equal(stepMission(m, { ...AGAVE.mid, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" })), "delivered");
+  assert.ok(m.gifts > gifts); assert.match(pagerLine(m), /Polo & Pan are on/);
 });
