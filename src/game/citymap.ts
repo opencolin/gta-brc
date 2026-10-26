@@ -7,7 +7,7 @@
  * (as speckle in a dozen pale colours), the wide radials and the Esplanade reading lighter than the
  * blocks, Rod's Road ringing Center Camp with the café in its middle, the Man's circle and the Temple's,
  * the pentagon fence with darker playa beyond it, the airport's runways past the fence at about 4:00,
- * Gate Road leaving the city at about 6:30 for the gate, and tyre tracks fanning over the open playa.
+ * Gate Road leaving the city at 4:30 past the airport for the gate, and tyre tracks fanning over the open playa.
  * Reference: Umbra SAR image of BRC 2025 (CC BY 4.0, Wikimedia Commons) and the 2005 Landsat view.
  */
 import {
@@ -116,11 +116,11 @@ function paint(x: CanvasRenderingContext2D, size: number) {
   // the wide radials' names ride on the plan; the three promenades to the Man read as lighter lanes
   x.strokeStyle = "rgba(255, 250, 238, .5)"; x.lineWidth = 50;
   for (const m of [180, 360, 540, 0]) { const a = polar(m, MAN_R * 5), b = polar(m, m === 0 ? TEMPLE.y * -1 - TEMPLE_R * 3.4 : ARC_R[0] - arcWidth(0) / 2); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); }
-  // Gate Road: out from 6:30 & L through the fence to the gate and the box office beyond it
-  x.strokeStyle = P.street; x.lineWidth = radialWidth(390) * 1.3;
-  const g0 = polar(390, ARC_R.at(-1)!), g1 = polar(408, FENCE_R * 0.995), g2 = polar(416, FENCE_R * 1.16);
+  // Gate Road (moved to 4:30 on 2026-10-26, past the airport): out from 4:30 & L through the fence's open wedge to the gate and on toward the highway
+  x.strokeStyle = P.street; x.lineWidth = radialWidth(270) * 1.3;
+  const g0 = polar(270, ARC_R.at(-1)!), g1 = polar(270, FENCE_R * 0.995), g2 = polar(270, FENCE_R * 1.25);
   x.beginPath(); x.moveTo(g0.x, g0.y); x.lineTo(g1.x, g1.y); x.lineTo(g2.x, g2.y); x.stroke();
-  for (let k = 0; k < 6; k++) { const q = polar(408 + (k % 2 ? 2 : -2), FENCE_R * (1.02 + Math.floor(k / 2) * 0.03)); x.fillStyle = CAMP[k % 4]; x.fillRect(q.x - 90, q.y - 40, 180, 80); }
+  for (let k = 0; k < 6; k++) { const q = polar(270 + (k % 2 ? 3 : -3), FENCE_R * (1.25 + (Math.floor(k / 2) - 1) * 0.012)); x.fillStyle = CAMP[k % 4]; x.fillRect(q.x - 60, q.y - 40, 120, 80); }
   // the airport: two runways side by side past the fence at about 4:00, hangars and tie-downs beside them
   const ap = polar(252, FENCE_R * 1.09), ta = clockToAngle(252) + Math.PI / 2 + 0.35;
   x.save(); x.translate(ap.x, ap.y); x.rotate(ta);
@@ -171,7 +171,7 @@ function surroundImage(): HTMLCanvasElement | null {
   }
   // tyre tracks and the desert's own tracks: long faint lines, most of them running toward the gate
   x.strokeStyle = "rgba(120, 95, 60, .14)"; x.lineWidth = 60;
-  const gate = polar(416, FENCE_R * 1.16);
+  const gate = polar(270, FENCE_R * 1.25);
   for (let i = 0; i < 70; i++) {
     const a = polar(hash(i * 3 + 0.25) * 720, FENCE_R * (1 + hash(i * 3 + 1.25) * 2.2));
     const b = hash(i * 3 + 2.25) < 0.6 ? gate : polar(hash(i * 9 + 0.25) * 720, FENCE_R * (1 + hash(i * 9 + 1.25) * 2.2));

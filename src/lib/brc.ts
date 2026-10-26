@@ -127,6 +127,16 @@ export const AIRPORT = (() => {
 
 /** The fence's five corners, clockwise from the one at 12:00. */
 export const FENCE: readonly Vec[] = Array.from({ length: 5 }, (_, i) => polar(i * 144, FENCE_R));
+/**
+ * Gate Road and the Gate (asked 2026-10-26): the road in from the highway at 4:30, past the airport, through the
+ * fence's open wedge (AIRPORT.gap) to the city's last street; the Gate stands outside the fence, a row of booths
+ * astride the road with the Greeters' bell beside it. `stop` is where you pull up for a dust angel and the bell.
+ */
+export const GATE = (() => {
+  const min = 270, a = clockToAngle(min), lat = { x: Math.cos(a), y: Math.sin(a) }; // across the road
+  const at = polar(min, FENCE_R * 1.25), stop = polar(min, FENCE_R * 1.25 - 230);
+  return { min, a, lat, at, stop, bell: { x: stop.x + lat.x * 70, y: stop.y + lat.y * 70 }, road: { from: polar(min, ARC_R[ARC_R.length - 1]), to: polar(min, FENCE_R * 1.7) }, width: 110 };
+})();
 
 /** How far a point is inside the fence (negative: outside), and the inward normal of the nearest side. */
 export function fenceDepth(p: Vec): { depth: number; nx: number; ny: number } {

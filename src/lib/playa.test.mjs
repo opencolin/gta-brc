@@ -3,12 +3,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
+  CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
-import { AIRPORT, ARC_R, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
+import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
 
 const DT = 1 / 60;
@@ -643,4 +643,22 @@ test("the skydive (asked 2026-10-26): taking the plane makes it the job; high en
   // the job on its own points you to the airport first
   const m2 = newMission(1); m2.job = SKYDIVE_JOB; m2.phase = "pickup"; m2.timeLeft = 100; m2.progress = 0; m2.moop0 = 0;
   assert.match(missionTarget(m2, 0).label, /airport/);
+});
+
+test("the Gate (asked 2026-10-26): out past the fence at 4:30 on open ground; stop in its ring for a dust angel (a gift the first time, and you lie still) and the bell", () => {
+  assert.equal(solidAt(GATE.stop), null, "the stop is drivable, through the fence's open wedge");
+  assert.equal(solidAt(GATE.road.to), null, "the road runs on toward the highway");
+  assert.ok(Math.hypot(GATE.at.x, GATE.at.y) > Math.hypot(GATE.road.from.x, GATE.road.from.y), "the Gate is outside the city");
+  const g = newGame(1);
+  assert.equal(atGate(g), false); assert.equal(dustAngel(g), false); assert.equal(ringBell(g), false);
+  g.car = { ...g.car, x: GATE.stop.x, y: GATE.stop.y, vx: 0, vy: 0 };
+  assert.ok(atGate(g) && ringBell(g));
+  const gifts = g.mission.gifts;
+  assert.ok(dustAngel(g)); assert.equal(g.angels.length, 1); assert.equal(g.mission.gifts, gifts + 1, "the first angel is a gift");
+  assert.equal(dustAngel(g), false, "one at a time");
+  for (let i = 0; i < 30; i++) stepGame(g, { ...NO_INPUT, gas: true }, 1 / 60);
+  assert.ok(Math.hypot(g.car.x - GATE.stop.x, g.car.y - GATE.stop.y) < 1, "lying still while the angel is made");
+  for (let i = 0; i < ANGEL_T * 60; i++) stepGame(g, NO_INPUT, 1 / 60);
+  assert.equal(g.angelT, 0);
+  assert.ok(dustAngel(g)); assert.equal(g.mission.gifts, gifts + 1, "a second angel is just an angel");
 });

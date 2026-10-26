@@ -15,7 +15,7 @@
  * art car's top speed reads about 50. The camp speed limit is 5, as everyone ignores.
  */
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, MAN_R, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, GATE, MAN_R, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
   clockToAngle, fenceDepth, parseClock, pointAt, polar, surfaceAt, toPolar, type ArcName, type Vec,
 } from "./brc.ts";
 import { planAt, planCity, structPush, type BlockPlan } from "./camps.ts";
@@ -907,6 +907,7 @@ export type Game = {
   /** feet up: more than 0 and the plane, or you under the canopy, is in the air (asked 2026-10-22) */ alt: number;
   /** you bailed out: under a parachute, drifting down */ chute: boolean;
   /** the plane you bailed out of, flying on without you until it is gone */ plane: (Car & { alt: number; left: number }) | null;
+  /** the dust angels made at the Gate (asked 2026-10-26), left in the playa; `angelT` is the seconds left of the one being made, lying down */ angels: Vec[]; angelT: number;
   rand: () => number;
 };
 export type GameEvent = MissionEvent | "moop" | "bump" | "hit" | "slow" | "storm" | "park" | "leave" | "takeoff" | "landed" | "bail";
@@ -969,10 +970,26 @@ export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null
     t: 0, car: newCar(start.at, start.h), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
     moop: Array.from({ length: MOOP_N }, () => moopSpot(rand)), moopCount: 0,
     storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: 0.1 * DAY_SECONDS, dust: [], bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
-    parking: newParking(), alt: 0, chute: false, plane: null,
+    parking: newParking(), alt: 0, chute: false, plane: null, angels: [], angelT: 0,
     rand,
   };
 }
+
+/* ── the Gate (asked 2026-10-26): stop at the booths, make a dust angel, ring the bell ── */
+export const GATE_R = 170, ANGEL_T = 2.6;
+/** Pulled up at the Gate's stop, on the ground and not aboard anything you cannot lie down from. */
+export const atGate = (g: Game) => !g.chute && g.alt === 0 && !g.aboard && dist(g.car, GATE.stop) < GATE_R;
+/** Lie down and make a dust angel: you stop for ANGEL_T seconds, the angel stays in the playa; the first one is the
+ * virgin burner's rite and is worth a gift. */
+export function dustAngel(g: Game): boolean {
+  if (!atGate(g) || g.angelT > 0) return false;
+  g.angelT = ANGEL_T; g.car = { ...g.car, vx: 0, vy: 0 };
+  g.angels.push({ x: g.car.x, y: g.car.y });
+  if (g.angels.length === 1) g.mission.gifts += 1;
+  return true;
+}
+/** Ring the bell: only at the Gate. The sound is the window's; this says whether it rang. */
+export const ringBell = (g: Game) => atGate(g);
 
 /* ── the airport and the plane (asked 2026-10-22) ──────────────────────── */
 /** Rolling faster than this, the plane lifts; slower than STALL in the air, it is held at STALL. */
@@ -1039,6 +1056,8 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   g.slip = Math.max(0, (g.slip ?? 0) - dt);
   g.warn = Math.max(0, g.warn - dt);
   const v: Vehicle = VEHICLES[g.vehicle] ?? CAR;
+  // lying in the dust making an angel: nothing moves you until you are done
+  if (g.angelT > 0) { g.angelT = Math.max(0, g.angelT - dt); input = NO_INPUT; g.car = { ...g.car, vx: 0, vy: 0 }; }
 
   // riding along on an art car: carried where it goes; any steering hops you off
   if (g.aboard && (input.gas || input.brake || input.left || input.right || stickOn(input) || !mutantOf(g.aboard))) hopOff(g);

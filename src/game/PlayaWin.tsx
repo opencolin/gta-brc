@@ -11,12 +11,12 @@ import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
@@ -429,6 +429,48 @@ function drawChute(ctx: CanvasRenderingContext2D, t: number, night: number) {
   ctx.save(); ctx.scale(0.8, 0.8); drawRider(ctx, 7, 330, night); ctx.restore();
 }
 /** The airport on the ground: its two runways with their centre lines and numbers, the hangars, a windsock, and the plane on its pad. */
+/** Gate Road and the Gate (asked 2026-10-26): the road from the city's last street out past the fence toward the highway, the
+ * booths astride it, a shade over them, flags, the Greeters' bell on its post by the stop, and the pink ring where you pull up. */
+function drawGate(ctx: CanvasRenderingContext2D, t: number, night: number, here: boolean) {
+  const { road, at, stop, bell, lat, width } = GATE;
+  ctx.strokeStyle = C.road; ctx.lineWidth = width; ctx.lineCap = "butt";
+  ctx.beginPath(); ctx.moveTo(road.from.x, road.from.y); ctx.lineTo(road.to.x, road.to.y); ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 250, 238, .55)"; ctx.lineWidth = 3; ctx.setLineDash([40, 30]);
+  ctx.beginPath(); ctx.moveTo(road.from.x, road.from.y); ctx.lineTo(road.to.x, road.to.y); ctx.stroke(); ctx.setLineDash([]);
+  // the booths across the road, under a long shade
+  ctx.fillStyle = "rgba(27, 31, 59, .18)"; ctx.beginPath(); ctx.ellipse(at.x + 8, at.y + 10, 190, 60, GATE.a, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(at.x, at.y); ctx.rotate(GATE.a);
+  ctx.fillStyle = "#e9e4d6"; ctx.fillRect(-180, -26, 360, 52); ctx.strokeStyle = "#c6ab7c"; ctx.lineWidth = 2; ctx.strokeRect(-180, -26, 360, 52); // the shade
+  for (let k = -3; k <= 3; k++) { const x = k * 50; ctx.fillStyle = ["#ff9a8b", "#8ec5fc", "#ffd27a", "#e0c3fc"][(k + 3) % 4]; ctx.fillRect(x - 14, -14, 28, 28); ctx.fillStyle = C.navy; ctx.fillRect(x - 10, -10, 20, 6); }
+  for (const x of [-200, 200]) { ctx.fillStyle = "#8a8f99"; ctx.fillRect(x - 2, -2, 4, 4); const w = Math.sin(t * 3 + x) * 6; ctx.fillStyle = x < 0 ? C.pink : C.gold; ctx.beginPath(); ctx.moveTo(x, -2); ctx.lineTo(x + 26, -10 + w); ctx.lineTo(x + 26, 6 + w); ctx.closePath(); ctx.fill(); } // flags
+  ctx.restore();
+  // the Greeters' bell on its post
+  ctx.fillStyle = "#6b4226"; ctx.beginPath(); ctx.arc(bell.x, bell.y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = night > 0.3 ? "#ffe9a3" : C.gold; ctx.beginPath(); ctx.moveTo(bell.x - 7, bell.y - 2); ctx.quadraticCurveTo(bell.x - 8, bell.y - 16, bell.x, bell.y - 16); ctx.quadraticCurveTo(bell.x + 8, bell.y - 16, bell.x + 7, bell.y - 2); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = C.navy; ctx.lineWidth = 1.2; ctx.stroke(); ctx.fillStyle = C.navy; ctx.beginPath(); ctx.arc(bell.x, bell.y - 1, 2, 0, Math.PI * 2); ctx.fill();
+  // the stop: a pink ring, bright while you are in it
+  ctx.strokeStyle = here ? hsl((t * 90) % 360, 100, 62) : C.pink; ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.arc(stop.x, stop.y, 60, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(27, 31, 59, .5)"; ctx.lineWidth = 1; for (const [x, y] of [[-lat.x, -lat.y], [lat.x, lat.y]] as const) { ctx.beginPath(); ctx.moveTo(stop.x, stop.y); ctx.lineTo(stop.x + x * 60, stop.y + y * 60); ctx.stroke(); }
+}
+/** A dust angel in the playa: the mark a burner leaves lying down and sweeping their arms and legs. */
+function drawDustAngel(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "rgba(255, 250, 238, .5)";
+  ctx.beginPath(); ctx.moveTo(-6, -4); ctx.quadraticCurveTo(-30, -14, -34, 10); ctx.quadraticCurveTo(-20, 8, -8, 4); ctx.lineTo(-12, 26); ctx.lineTo(0, 10); ctx.lineTo(12, 26); ctx.lineTo(8, 4); ctx.quadraticCurveTo(20, 8, 34, 10); ctx.quadraticCurveTo(30, -14, 6, -4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -11, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+/** You, lying in the dust making one: arms and legs sweeping. */
+function drawAngelMaker(ctx: CanvasRenderingContext2D, t: number) {
+  const sw = Math.sin(t * 6) * 0.55;
+  ctx.fillStyle = "#f2c6a0"; ctx.beginPath(); ctx.arc(0, -11, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.pink; ctx.fillRect(-4, -6, 8, 12);
+  ctx.strokeStyle = "#f2c6a0"; ctx.lineWidth = 3; ctx.lineCap = "round";
+  ctx.beginPath(); for (const sgn of [-1, 1]) { ctx.moveTo(sgn * 3, -4); ctx.lineTo(sgn * 16 * Math.cos(sw), -4 - 14 * Math.sin(sw) * sgn * sgn - 2); }
+  ctx.stroke(); ctx.strokeStyle = C.navy;
+  ctx.beginPath(); for (const sgn of [-1, 1]) { ctx.moveTo(sgn * 2, 6); ctx.lineTo(sgn * (4 + 10 * Math.abs(Math.sin(t * 6))), 20); } ctx.stroke();
+  ctx.lineCap = "butt";
+}
 function drawAirport(ctx: CanvasRenderingContext2D, t: number, night: number, padPlane: boolean) {
   ctx.save(); ctx.translate(AIRPORT.at.x, AIRPORT.at.y); ctx.rotate(AIRPORT.ta);
   const L = AIRPORT.runwayLen, W = AIRPORT.runwayW;
@@ -938,6 +980,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   ctx.beginPath(); FENCE.forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
   // the airport past it
   if (seen(AIRPORT.at.x, AIRPORT.at.y, 2900)) drawAirport(ctx, t, night, g.vehicle !== "plane");
+  if (seen(GATE.at.x, GATE.at.y, 7000)) drawGate(ctx, t, night, atGate(g));
+  for (const a of g.angels) if (seen(a.x, a.y, 40)) drawDustAngel(ctx, a.x, a.y);
 
   // street signs at the corners in view
   ctx.font = `600 ${12 / z}px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -996,7 +1040,9 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     ctx.fillStyle = C.gold; ctx.fillText(n.name, p.x, p.y - NPC_R.mutant - 17 / z);
   }
   // you
-  if (g.chute) {
+  if (g.angelT > 0) { // lying in the dust at the Gate, making an angel (asked 2026-10-26)
+    ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawAngelMaker(ctx, t); ctx.restore();
+  } else if (g.chute) {
     // under the canopy: your shadow on the playa off to one side, then you and the canopy, bigger the higher you are
     ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.fillStyle = `rgba(27, 31, 59, ${0.2 / (1 + g.alt / 600)})`; ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); drawChute(ctx, t, night); ctx.restore(); // the same size on the screen all the way down
@@ -1122,7 +1168,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
-type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; alt: number; chute: boolean; pad: boolean };
+type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -1184,7 +1230,7 @@ export default function PlayaWin() {
   useEffect(() => { game.current.ghost = map; }, [map]);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
-  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, alt: 0, chute: false, pad: false });
+  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
@@ -1423,7 +1469,7 @@ export default function PlayaWin() {
           time: m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow" ? m.timeLeft : null,
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
           hear: target && target.vol > 4 ? soundOf(target.key).name : soon ? soundOf(soon).name : "", hearKey: target && target.vol > 4 ? target.key : soon ?? "", hearSoon: !(target && target.vol > 4) && !!soon,
-          alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g),
+          alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g), gate: atGate(g),
         });
         const mc = mini.current, mx = mc?.getContext("2d");
         if (mc && mx && mc.width > 0) {
@@ -1538,7 +1584,20 @@ export default function PlayaWin() {
       {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className={`${cls} pl-found`} onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
     </>}
     {hud.pad && <button type="button" className={`${cls} pl-found`} onClick={takeOff}>✈ take the plane</button>}
+    {hud.gate && <>
+      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (dustAngel(g)) flash.current = { text: g.angels.length === 1 ? "welcome home! a dust angel for the virgin burner: a gift" : "another angel in the dust", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); }}>dust angel</button>
+      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (ringBell(g)) { ding(); flash.current = { text: "the bell rings out. welcome home!", until: g.t + 2.5 }; } board.current?.focus({ preventScroll: true }); }}>ring the bell</button>
+    </>}
   </>;
+  // the Greeters' bell: three partials of a bell, struck and left to ring (Web Audio), only with the sound on
+  const ding = () => {
+    if (!soundRef.current) return;
+    try {
+      const ac = (window as unknown as { __ac?: AudioContext }).__ac ??= new AudioContext();
+      const now = ac.currentTime, out = ac.createGain(); out.gain.setValueAtTime(0.0001, now); out.gain.exponentialRampToValueAtTime(0.35, now + 0.01); out.gain.exponentialRampToValueAtTime(0.0001, now + 3.2); out.connect(ac.destination);
+      for (const [ratio, amp] of [[1, 1], [2.4, 0.45], [3.4, 0.25], [5.1, 0.12]] as const) { const o = ac.createOscillator(), gn = ac.createGain(); o.type = "sine"; o.frequency.value = 523 * ratio; gn.gain.value = amp; o.connect(gn); gn.connect(out); o.start(now); o.stop(now + 3.3); }
+    } catch {}
+  };
   const over = hud.mph > SPEED_LIMIT_MPH;
 
   return (
@@ -1624,7 +1683,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
