@@ -32,7 +32,7 @@ export function RidePicker({ open, current, skin, garage, night, near, onPick, o
     ...(near ? [{ key: `near:${near.id}`, name: near.name, line: near.driving ? "you are at its wheel" : near.aboard ? "you are riding along on it" : "right beside you: ride along on it, or take its wheel", stats: [VEHICLES.found.maxSpeed / maxSpeed, VEHICLES.found.maxYaw / maxYaw, VEHICLES.found.grip / maxGrip] as [number, number, number],
       draw: (c: CanvasRenderingContext2D, t: number, n: number) => { c.save(); c.translate(0, -30); c.scale(1.3, 1.3); c.rotate(Math.PI / 2); if (nearDraw) nearDraw(c, t, n); else { c.fillStyle = "#4b5068"; c.beginPath(); c.roundRect(-10, -32, 20, 64, 5); c.fill(); } c.restore(); }, near: true }] : []),
     ...GARAGE_RIDES.map((r) => { const v = VEHICLES[r.id]; return { key: r.id, name: r.name, line: r.line, stats: [v.maxSpeed / maxSpeed, v.maxYaw / maxYaw, v.grip / maxGrip] as [number, number, number], draw: SIDE_VIEWS[r.id] }; }),
-    ...garage.filter((id) => ART_CARS[id]).map((id) => {
+    ...garage.filter((id) => ART_CARS[id] && id !== near?.id).map((id) => { // the car beside you is the first card already, not a second one here
       const v = VEHICLES.found, draw = ART_CARS[id];
       return { key: `found:${id}`, name: soundOf(`mutant:${id}`).name, line: "found on the playa: yours to drive, its music aboard", stats: [v.maxSpeed / maxSpeed, v.maxYaw / maxYaw, v.grip / maxGrip] as [number, number, number],
         draw: (c: CanvasRenderingContext2D, t: number, n: number) => { c.save(); c.translate(0, -30); c.scale(1.3, 1.3); c.rotate(Math.PI / 2); draw(c, t, n); c.restore(); }, found: id };
