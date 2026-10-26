@@ -1,12 +1,12 @@
 # GTA:BRC in 3D — the chase-camera mode
 
-Written 2026-10-26. A second way of seeing the same game: a third-person camera behind your ride, the way GTA puts you behind the car, with a first-person "on the bike" view one tap away. The top-down game stays as it is; you switch between the two at any moment and the world, the music, the job on the pager and the people around you carry on exactly where they were.
+Written 2026-10-26, reviewed the same day (open source to lean on added, first person dropped: the chase camera is the mode). A second way of seeing the same game: a third-person camera behind your ride, the way GTA puts you behind the car. The top-down game stays as it is; you switch between the two at any moment and the world, the music, the job on the pager and the people around you carry on exactly where they were.
 
 ## 1. What it is
 
 - **One game, two renderers.** Everything that *is* the game lives in `src/lib/playa.ts` and its data (`brc.ts`, `camps.ts`, `soundcamps.ts`, `artmedia.ts`): the city, the physics, the NPCs, parking, jobs, the music mix. None of that changes. The 3D mode is a new way of drawing the same `Game` object, and the same input drives it.
-- **The view.** Default is a chase camera: behind and above the ride, looking a little ahead of it, pulling back with speed, swinging round as you turn, the horizon showing the mountains and the Man on the skyline. A second position is first person: handlebar height, the front wheel at the bottom of the screen, the art car's deck under you when you drive one.
-- **Switching.** A camera button in the tools (next to day/night and the trip), the C key, and `?view=3d` on any place URL (`burningman.chat/dragonlady?view=3d`). The choice is remembered per device. Switching is instant: no reload, no reset.
+- **The view.** The view for this new mode is a chase camera: behind and above the ride, looking a little ahead of it, pulling back with speed, swinging round as you turn, the horizon showing the mountains and the Man on the skyline. 
+- **Switching.** A camera button in the tools (next to day/night and the trip), the C key, and `?view=chase` or `?view=top` on any place URL (`burningman.chat/dragonlady?view=chase`). The choice is remembered per device. Switching is instant: no reload, no reset.
 - **Everything you can do stays.** Ride, hop on art cars, drive the ones you find, fly the plane, bail out under the chute, park at a camp and get its panel, the pager jobs, MOOP, day/night, storms, the trip. The HUD, the panel, the minimap and the big map are the same DOM over a different canvas.
 
 ### Not in this plan
@@ -25,7 +25,7 @@ src/game/three/      the 3D renderer                           (new, loaded on d
   world.ts           builds the static scene from brc/camps/soundcamps: ground, streets, blocks, landmarks
   places.ts          the sound camps' stages and bays, the art pieces, Agave's domes
   rides.ts           your ride, the art cars (driven and roaming), bikes, walkers, the plane and chute
-  camera.ts          chase and first-person cameras, the spring that follows you
+  camera.ts          the chase camera, the spring that follows you, the orbit for a look round
   sky.ts             sun, sky dome, the mountains on the horizon, night, dust
   fx.ts              post passes: the storm's whiteout, the trip's afterimage, bloom at night
   sprites.ts         the existing 2D drawings rendered to textures (art cars, pieces, bikes, people)
@@ -76,16 +76,15 @@ Units stay the game's feet (`CITY_SCALE` applied). Y is up in three.js; the game
 ## 4. The camera
 
 - **Chase**: a target 14 ft behind and 7 ft above the ride, looking at a point 20 ft ahead plus half the velocity vector, so you see where you are going. Position follows by a critically damped spring (no overshoot) with a time constant of 0.18 s; the look target with 0.08 s. Field of view 62°, widening to 70° at top speed. Collisions: if a camp block sits between the camera and you, the camera slides up and in (sphere cast against the block boxes). In the plane the camera trails further and the ground drops away.
-- **First person**: the camera at the ride's handlebar point, looking along the heading, with a subtle bob tied to speed; the front wheel and bars are a small mesh in front of the lens. On an art car it is the driver's seat; on the plane, the cockpit.
 - **Touch**: the stick drives as now (stick direction is world-relative today; in 3D it becomes camera-relative, pushing "up" means "forward along the view", which is what the chase view implies). A second finger drag orbits the chase camera for a look round; it springs back when released.
-- **Keyboard**: C cycles top-down → chase → first person → top-down. Q/E or right-drag orbit.
+- **Keyboard**: C switches top-down ↔ chase. Q/E or right-drag orbit the chase camera.
 
 ## 5. Mode switch and state
 
-- `ViewMode = "top" | "chase" | "first"`, stored in `localStorage` (`agentcamp-playa-view`) and settable with `?view=`.
+- `ViewMode = "top" | "chase"`, stored in `localStorage` (`agentcamp-playa-view`) and settable with `?view=top` or `?view=chase`.
 - The switch mounts the other renderer on the same canvas element (WebGL context on a second canvas stacked under the HUD, so the 2D context is not lost; the inactive canvas is hidden and its loop skipped).
 - The minimap and the big map keep drawing from the 2D code (they are the 2D code).
-- The camera lead and safe-box logic in `PlayaWin` apply only to top-down; chase/first have their own in `camera.ts`.
+- The camera lead and safe-box logic in `PlayaWin` apply only to top-down; the chase camera has its own in `camera.ts`.
 - The clip peek and name labels use `renderer.project()` so they float above the right place in either view.
 
 ## 6. Performance budget (a 2022 iPhone at 60 fps)
@@ -102,21 +101,21 @@ Units stay the game's feet (`CITY_SCALE` applied). Y is up in three.js; the game
 
 | Phase | What ships | Done when | Days |
 |---|---|---|---|
-| 0 Spike | Renderer seam, three.js chunk, the playa plane with the map texture, your bike as a box, the chase camera, the switch behind `?view=3d` | you ride round the city in 3D, the HUD and music work, switching back and forth loses nothing | 1 |
+| 0 Spike | Renderer seam, three.js chunk, the playa plane with the map texture, your bike as a box, the chase camera, the switch behind `?view=chase` | you ride round the city in 3D, the HUD and music work, switching back and forth loses nothing | 1 |
 | 1 City | streets, instanced camp structures, the Man, the Temple, Center Camp, the fence, the airport, the sky and mountains | the city reads as Black Rock City from the chase camera; 60 fps on a laptop | 2 |
 | 2 Places | stages, bays, crowds, art pieces (stand-ins + decals), Agave's domes with the globe, art cars with roof textures incl. the Dragon Lady | you can stop at any camp or piece, the panel opens, the art cars roam and you can drive them | 3 |
 | 3 Rides and people | the plane, the chute, e-bikes, NPC billboards, packs behind art cars, your found art car at full scale | the plane flies and lands, bail-out works, the city is as busy as top-down | 2 |
 | 4 Light and effects | night with real lights and bloom, the storm's fog, the trip's post pass, the headlight | night, storms and the trip match the top-down feel | 2 |
-| 5 Phone | first-person view, camera-relative stick, orbit drag, resolution scaling, memory check on iOS Safari | 60 fps on an iPhone 13, no context loss on backgrounding | 2 |
+| 5 Phone | camera-relative stick, orbit drag, resolution scaling, memory check on iOS Safari | 60 fps on an iPhone 13, no context loss on backgrounding | 1 |
 | 6 Ship | the camera button and C key, remembered choice, the title card's controls line, a URL in the README and the roadmap | the mode is on burningman.chat for everyone, top-down still the default | 1 |
 
-Thirteen days of work, in that order; each phase is usable on its own behind the flag.
+Twelve days of work, in that order; each phase is usable on its own behind the flag.
 
 ## 8. Testing
 
 - **Pure code stays pure.** `world.ts`/`places.ts` build plain descriptions (position, size, kind, colour) from the data before anything touches three.js; those builders get `node:test` coverage like the rest of `src/lib` (every camp structure has a height, every bay outline sits in its block, every art piece has a stand-in, the Dragon Lady's hull is twice the others).
 - **Camera maths** (`camera.ts`) is pure too: the spring, the look-ahead, the block avoidance; tests step it with a moving car and assert it never crosses a block and never overshoots.
-- **Pixels**: a Playwright screenshot suite over the place URLs with `?view=3d` on desktop Chrome, compared to stored references with a tolerance; run by hand before a push that touches the renderer.
+- **Pixels**: a Playwright screenshot suite over the place URLs with `?view=chase` on desktop Chrome, compared to stored references with a tolerance; run by hand before a push that touches the renderer.
 - **Phone**: the pane here runs as a hidden tab and pauses the loop, so 3D is checked on a real iPhone over the deploy, as we do now.
 
 ## 9. Risks and the answer to each
@@ -131,7 +130,32 @@ Thirteen days of work, in that order; each phase is usable on its own behind the
 
 ## 10. Open choices (defaults chosen; say if you want otherwise)
 
-- Chase camera is the 3D default, first person one more press of C. (GTA's own default.)
 - The top-down minimap stays in 3D, bottom right on a phone where the stick is, so it shrinks and moves to the top right as in the current phone layout.
 - Night bloom is on by default on desktop and off on phones until measured.
 - The Earth dome uses a public-domain equirectangular map (NASA Blue Marble) rather than the camp photo's print, so it reads as the planet from every side.
+
+## 11. Open source to lean on (reviewed 2026-10-26)
+
+Checked on GitHub the same day: stars, licence and last push. Everything below is MIT, Zlib or CC0, so it can ship in a fan game with attribution in the README; nothing GPL (OpenRW, the GTA III rewrite, is GPL-3.0 and C++, and was ruled out for both reasons).
+
+**Use as a dependency**
+- **three.js** (mrdoob/three.js, MIT, 117k stars, pushed 2026-10-26). The renderer. Its `examples/jsm` folder already holds the pieces the plan names: `postprocessing/AfterimagePass.js` is the trip's trails as a GPU pass, `UnrealBloomPass.js` the night glow, `FilmPass.js` grain for the dust, `objects/Sky.js` the sun and sky dome with a real sun position for day/night, `GroundedSkybox.js` for the mountains on the horizon from one panorama, `InstancedMesh` for the camp structures and the people, `Sprite` for billboards. Pin a release; the dynamic-import chunk is the whole cost.
+- **pmndrs/postprocessing** (Zlib, 2.9k stars, pushed 2026-10-05). One `EffectComposer` that merges bloom, hue shift, vignette and a custom afterimage into a single pass, which matters on a phone where each pass is a full-screen draw. Use it instead of three's own passes if phase 4 measures more than two passes.
+- **gkjohnson/three-mesh-bvh** (MIT, 3.5k stars, pushed 2026-10-22). Fast raycasts and sphere casts against the camp blocks for the chase camera's collision (sliding up and in when a block is between the camera and you). Also cheap ground sampling if the playa ever gets relief.
+- **creativelifeform/three-nebula** (MIT, 1.2k stars, pushed 2026-10-22). Particles for the dust kicked up behind wheels, the whiteout's blowing sand, and fire on the art cars at night. Optional; the plan's fog does the storm on its own.
+
+**Read for the feel, copy nothing**
+- **swift502/Sketchbook** (MIT, 1.8k stars, last pushed 2024-10). The best-known three.js playground with vehicles, a character and a spring-damped chase camera. Its camera and input code are the reference for `camera.ts` (the spring constants, the look-ahead, the orbit that springs back). It uses cannon.js for physics; we keep our own 2D physics and only borrow the camera.
+- **raphaelaxiom/raphael-drive** (MIT, pushed 2026-10-13). A small Next.js + three.js city driving game with a garage, a HUD and a chase camera. Worth a read for how it mounts the renderer beside a React HUD, which is exactly our seam.
+- **osoker/InfiniTownTS** (no licence file, pushed 2025-06). A TypeScript rewrite of Little Workshop's InfiniTown: a cartoon city of instanced blocks reused as you drive. The block-recycling and instancing patterns are the model for the camp blocks; no licence means read only, do not copy code.
+- **jason-c-dev/backroad-rally** (MIT, pushed 2026-10-18). A top-down three.js rally diorama: the proof that a top-down game and a 3D one can share a scene, and a reference for the diorama look if the chase camera's wide shots ever want it.
+
+**Models and textures (CC0, no attribution required, credit anyway)**
+- **Kenney Car Kit and City Kit** (kenney.nl, CC0, glTF). Forty-odd low-poly vehicles (sedans, vans, an ambulance, trucks) for the roaming traffic and the ambulances, with separate wheels. The City Kit's props (fences, signs, lamps) fill the streets.
+- **Quaternius** (quaternius.com, CC0, glTF). Low-poly people for the walkers and dancers if billboards ever give way to meshes, and a geodesic dome model on poly.pizza for the camps' domes.
+- **poly.pizza** (aggregator; filter to CC0). Campervans and RVs for the camp blocks (49 results for campervan), tuk-tuks, bicycles. Check each model's licence line before use.
+- **NASA Blue Marble** (public domain). The equirectangular map that wraps the Agave Earth dome.
+
+**What stays ours**
+- The city, the physics, the art cars and the art pieces: the drawings we have become roof textures and decals, as the plan says, so the game keeps its look in 3D. Real models of the Man, the Temple and the big pieces would be the only things to bring in later, and those are case by case: Sketchfab has fan models of several under CC-BY, which is fine with a credit line, but each needs its licence read.
+
