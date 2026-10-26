@@ -526,6 +526,8 @@ export const MUTANTS: readonly Npc[] = SOUND_CAMPS.filter((c) => c.kind === "mut
 });
 export const mutantOf = (key: string) => MUTANTS.find((m) => m.key === key);
 
+/** People on foot keep to the side of the street (asked 2026-10-26): this far in from the camps' edge, and a band this wide. */
+export const KERB = 3, KERB_BAND = 4;
 export function makeNpcs(rand: () => number): Npc[] {
   const out: Npc[] = [];
   // a busy city: forty bikes on the arcs, sixteen art cars circling the Man, three cruising streets, and the famous art cars
@@ -544,7 +546,7 @@ export function makeNpcs(rand: () => number): Npc[] {
   }
   for (let i = 0; i < 70; i++) {
     const ring = Math.floor(rand() * ARC_R.length), edge = rand() < 0.5 ? -1 : 1;
-    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - 8), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - KERB - rand() * KERB_BAND), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
   }
   // a lot more (asked 2026-10-22): another 160 bikes on the streets, 60 crossing the open playa
   // round the Man, more walkers on the street edges and people strolling out to the Man
@@ -557,7 +559,7 @@ export function makeNpcs(rand: () => number): Npc[] {
   }
   for (let i = 0; i < 50; i++) {
     const ring = Math.floor(rand() * ARC_R.length), edge = rand() < 0.5 ? -1 : 1;
-    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - 8), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - KERB - rand() * KERB_BAND), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
   }
   for (let i = 0; i < 24; i++) {
     out.push({ kind: "walker", path: "loop", r: (140 + rand() * 260) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 3), phase: rand() * 720, hue: Math.floor(rand() * 360) });
@@ -586,12 +588,21 @@ export function makeNpcs(rand: () => number): Npc[] {
   }
   for (let i = 0; i < 100; i++) {
     const ring = Math.floor(rand() * ARC_R.length), edge = rand() < 0.5 ? -1 : 1;
-    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - 6 - rand() * 6), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - KERB - rand() * KERB_BAND), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
   }
   for (let i = 0; i < 40; i++) {
     out.push({ kind: "bike", path: "loop", r: (250 + rand() * 1800) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (16 + rand() * 16), phase: rand() * 720, hue: Math.floor(rand() * 360) });
   }
   for (let i = 0; i < 40; i++) {
+    out.push({ kind: "walker", path: "loop", r: (140 + rand() * 1500) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 3), phase: rand() * 720, hue: Math.floor(rand() * 360) });
+  }
+  // more people walking (asked 2026-10-26): 180 more along the streets, all of them by the kerb like the others
+  // now, so they are out of the way of the riders; 30 more strolling the open playa
+  for (let i = 0; i < 180; i++) {
+    const ring = Math.floor(rand() * ARC_R.length), edge = rand() < 0.5 ? -1 : 1;
+    out.push({ kind: "walker", path: "arc", r: ARC_R[ring] + edge * (arcWidth(ring) / 2 - KERB - rand() * KERB_BAND), from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 4), phase: rand() * 480, hue: Math.floor(rand() * 360) });
+  }
+  for (let i = 0; i < 30; i++) {
     out.push({ kind: "walker", path: "loop", r: (140 + rand() * 1500) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (3 + rand() * 3), phase: rand() * 720, hue: Math.floor(rand() * 360) });
   }
   // a few ambulances on their rounds (asked 2026-10-22): no music, not art cars, never on the maps

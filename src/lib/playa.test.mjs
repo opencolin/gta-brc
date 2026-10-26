@@ -6,9 +6,9 @@ import {
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
-import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
+import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
 
 const DT = 1 / 60;
@@ -177,6 +177,15 @@ test("more people: walkers on the street edges, and bikers riding behind the art
   const packs = npcs.filter((n) => n.lead);
   assert.ok(packs.length >= 60 && packs.every((n) => n.lead.kind === "mutant" || n.lead.kind === "artcar"));
   for (const w of npcs.filter((n) => n.kind === "walker")) assert.ok(Math.abs(w.speed) < 8, "walkers walk");
+  // and plenty of them, by the kerb (asked 2026-10-26): every walker on a street is within the kerb band of its edge
+  const street = npcs.filter((n) => n.kind === "walker" && n.path === "arc");
+  assert.ok(street.length >= 390, `walkers on the streets (${street.length})`);
+  for (const w of street) {
+    const ring = ARC_R.findIndex((r, i) => Math.abs(w.r - r) <= arcWidth(i) / 2);
+    assert.ok(ring >= 0, "on a street");
+    const inFromEdge = arcWidth(ring) / 2 - Math.abs(w.r - ARC_R[ring]);
+    assert.ok(inFromEdge >= KERB - 1e-9 && inFromEdge <= KERB + KERB_BAND + 1e-9, `by the kerb (${inFromEdge.toFixed(1)} ft in)`);
+  }
 });
 
 test("storms rise, hold and blow over; night comes and goes; the toggle flips it", () => {
