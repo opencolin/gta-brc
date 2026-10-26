@@ -838,6 +838,8 @@ function drawMapMarks(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
 
 /* ── the frame ──────────────────────────────────────────────────────────── */
 type Cam = { x: number; y: number; z: number };
+/** How fast the camera pulls back with height (feet): the zoom is divided by 1 + alt / AIR_PULL, and the plane and the chute are scaled by the same, so they keep their size on the screen while the ground shrinks. */
+const AIR_PULL = 260;
 let SPECK: CanvasPattern | null = null;
 function speckle(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   if (SPECK) return SPECK;
@@ -985,10 +987,10 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   if (g.chute) {
     // under the canopy: your shadow on the playa off to one side, then you and the canopy, bigger the higher you are
     ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.fillStyle = `rgba(27, 31, 59, ${0.2 / (1 + g.alt / 600)})`; ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / 500; ctx.scale(k, k); ctx.rotate(g.car.h); drawChute(ctx, t, night); ctx.restore();
+    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); drawChute(ctx, t, night); ctx.restore(); // the same size on the screen all the way down
   } else if (g.vehicle === "plane" && g.alt > 0) {
     ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.rotate(g.car.h); drawPlaneShadow(ctx, g.alt); ctx.restore();
-    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / 400; ctx.scale(k, k); ctx.rotate(g.car.h); drawPlane(ctx, t, night); ctx.restore();
+    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); drawPlane(ctx, t, night); ctx.restore(); // grows exactly as the camera pulls back, so it stays the same size on the screen (asked 2026-10-26)
   } else if (g.vehicle === "plane") {
     ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawPlaneShadow(ctx, 0); drawPlane(ctx, t, night); ctx.restore();
   } else { ctx.save(); ctx.translate(g.car.x, g.car.y); ctx.rotate(g.car.h); drawRide(ctx, g.vehicle, t, night, input.brake || input.handbrake); ctx.restore(); }
@@ -996,7 +998,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   if (g.plane && seen(g.plane.x, g.plane.y, 400)) {
     const q = g.plane;
     ctx.save(); ctx.translate(q.x + q.alt * 0.5, q.y + q.alt * 0.4); ctx.rotate(q.h); drawPlaneShadow(ctx, q.alt); ctx.restore();
-    ctx.save(); ctx.translate(q.x, q.y); const k = 1 + q.alt / 400; ctx.scale(k, k); ctx.rotate(q.h); drawPlane(ctx, t, night); ctx.restore();
+    ctx.save(); ctx.translate(q.x, q.y); const k = 1 + q.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(q.h); drawPlane(ctx, t, night); ctx.restore();
   }
 
   // night: the city goes dark, then the lights. The dark is a light map (asked 2026-10-23: night felt blurry): a
@@ -1336,7 +1338,7 @@ export default function PlayaWin() {
       // portrait (asked 2026-10-22): a tall, narrow view pulls back a little and puts you in the lower
       // third, looking up the road the way you are pointed, so there is somewhere to go on the screen
       const portrait = h > w * 1.15;
-      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / 260); // up in the air the ground pulls away: a fifth of the zoom at a thousand feet (asked 2026-10-26)
+      const base = Math.max(1.1, Math.min(3, Math.min(w, h) / 210)) * (portrait ? 0.78 : 1) / (1 + g.alt / AIR_PULL); // up in the air the ground pulls away: a fifth of the zoom at a thousand feet (asked 2026-10-26)
       const k = 1 - Math.exp(-5 * dt);
       const lead = portrait ? (0.16 * h) / Math.max(0.5, cam.z) : 0;
       // the lead (along your speed, and up the road in portrait) is held inside a safe box on the screen (asked 2026-10-22),
