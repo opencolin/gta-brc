@@ -6,7 +6,7 @@ import {
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
@@ -23,6 +23,7 @@ test("physics: the gas accelerates to a capped top speed, never NaN", () => {
   assert.ok(c.y < -1000, "heading 0 drives toward 12:00 (up)");
   assert.ok(mph(speedOf(c)) >= 18 && mph(speedOf(c)) <= 22, `a cruiser tops out about 21 mph on the HUD (${mph(speedOf(c)).toFixed(1)})`);
   assert.ok(Math.abs(VEHICLES.ebike.maxSpeed * MPH - 50) < 1, "an e-bike about 50");
+  assert.ok(Math.abs(VEHICLES.artcar.maxSpeed * MPH - 50) < 1, "the Golden Ticket about 50 too (asked 2026-10-26: faster)");
 });
 
 test("physics: brakes stop, then reverse is slow and capped", () => {
@@ -663,6 +664,17 @@ test("the Gate (asked 2026-10-26): out past the fence at 4:30 on open ground; st
   for (let i = 0; i < ANGEL_T * 60; i++) stepGame(g, NO_INPUT, 1 / 60);
   assert.equal(g.angelT, 0);
   assert.ok(dustAngel(g)); assert.equal(g.mission.gifts, gifts + 1, "a second angel is just an angel");
+});
+
+test("the Golden Ticket parked on the playa drives as the garage's does (asked 2026-10-26: faster), the other found cars as art cars", () => {
+  const g = newGame(1, "bike", "agave");
+  setVehicle(g, "found"); setDriven("mutant:golden-ticket");
+  assert.equal(vehicleOf(g).maxSpeed, VEHICLES.artcar.maxSpeed); assert.equal(vehicleOf(g).len, VEHICLES.found.len, "the drawing's size stays");
+  g.ghost = true; g.car = { ...g.car, x: 0, y: -3000 }; // the open playa, nothing in the way
+  for (let i = 0; i < 600; i++) stepGame(g, { ...NO_INPUT, gas: true }, 1 / 60);
+  assert.ok(mph(speedOf(g.car)) >= 48, `tops out near 50 mph on the HUD (${mph(speedOf(g.car))})`);
+  setDriven("mutant:robot-heart"); assert.equal(vehicleOf(g).maxSpeed, VEHICLES.found.maxSpeed);
+  setDriven(null);
 });
 
 test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Golden Ticket until you drive it, then Robot Heart, then Agave; only in that car", () => {

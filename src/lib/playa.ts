@@ -64,8 +64,8 @@ export const VEHICLES = {
   },
   artcar: {
     name: "Golden Ticket", len: 20, wid: 10, // the Golden Ticket (2026-10-26): a San Francisco meter-maid cart reborn in gold, LEDs, a bus seat and Void sound
-    maxSpeed: 250, maxReverse: 70, accel: 115, brake: 280, reverse: 80, handbrake: 220,
-    drag: 0.3, roll: 14, maxYaw: 1.9, hbYaw: 1.7, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: false,
+    maxSpeed: 350, maxReverse: 70, accel: 175, brake: 300, reverse: 80, handbrake: 230, // 50 mph on the HUD, as quick as the e-bike (asked 2026-10-26: faster), and more on the open playa
+    drag: 0.28, roll: 14, maxYaw: 2.1, hbYaw: 1.8, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: false,
   },
   fish: {
     name: "cuttlefish", len: 36, wid: 20, // a cuttlefish art car, its fin rippling and its colours rolling (PlayaWin.tsx drawCuttlefish)
@@ -100,6 +100,15 @@ export type VehicleId = keyof typeof VEHICLES;
 export const VEHICLE_IDS = Object.keys(VEHICLES) as VehicleId[];
 /** The default ride, and the one the tests' physics lean on. */
 export const CAR: Vehicle = VEHICLES.bike;
+/**
+ * The stats you drive with: the Golden Ticket parked on the playa is the same cart as the garage's, so at its wheel
+ * it goes as the garage's does (asked 2026-10-26: faster), keeping the found car's size for the drawing and parking.
+ */
+export function vehicleOf(g: { vehicle: VehicleId }): Vehicle {
+  const v: Vehicle = VEHICLES[g.vehicle] ?? CAR;
+  if (g.vehicle === "found" && driven.key === "mutant:golden-ticket") { const a = VEHICLES.artcar; return { ...v, maxSpeed: a.maxSpeed, maxReverse: a.maxReverse, accel: a.accel, brake: a.brake, reverse: a.reverse, handbrake: a.handbrake, drag: a.drag, roll: a.roll, maxYaw: a.maxYaw, hbYaw: a.hbYaw, dust: a.dust, grip: a.grip }; }
+  return v;
+}
 /** Riding through a block of camps is slow: the top speed there, as a share of the ride's. */
 export const CAMP_SPEED = 0.6;
 
@@ -1067,7 +1076,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   g.hitCool = Math.max(0, g.hitCool - dt);
   g.slip = Math.max(0, (g.slip ?? 0) - dt);
   g.warn = Math.max(0, g.warn - dt);
-  const v: Vehicle = VEHICLES[g.vehicle] ?? CAR;
+  const v: Vehicle = vehicleOf(g);
   // lying in the dust making an angel: nothing moves you until you are done
   if (g.angelT > 0) { g.angelT = Math.max(0, g.angelT - dt); input = NO_INPUT; g.car = { ...g.car, vx: 0, vy: 0 }; }
 

@@ -16,7 +16,7 @@ import {
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, POLO_JOB, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, POLO_JOB, vehicleOf, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import type { Struct } from "@/lib/camps";
@@ -1442,7 +1442,7 @@ export default function PlayaWin() {
       // zoomed in at a crawl, pulled well back at speed (to about half at the top), so you see what is coming
       // a small ride (a bike, the unicycle) gets the camera closer still, so it reads at the size an art car does
       const near = VEHICLES[g.vehicle].len < 20 ? 1.6 : 1;
-      cam.z += (base * near * (1 - 0.52 * Math.min(1, spd / VEHICLES[g.vehicle].maxSpeed)) - cam.z) * (1 - Math.exp(-1.6 * dt));
+      cam.z += (base * near * (1 - 0.52 * Math.min(1, spd / vehicleOf(g).maxSpeed)) - cam.z) * (1 - Math.exp(-1.6 * dt));
       // the trip's level eases toward on or off; the colour wash and the sway ride on the canvas element itself
       { const want = tripRef.current ? 1 : 0, lv = tripLevel.current; tripLevel.current = want > lv ? Math.min(want, lv + dt / 3) : Math.max(want, lv - dt / 2); }
       { const tl = tripLevel.current, tt = g.t;
