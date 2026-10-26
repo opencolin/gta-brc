@@ -157,12 +157,12 @@
 /* the ride menu: "ride: bike ▾" opens the list under it */
 .pl .pl-ride { position: relative; display: inline-flex; }
 /* the garage (asked 2026-10-26): a sheet over the game, the rides on cards in a row, the chosen one lifted */
-.pl .pl-garage { position: absolute; inset: 0; z-index: 44; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px; background: rgba(27, 31, 59, .78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); outline: none; }
+.pl .pl-garage { position: absolute; inset: 0; z-index: 44; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px; min-height: 0; background: rgba(27, 31, 59, .78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); outline: none; }
 .pl .pl-garage-head { display: flex; align-items: center; justify-content: space-between; color: var(--pl-ink); font-size: var(--t-title); }
-.pl .pl-garage-cards { display: flex; gap: 12px; overflow-x: auto; padding: 10px 4px 14px; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.pl .pl-garage-cards::-webkit-scrollbar { display: none; }
-.pl .pl-card { flex: 0 0 236px; scroll-snap-align: center; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .25); background: rgba(27, 31, 59, .9); color: var(--pl-ink); text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; font-family: var(--font); }
-.pl .pl-card canvas { display: block; width: 220px; height: 124px; border-radius: 8px; }
+/* a grid (asked 2026-10-26): as many cards across as fit, wrapping, the rest below with the grid scrolling */
+.pl .pl-garage-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 12px; overflow-y: auto; min-height: 0; max-height: calc(100% - 70px); padding: 10px 6px 14px; scrollbar-width: thin; }
+.pl .pl-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .25); background: rgba(27, 31, 59, .9); color: var(--pl-ink); text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; font-family: var(--font); }
+.pl .pl-card canvas { display: block; width: 100%; aspect-ratio: 220 / 124; height: auto; border-radius: 8px; }
 .pl .pl-card-sel { border-color: var(--pl-pink); transform: translateY(-6px) scale(1.03); box-shadow: 0 0 24px rgba(255, 107, 154, .45); }
 .pl .pl-card-found { border-style: dashed; }
 .pl .pl-card-name { font-weight: var(--w-strong); font-size: var(--t-control); }
@@ -174,7 +174,7 @@
 .pl .pl-card-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .18); overflow: hidden; }
 .pl .pl-card-bar > span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--pl-pink), var(--pl-gold)); }
 .pl .pl-garage-hint { color: var(--pl-ink); opacity: .75; font-size: var(--t-small, 12px); text-align: center; }
-@media (max-width: 760px) { .pl .pl-card { flex-basis: 210px; } .pl .pl-card canvas { width: 194px; height: 110px; } .pl .pl-garage { padding: 12px 8px; } }
+@media (max-width: 760px) { .pl .pl-garage-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } .pl .pl-card { padding: 6px; gap: 4px; } .pl .pl-card-line { display: none; } .pl .pl-garage { padding: 12px 8px; } }
 .pl .pl-rides {
   position: absolute; top: calc(100% + 4px); right: 0; z-index: 3; display: flex; flex-direction: column; gap: 4px; padding: 6px;
   border-radius: 8px; background: var(--pl-glass); border: 2px solid var(--pl-pink);

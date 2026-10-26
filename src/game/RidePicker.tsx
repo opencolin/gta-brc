@@ -67,12 +67,15 @@ export function RidePicker({ open, current, skin, garage, night, near, onPick, o
   useEffect(() => {
     if (!open) return;
     const row = document.querySelector<HTMLElement>(".pl-garage-cards"), el = row?.children[sel] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    el?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, [open, sel]);
   if (!open) return null;
   const onKey = (e: React.KeyboardEvent) => {
+    const cols = (() => { const row = document.querySelector<HTMLElement>(".pl-garage-cards"); if (!row || row.children.length < 2) return 1; const top = (row.children[0] as HTMLElement).offsetTop; let n = 1; while (n < row.children.length && (row.children[n] as HTMLElement).offsetTop === top) n++; return n; })();
     if (e.key === "ArrowRight") { e.preventDefault(); setSel((s) => Math.min(cards.length - 1, s + 1)); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); setSel((s) => Math.max(0, s - 1)); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(cards.length - 1, s + cols)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(0, s - cols)); }
     else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); take(sel); }
     else if (e.key === "Escape" || e.key === "v" || e.key === "V") { e.preventDefault(); onClose(); }
     e.stopPropagation();
@@ -101,7 +104,7 @@ export function RidePicker({ open, current, skin, garage, night, near, onPick, o
           </button>
         ))}
       </div>
-      <div className="pl-garage-hint">{cards[sel]?.near ? "ride along on it, or take its wheel" : cards[sel]?.found ? "tap again to take the wheel" : "tap again or press Enter to ride it"} · ← → to look · Esc to close</div>
+      <div className="pl-garage-hint">{cards[sel]?.near ? "ride along on it, or take its wheel" : cards[sel]?.found ? "tap again to take the wheel" : "tap again or press Enter to ride it"} · arrows to look · Esc to close</div>
     </div>
   );
 }
