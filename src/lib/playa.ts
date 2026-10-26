@@ -52,7 +52,7 @@ export type Vehicle = {
 };
 export const VEHICLES = {
   bike: {
-    name: "bike", len: 16, wid: 7, // the cruiser's pixel art drawn at 0.55, about the size of the other bikes (PlayaWin.tsx, 2026-10-22)
+    name: "playa cruiser", len: 16, wid: 7, // the cruiser's pixel art drawn at 0.55, about the size of the other bikes (PlayaWin.tsx, 2026-10-22)
     maxSpeed: 147, maxReverse: 40, accel: 150, brake: 330, reverse: 60, handbrake: 260, // 21 mph on the HUD
     drag: 0.32, roll: 18, maxYaw: 3.1, hbYaw: 1.6, restitution: 0.35, dust: 0.85, grip: 1.1, throughCamps: true,
   },
@@ -63,7 +63,7 @@ export const VEHICLES = {
     drag: 0.28, roll: 16, maxYaw: 2.8, hbYaw: 1.6, restitution: 0.35, dust: 1, grip: 1, throughCamps: true,
   },
   artcar: {
-    name: "art car", len: 34, wid: 20, // Agave's dome on wheels, its 21 × 36 pixel art
+    name: "Golden Ticket", len: 34, wid: 20, // Agave's Golden Ticket art car: the dome on wheels, its 21 × 36 pixel art
     maxSpeed: 250, maxReverse: 70, accel: 115, brake: 280, reverse: 80, handbrake: 220,
     drag: 0.3, roll: 14, maxYaw: 1.9, hbYaw: 1.7, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: false,
   },
@@ -83,6 +83,12 @@ export const VEHICLES = {
     name: "plane", len: 30, wid: 34,
     maxSpeed: 480, maxReverse: 20, accel: 70, brake: 160, reverse: 20, handbrake: 120,
     drag: 0.12, roll: 5, maxYaw: 1.1, hbYaw: 1.1, restitution: 0.2, dust: 0.8, grip: 1, throughCamps: false,
+  },
+  // the tuk-tuk (asked 2026-10-26): a three-wheeled cab, quicker than the cruiser, slower than the e-bike, on the streets like a car
+  tuktuk: {
+    name: "tuk-tuk", len: 14, wid: 8,
+    maxSpeed: 210, maxReverse: 45, accel: 135, brake: 300, reverse: 70, handbrake: 230, // 30 mph on the HUD
+    drag: 0.3, roll: 16, maxYaw: 2.6, hbYaw: 1.8, restitution: 0.35, dust: 0.95, grip: 0.95, throughCamps: false,
   },
   unicycle: {
     name: "unicycle", len: 10, wid: 8,

@@ -6,6 +6,7 @@ import { useBoardFocus } from "./useBoardFocus";
 import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
 import { ART_CARS } from "./artcars";
 import { ART_PIECES } from "./artpieces";
+import { RidePicker } from "./RidePicker";
 import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
@@ -287,7 +288,18 @@ function drawUnicycle(ctx: CanvasRenderingContext2D, t: number, night: number) {
 /** The famous art car you are driving, if that is your ride (PlayaWin's garage). */
 let rideSkin: string | null = null;
 /** Whatever you ride, nose up. */
+/** The tuk-tuk from above (asked 2026-10-26): a green cab with a yellow skirt under a striped canopy, one wheel in front, two behind. */
+function drawTuktuk(ctx: CanvasRenderingContext2D, t: number, night: number, brake: boolean) {
+  ctx.fillStyle = "#15161d"; ctx.fillRect(-1.5, -7.5, 3, 4); for (const x of [-4, 4]) ctx.fillRect(x - 1.5, 3, 3, 4);
+  ctx.fillStyle = "#2f9e5a"; ctx.beginPath(); ctx.moveTo(0, -8); ctx.quadraticCurveTo(4.5, -6, 4.5, -2); ctx.lineTo(4.5, 7); ctx.lineTo(-4.5, 7); ctx.lineTo(-4.5, -2); ctx.quadraticCurveTo(-4.5, -6, 0, -8); ctx.fill();
+  ctx.fillStyle = "#ffd23f"; ctx.fillRect(-4.5, 5.5, 9, 1.5);
+  ctx.fillStyle = "#1e2233"; ctx.fillRect(-4, -4, 8, 10); ctx.fillStyle = "#ffd23f"; for (let y = -4; y < 6; y += 2.5) ctx.fillRect(-4, y, 8, 1); // the canopy's stripes
+  ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fillRect(-3, -6, 6, 1.5); // the windscreen
+  ctx.fillStyle = brake ? "#ff4d4d" : "#7a2020"; ctx.fillRect(-4, 6.5, 2, 1); ctx.fillRect(2, 6.5, 2, 1);
+  if (night > 0.3) { ctx.fillStyle = "#fff3b0"; ctx.fillRect(-1, -8.5, 2, 1.5); ctx.fillStyle = hsl((t * 90) % 360, 100, 65); ctx.fillRect(-4.5, -1, 1, 1); ctx.fillRect(3.5, -1, 1, 1); }
+}
 function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night: number, brake: boolean) {
+  if (id === "tuktuk") { drawTuktuk(ctx, t, night, brake); return; }
   if (id === "found" && rideSkin && ART_CARS[rideSkin]) ART_CARS[rideSkin](ctx, t, night); // full size: it is the art car itself
   else if (id === "artcar" || id === "found") drawDomeCar(ctx, t, night, brake);
   else if (id === "fish") drawCuttlefish(ctx, t, night);
@@ -1160,7 +1172,9 @@ export default function PlayaWin() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
   const big = useRef<HTMLCanvasElement>(null);
-  const game = useRef<Game>(newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)))); // burningman.chat/dragonlady starts beside the Dragon Lady (asked 2026-10-23)
+  // burningman.chat/dragonlady starts beside the Dragon Lady (asked 2026-10-23); with no place named, at the airport in the plane
+  // (asked 2026-10-26): the game opens with the flight over the city and the jump to Agave Lounge
+  const game = useRef<Game>(newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport"));
   const keys = useRef<Input>({ ...NO_INPUT });
   const touch = useRef<Input>({ ...NO_INPUT });
   const phaseRef = useRef<Phase>("title");
@@ -1194,8 +1208,8 @@ export default function PlayaWin() {
   // a URL that names an art car puts you in its driver's seat (asked 2026-10-23): burningman.chat/dragonlady starts you
   // at the wheel of the Dragon Lady, where it was; one with no drawing of its own starts you on the bike beside it
   useEffect(() => {
-    const key = startKey(typeof location === "undefined" ? "" : location.pathname.slice(1));
-    if (key === "airport") { takeOff(); return; } // burningman.chat/airport: at the controls on the pad (asked 2026-10-24)
+    const key = startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport";
+    if (key === "airport") { takeOff(); return; } // the airport (the default since 2026-10-26, and /88nv): at the controls on the pad
     if (!key?.startsWith("mutant:")) return;
     const id = key.slice("mutant:".length), m = mutantOf(key);
     if (!m || !ART_CARS[id]) return;
@@ -1323,7 +1337,10 @@ export default function PlayaWin() {
           for (const e of stepGame(g, inp, hStep)) {
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
             else if (e === "takeoff") flash.current = { text: "wheels up. gas climbs, brake dives, R bails out", until: g.t + 3 };
-            else if (e === "landed") flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. on the bike", until: g.t + 2.5 };
+            else if (e === "landed") {
+              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. choose your ride", until: g.t + 2.5 };
+              if (g.vehicle !== "plane") setTimeout(() => setRides(true), 700); // down under the chute: the garage opens (asked 2026-10-26)
+            }
             else if (e === "delivered") flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
             else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
@@ -1479,9 +1496,9 @@ export default function PlayaWin() {
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
     else if (e.key === "n" || e.key === "N") { e.preventDefault(); toggleNight(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
-    else if (e.key === "v" || e.key === "V") { e.preventDefault(); ride(nextVehicle(game.current.vehicle)); }
+    else if (e.key === "v" || e.key === "V") { e.preventDefault(); setRides((r) => !r); } // the garage (asked 2026-10-26)
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
-    else if (e.key === "r" || e.key === "R") { e.preventDefault(); ridealong(); }
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); setRides((r) => !r); } // the garage, the art car beside you first (asked 2026-10-26)
     else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
@@ -1560,13 +1577,7 @@ export default function PlayaWin() {
           </button>
           <div className="pl-tools">
             <span className="pl-ride">
-              <button type="button" className="pl-btn" onClick={() => setRides((r) => !r)} aria-expanded={rides} aria-haspopup="true">ride: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name} ▾</button>
-              {rides && (
-                <span className="pl-rides" role="group" aria-label="change ride (V)">
-                  {BASE_RIDES.map((id) => <button type="button" key={id} className="pl-btn" aria-pressed={id === vehicle} onClick={() => ride(id)}>{VEHICLES[id].name}</button>)}
-                  {garage.map((id) => <button type="button" key={id} className="pl-btn pl-found" aria-pressed={vehicle === "found" && skin === id} onClick={() => drive(id)}>★ {soundOf(`mutant:${id}`).name}</button>)}
-                </span>
-              )}
+              <button type="button" className="pl-btn" onClick={() => setRides((r) => !r)} aria-expanded={rides} aria-haspopup="dialog">ride: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name} ▾</button>
             </span>
             {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
@@ -1612,7 +1623,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V change ride · M map · N day or night · T trip</li><li>beside an art car: R ride along or hop off · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
@@ -1640,6 +1651,9 @@ export default function PlayaWin() {
           </button>
         )}
       </div>
+      <RidePicker open={rides} current={vehicle} skin={skin} garage={garage} night={hud.night}
+        near={parked?.startsWith("mutant:") ? { id: parked.slice(7), name: soundOf(parked).name, aboard, driving: vehicle === "found" && skin === parked.slice(7) } : vehicle === "found" && skin ? { id: skin, name: soundOf(`mutant:${skin}`).name, aboard: false, driving: true } : null}
+        onPick={(id) => { ride(id); setRides(false); }} onDrive={(id) => { drive(id); setRides(false); }} onRideAlong={() => { ridealong(); setRides(false); }} onClose={() => { setRides(false); board.current?.focus({ preventScroll: true }); }} />
       <Lounge parked={parked} now={now} open={lounge} onPick={pick} onPlaying={onPlaying} onClose={stopMusic}
         onOpen={() => setLounge(true)} onCollapse={foldLounge} vehicle={vehicle} onHop={ride} aboard={aboard} onRideAlong={ridealong} ios={ios}
         onDrive={parked?.startsWith("mutant:") && ART_CARS[parked.slice(7)] ? () => drive(parked.slice(7)) : undefined} />
