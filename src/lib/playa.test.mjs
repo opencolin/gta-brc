@@ -584,6 +584,7 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
   for (const p of ["dragonlady", "DragonLady", "dragon-lady", "dragon_lady/"]) assert.equal(startKey(p), "mutant:dragon-lady", p);
   assert.equal(startKey("robot-heart"), "mutant:robot-heart");
   assert.equal(startKey("titanic"), "mutant:titanics-end", "the start of a name is enough");
+  assert.equal(startKey("goldenticket"), "mutant:golden-ticket", "the camp's own art car is on the playa (2026-10-26)");
   assert.equal(startKey("mayan"), "mutant:mayan-warrior"); assert.equal(startKey("orb"), "art:The Orb");
   assert.equal(startKey("the-orb"), "art:The Orb");
   assert.equal(startKey("agave"), "agave"); assert.equal(startKey("temple"), "temple");

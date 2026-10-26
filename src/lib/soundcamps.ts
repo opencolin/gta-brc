@@ -17,6 +17,7 @@
  */
 
 import { ART_MEDIA, ART_CLIP_IDS } from "./artmedia.ts";
+import { SETS } from "./agave.ts";
 
 export type SoundCamp = {
   /** a stable key: "camp:<id>" / "mutant:<id>" in playa.ts */
@@ -228,6 +229,9 @@ export const SOUND_CAMPS: readonly SoundCamp[] = [
   { id: "blockhaus", name: "BlockHaus", kind: "mutant", blurb: "boxy art car with a sound system for house sets", soundcloud: "https://soundcloud.com/admiral_ofc/2024-blockhaus-art-car" },
   // SoundCloud: https://burnersets.com/set/2023-caco-favela-art-car ("CACO @ FaVeLa Art Car - Burning Man Animalia 2023 by CACO (BR)"). An art car: roams.
   { id: "favela-art-car", name: "FaVeLa Art Car", kind: "mutant", blurb: "brazilian-styled art car spinning house on open playa", soundcloud: "https://soundcloud.com/caco_me/caco-favela-art-car-burning-man-animalia-2023" },
+  // SoundCloud: Agave Lounge's own sets (lib/agave.ts SETS), played off the Golden Ticket, the camp's gold meter-maid cart (on the playa since 2026-10-26; artcars.ts draws it, burningman.chat/goldenticket starts at its wheel). An art car: roams.
+  { id: "golden-ticket", name: "Golden Ticket", kind: "mutant", blurb: "agave lounge's gold meter-maid cart: a bus seat, led strips and void sound, spreading joy", soundcloud: SETS[0].url,
+    sets: SETS.map((x) => ({ url: x.url, title: `${x.artist} · ${x.title}` })) },
   // SoundCloud: Jerry Deal's playlists and a HNYPOT mix, sent by Collin 2026-10-23 (with a drone photo of the yacht, which artcars.ts draws). An art car: roams.
   { id: "dragon-lady", name: "Dragon Lady", kind: "mutant", blurb: "jerry deal's 89-foot motor yacht on wheels: teak decks, a flybridge and a hot tub astern", soundcloud: "https://soundcloud.com/jerry-deal/sets/burning-man-2013",
     sets: [{ url: "https://soundcloud.com/jerry-deal/sets/burning-man-2013", title: "Jerry Deal · Burning Man sets" }, { url: "https://soundcloud.com/jerry-deal/sets/yachtdaddy-vibez", title: "Jerry Deal · Yachtdaddy Vibez" }, { url: "https://soundcloud.com/dpleated/hnypot-379-carrie-morrisons-s-l-a-v-e-t-o-l-v-e", title: "HNYPOT 379 · Carrie Morrison's Slave to Love" }] },
