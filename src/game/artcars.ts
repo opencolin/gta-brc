@@ -238,6 +238,28 @@ function discoDoge(c: Ctx, t: number, night: number) {
   for (let k = 0; k < 10; k++) { c.fillStyle = (k + Math.floor(t * 6)) % 3 ? "#e9eef8" : "#8a93ab"; c.fillRect(-4 + (k % 4) * 2.2, 12 + Math.floor(k / 4) * 2.4, 1.8, 1.8); }
   if (night > 0.3) for (let k = 0; k < 8; k++) { const a = t * 1.5 + k * 0.8; c.fillStyle = hsl((k * 45) % 360, 100, 70, 0.8); disc(c, Math.cos(a) * 24, 16 + Math.sin(a) * 24, 1.4); c.fill(); }
 }
+/** Discow (2026-10-26): San Francisco's disco cow, a bull wrapped in mirror vinyl, disco balls on its back whose facets flash, lasers sweeping from the big one at night. */
+function discow(c: Ctx, t: number, night: number) {
+  wheels(c, 13, [-16, 16]);
+  c.fillStyle = "#c3c8d6"; for (const s of [-1, 1]) for (const y of [-14, 16]) { rr(c, s * 14 - 2, y, 4, 9, 1.5); c.fill(); } // the legs
+  c.fillStyle = "#d9dde8"; c.beginPath(); c.ellipse(0, 4, 15, 25, 0, 0, Math.PI * 2); c.fill(); // the body, mirror-wrapped
+  c.fillStyle = "#8f96ab"; c.beginPath(); c.ellipse(-6, -4, 6, 8, 0.4, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(7, 14, 5, 7, -0.3, 0, Math.PI * 2); c.fill(); // holstein patches, a darker mirror
+  for (let k = 0; k < 44; k++) { const x = -13 + ((k * 7.3) % 26), y = -18 + ((k * 11.7) % 44); if (Math.hypot(x / 15, (y - 4) / 25) > 0.95) continue; c.fillStyle = `rgba(255,255,255,${0.25 + 0.6 * Math.abs(Math.sin(t * 3 + k))})`; c.fillRect(x, y, 1.8, 1.8); } // the vinyl's tiles twinkling
+  c.fillStyle = "#d9dde8"; c.beginPath(); c.ellipse(0, -24, 8, 10, 0, 0, Math.PI * 2); c.fill(); // the head
+  c.fillStyle = "#c3c8d6"; for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * 9, -26, 4, 2.2, s * 0.5, 0, Math.PI * 2); c.fill(); } // the ears
+  c.strokeStyle = "#f6e6c8"; c.lineWidth = 2; c.lineCap = "round"; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 5, -30); c.quadraticCurveTo(s * 11, -34, s * 12, -40); c.stroke(); } c.lineCap = "butt"; // the horns
+  c.fillStyle = "#f3c7d2"; c.beginPath(); c.ellipse(0, -31, 5, 3, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = NAVY; disc(c, -1.8, -31, 0.7); c.fill(); disc(c, 1.8, -31, 0.7); c.fill(); // the muzzle
+  c.fillStyle = NAVY; disc(c, -4, -22, 1.2); c.fill(); disc(c, 4, -22, 1.2); c.fill(); // the eyes
+  c.strokeStyle = "#c3c8d6"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, 28); c.quadraticCurveTo(4 + Math.sin(t * 3) * 3, 33, 2, 37); c.stroke(); // the tail
+  for (const [x, y, r] of [[0, 2, 6], [-7, 14, 3.2], [8, -8, 3.2]] as const) { // the disco balls, their facets flashing
+    glow(c, night, "#ffffff", 10); c.fillStyle = "#b8bfd0"; disc(c, x, y, r); c.fill(); noGlow(c);
+    for (let k = 0; k < 10; k++) { const a = t * 2 + k * 0.63, px = x + Math.cos(a) * r * 0.6, py = y + Math.sin(a) * r * 0.6; c.fillStyle = (k + Math.floor(t * 8)) % 3 ? "#ffffff" : "#7f88a3"; c.fillRect(px - 0.7, py - 0.7, 1.4, 1.4); }
+  }
+  if (night > 0.3) {
+    c.lineWidth = 1; for (let k = 0; k < 8; k++) { const a = t * 1.3 + k * 0.785; c.strokeStyle = hsl((k * 45 + t * 60) % 360, 100, 60, 0.7); c.beginPath(); c.moveTo(0, 2); c.lineTo(Math.cos(a) * 60, 2 + Math.sin(a) * 60); c.stroke(); } // lasers from the big ball
+    for (let k = 0; k < 14; k++) { const a = -t * 1.1 + k * 0.45, d = 22 + (k % 3) * 8; c.fillStyle = hsl((k * 26) % 360, 100, 72, 0.85); disc(c, Math.cos(a) * d, 2 + Math.sin(a) * d, 1.3); c.fill(); } // the balls' flecks thrown round it
+  }
+}
 /** The Eye of Horus: a gold barge carrying the great painted eye, its lid blinking now and then. */
 function eyeOfHorus(c: Ctx, t: number, night: number) {
   wheels(c, 14, [-20, 20]);
@@ -361,5 +383,5 @@ export const ART_CARS: Record<string, (c: Ctx, t: number, night: number) => void
   "robot-heart": robotHeart, "mayan-warrior": mayanWarrior, "titanics-end": titanicsEnd, "el-pulpo-mecanico": elPulpo,
   "big-imagination-747": jumbo, "lonely-submarine": submarine, "heavy-meta": heavyMeta, kalliope, "golden-gate-art-car": goldenGate,
   axolotl, baaahs, funkadelephant, "whomp-wagon": whompWagon, dragonfly, nudibranch, technogecko: technoGecko, "the-scarab": scarab,
-  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane, "dragon-lady": dragonLady, "golden-ticket": (c, t, n) => drawGoldenTicket(c, t, n),
+  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane, "dragon-lady": dragonLady, "discow": discow, "golden-ticket": (c, t, n) => drawGoldenTicket(c, t, n),
 };
