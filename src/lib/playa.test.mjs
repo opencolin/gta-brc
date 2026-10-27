@@ -2,12 +2,13 @@
 // The playa game's rules (playa.ts): the art car's physics, collisions, the pager's jobs, the weather and the light.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
+import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
+import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, structPush } from "./camps.ts";
 
@@ -693,7 +694,7 @@ test("the Golden Ticket parked on the playa drives as the garage's does (asked 2
   setDriven(null);
 });
 
-test("the pack behind the car you drive (asked 2026-10-26): keeps up, and pulls up in rows beside each other when you stop", () => {
+test("the pack behind the car you drive (asked 2026-10-26, a V and a half circle 2026-10-27): rides in a flying V, and pulls up in a half circle beside each other when you stop", () => {
   const g = newGame(1, "bike", "agave"); g.ghost = true; g.car = { ...g.car, x: 0, y: -2600, h: 0, vx: 0, vy: 0 }; // the open playa, nose to 12:00
   setVehicle(g, "found"); setDriven("mutant:robot-heart");
   const fs = g.npcs.filter((n) => n.lead && n.lead.key === "mutant:robot-heart");
@@ -701,15 +702,26 @@ test("the pack behind the car you drive (asked 2026-10-26): keeps up, and pulls 
   for (let i = 0; i < 480; i++) stepGame(g, { ...NO_INPUT, gas: true }, 1 / 60); // eight seconds flat out
   assert.ok(speedOf(g.car) > 150, `going (${speedOf(g.car)})`);
   for (const n of fs) { const p = npcAt(n, g.t); assert.ok(Math.hypot(p.x - g.car.x, p.y - g.car.y) < 200, `keeps up (${Math.hypot(p.x - g.car.x, p.y - g.car.y).toFixed(0)} ft back)`); }
+  { // the flying V: rank 0 at the point, ranks 1 and 2 a pair, one each side and further back, ranks 3 and 4 the next pair further still
+    const v = [0, 1, 2, 3, 4].map(packVee);
+    assert.equal(v[0].side, 0); assert.ok(v[1].side > 0 && v[2].side < 0 && Math.abs(v[1].side + v[2].side) < 1e-9, "a pair, one each side");
+    assert.ok(v[1].back > v[0].back && v[3].back > v[1].back && Math.abs(v[3].side) > Math.abs(v[1].side), "each pair further back and wider");
+    const rel = fs.map((n) => { const p = npcAt(n, g.t), f = fwd(g.car.h), r = right(g.car.h), dx = p.x - g.car.x, dy = p.y - g.car.y; return { back: -(dx * f.x + dy * f.y), side: dx * r.x + dy * r.y }; });
+    assert.ok(rel.every((q) => q.back > 0), "all behind the car");
+    assert.ok(rel.some((q) => q.side > 8) && rel.some((q) => q.side < -8), "spread to both sides");
+  }
   for (let i = 0; i < 90; i++) stepGame(g, { ...NO_INPUT, brake: true }, 1 / 60); // brake (held on, the brake would back it up)
   for (let i = 0; i < 600; i++) stepGame(g, NO_INPUT, 1 / 60); // and wait
   assert.ok(speedOf(g.car) < 1, "stopped");
   const ps = fs.map((n) => npcAt(n, g.t));
   for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) assert.ok(Math.hypot(ps[i].x - ps[j].x, ps[i].y - ps[j].y) >= PACK_SEP - 1, "beside each other, not on top of each other");
   for (const p of ps) { const d = Math.hypot(p.x - g.car.x, p.y - g.car.y); assert.ok(d > 36 && d < 160, `pulled up behind the car (${d.toFixed(0)})`); }
-  // the slots: row k of four, behind the car
-  const s0 = packSlot({ x: 0, y: 0, h: 0 }, 0), s5 = packSlot({ x: 0, y: 0, h: 0 }, 5);
-  assert.ok(s0.y > 30 && s5.y > s0.y + 10 && Math.abs(s5.x - s0.x) < 20, "rows behind, nose to 12:00 means +y is behind");
+  // the slots: a half circle behind the car, the first straight behind, the next ones out to either side at the same distance
+  const s0 = packSlot({ x: 0, y: 0, h: 0 }, 0), s1 = packSlot({ x: 0, y: 0, h: 0 }, 1), s2 = packSlot({ x: 0, y: 0, h: 0 }, 2), s5 = packSlot({ x: 0, y: 0, h: 0 }, 5);
+  assert.ok(s0.y > 30 && Math.abs(s0.x) < 1e-9, "the first straight behind, nose to 12:00 means +y is behind");
+  assert.ok(s1.x > 5 && s2.x < -5 && Math.abs(s1.x + s2.x) < 1e-9, "the next pair one each side");
+  for (const q of [s0, s1, s2, s5]) assert.ok(Math.abs(Math.hypot(q.x, q.y) - Math.hypot(s0.x, s0.y)) < 1e-6 && q.y > 0, "all on one arc behind the car");
+  assert.ok(Math.hypot(s1.x - s0.x, s1.y - s0.y) >= PACK_SEP, "an arm's length apart along the arc");
   // left parked, they stay where they pulled up, beside each other
   leaveDriven(g); const qs = fs.map((n) => npcAt(n, g.t));
   for (let i = 0; i < qs.length; i++) assert.ok(Math.abs(qs[i].x - ps[i].x) < 1e-6 && Math.abs(qs[i].y - ps[i].y) < 1e-6, "stays put when the car is left parked");

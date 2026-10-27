@@ -484,9 +484,20 @@ export const PACK_SPEED = 340, PACK_SEP = NPC_R.bike * 2 + 4;
 const pack = new Map<Npc, { x: number; y: number; h: number }>();
 let packFor: string | null = null;
 /** Place `k` of a pack pulled up behind a stopped art car: rows of four, a bike's clearance apart, a little more between rows. */
+/**
+ * Where the k-th biker of a pack pulls up when the car stops (asked 2026-10-27): a half circle behind it, the first straight behind and
+ * the rest fanning out to either side along the arc, a second arc behind when the first is full; all facing the way the car faces.
+ */
 export function packSlot(lead: { x: number; y: number; h: number }, k: number) {
-  const f = fwd(lead.h), r = right(lead.h), back = NPC_R.mutant + NPC_R.bike + FOLLOW_GAP + Math.floor(k / 4) * (PACK_SEP + 3), side = ((k % 4) - 1.5) * (PACK_SEP + 1);
+  const f = fwd(lead.h), r = right(lead.h), r0 = NPC_R.mutant + NPC_R.bike + FOLLOW_GAP, step = (PACK_SEP + 2) / r0, perArc = Math.floor(Math.PI * 0.9 / step) + 1;
+  const arc = Math.floor(k / perArc), i = k % perArc, R = r0 + arc * (PACK_SEP + 3), a = Math.ceil(i / 2) * step * (i % 2 ? 1 : -1);
+  const back = R * Math.cos(a), side = R * Math.sin(a);
   return { x: lead.x - f.x * back + r.x * side, y: lead.y - f.y * back + r.y * side, h: lead.h };
+}
+/** Where the k-th biker rides behind the moving car (asked 2026-10-27): a flying V, the first at the point and the rest in pairs out to either side, each pair a little further back. */
+export function packVee(k: number): { back: number; side: number } {
+  const m = Math.ceil(k / 2), sg = k === 0 ? 0 : k % 2 ? 1 : -1;
+  return { back: NPC_R.mutant + 4 + m * PACK_SEP * 0.75, side: sg * m * PACK_SEP * 0.7 };
 }
 /** Where a biker riding with an art car is: beside the car's trail `lag` seconds back, held outside the car. */
 function followSpot(n: Npc, t: number) {
@@ -520,7 +531,7 @@ export function stepPack(g: Game, dt: number) {
     const k = n.rank ?? 0;
     let tgt: { x: number; y: number; h: number };
     if (stopped) tgt = packSlot(car, k);
-    else { const b = drivenBehind(car, NPC_R.mutant + 4 + k * 9), r = right(b.h), side = (n.side ?? 0) * 0.5; tgt = { x: b.x + r.x * side, y: b.y + r.y * side, h: b.h }; }
+    else { const v = packVee(k), b = drivenBehind(car, v.back), r = right(b.h); tgt = { x: b.x + r.x * v.side, y: b.y + r.y * v.side, h: b.h }; }
     let p = pack.get(n); if (!p) { p = { ...tgt }; pack.set(n, p); }
     const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy);
     const step = Math.min(d, Math.min(PACK_SPEED, 40 + d * 2.5) * dt);

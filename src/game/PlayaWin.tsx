@@ -1306,6 +1306,9 @@ export default function PlayaWin() {
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
+  // a desktop (a mouse or trackpad, not a phone) drives with the keys: no stick or drift pad, a legend of the keys in their corner instead (asked 2026-10-27)
+  const [fine, setFine] = useState(false);
+  const keysUi = !mobile && fine;
   const touchUiRef = useRef(false); touchUiRef.current = touchUi; // for the camera's safe box, read inside the frame loop
   // the view (asked 2026-10-26): top-down by default; ?view=chase, C or the camera button swaps in a chase camera behind your ride
   // (three.js, a lazy chunk loaded the first time it is asked for). ?view wins, then the choice last made on this device.
@@ -1426,6 +1429,7 @@ export default function PlayaWin() {
 
   useBoardFocus(board);
   useEffect(() => { const mq = matchMedia("(pointer: coarse)"); const on = () => setCoarse(mq.matches); on(); mq.addEventListener("change", on); return () => mq.removeEventListener("change", on); }, []);
+  useEffect(() => { const mq = matchMedia("(pointer: fine)"); const on = () => setFine(mq.matches); on(); mq.addEventListener("change", on); return () => mq.removeEventListener("change", on); }, []);
 
   // the loop: fixed 60 Hz steps, a frame per animation frame, the HUD ten times a second
   useEffect(() => {
@@ -1576,12 +1580,13 @@ export default function PlayaWin() {
         const fl = flash.current.until > g.t ? flash.current.text : "";
         // the camps you hear from the road: rising as you ride up to one, then kept playing after you leave, until
         // another takes over; silent while paused, muted, or a set you picked in the panel plays
-        const near = nearest(g.car, soundSources(g.t));
+        // in the plane you fly with Agave Lounge's music aboard (asked 2026-10-27): the camp is a source at the plane itself, so it plays from take-off until you land somewhere with music of its own
+        const near = nearest(g.car, g.vehicle === "plane" ? [...soundSources(g.t), { key: "agave", x: g.car.x, y: g.car.y }] : soundSources(g.t));
         // riding up to a different camp or art car takes over from a set picked in the panel, as it
         // would from another camp: the picked set stops and the new one comes up (asked 2026-10-22)
         const picked = nowRef.current, dtm = Math.min(0.5, (now - (hudAt || now)) / 1000 || 0.1);
         // a new place waits three seconds in earshot before it plays (asked 2026-10-24), unless you are parked at it or right beside it
-        const want = stepSticky(sticky.current, near, false, dtm, !!near && g.parking.at === near.key);
+        const want = stepSticky(sticky.current, near, false, dtm, (!!near && g.parking.at === near.key) || (g.vehicle === "plane" && near?.key === "agave"));
         if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
         const quiet = phaseRef.current !== "play" || !soundRef.current || !!nowRef.current?.playing;
         const target = quiet ? null : want;
@@ -1833,7 +1838,20 @@ export default function PlayaWin() {
 
         {hud.warn && phase === "play" && <div className="pl-warn" role="status">{hud.warn}</div>}
 
-        {touchUi && phase === "play" && (
+        {keysUi && phase === "play" && (
+          <dl className="pl-keys" aria-label="the keys">
+            <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
+            <div><dt>space</dt><dd>drift</dd></div>
+            <div><dt>E</dt><dd>drive an art car · take the plane</dd></div>
+            <div><dt>R</dt><dd>ride along · bail out · the garage</dd></div>
+            <div><dt>V</dt><dd>garage</dd></div>
+            <div><dt>C</dt><dd>camera</dd></div>
+            <div><dt>M</dt><dd>map</dd></div>
+            <div><dt>N</dt><dd>night</dd></div>
+            <div><dt>T</dt><dd>trip</dd></div>
+          </dl>
+        )}
+        {touchUi && !keysUi && phase === "play" && (
           <div className="pl-pads" role="group" aria-label="driving controls">
             <div className="pl-stick" ref={stickEl} role="application" aria-label="joystick: push where to go, further is faster; pull back to brake and reverse"
               onPointerDown={stickDown} onPointerMove={(e) => { if (e.buttons || e.pointerType === "touch") stickMove(e); }} onPointerUp={stickUp} onPointerCancel={stickUp} onLostPointerCapture={stickUp} onContextMenu={(e) => e.preventDefault()}>
