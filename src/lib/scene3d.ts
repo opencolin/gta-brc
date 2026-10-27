@@ -1,6 +1,6 @@
 import {
   AIRPORT, ARC_R, CENTER_CAMP, CENTER_CAMP_R, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R,
-  arcWidth, blockBounds, polar, radialWidth, type Vec,
+  arcWidth, blockBounds, polar, radialWidth, toPolar, type Vec,
 } from "./brc.ts";
 import type { BlockPlan, Struct, StructKind } from "./camps.ts";
 import { PALETTE, cang, yawOf } from "./view3d.ts";
@@ -32,8 +32,13 @@ export type Flat = {
 
 /** Heights (feet above the map) of the ground layers, lowest first. */
 export const LAYER_Y = { outside: 0.05, block: 0.1, street: 0.15, plaza: 0.2, ring: 0.25, mark: 0.3 } as const;
-/** polygonOffset / renderOrder of each layer: the 0.05 ft steps z-fight beyond about 1,500 ft once the eye is high. */
-export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6 } as const;
+/**
+ * The layers of everything flat on the ground, lowest first. The 0.05 ft steps between their heights z-fight beyond about 1,500 ft
+ * once the eye is high, so each layer's material is pulled toward the camera by `layer` depth-buffer units (polygonOffsetUnits, never
+ * polygonOffsetFactor: the factor term scales with the ground's slope and at a distance pulls a flat forward by whole feet, over
+ * anything low that has no offset of its own) and drawn in renderOrder `layer`. The camps' carpets are meshes, not flats, on the top layer.
+ */
+export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6, carpet: 7 } as const;
 const PLAZA = "#efe5cf", PAVE = "#efe7d4", APRON = "#e8dfc9";
 const CITY_FROM = 120, CITY_TO = 600;
 
@@ -76,13 +81,15 @@ export type PrismKind = StructKind | "rv-roof" | "shade-roof" | "pole" | "bike-r
 /**
  * One piece to draw, in three.js axes: its centre (x east, y up, z south), its turn about Y (yaw = -rot), and the scale of a unit
  * shape (a box 1×1×1, a hemisphere of diameter 1, ...) that the renderer instances. `sector` (0..15) says which of the city's 16
- * wedges it is in, for culling by distance. `n` is the bikes in a "bike-row"; `w` the width of an "arch" (the renderer shares one merged arch per width).
+ * wedges it is in, for culling by distance, and `ring` (0..11) which of the wedge's 12 blocks, from the Esplanade out. `n` is the bikes in a "bike-row"
+ * and `step` the feet between them (the row runs along its x from the first bike, as the top-down painter lays them); `w` the width of an "arch" (the renderer shares one merged arch per width).
  */
-export type Prism = { kind: PrismKind; x: number; y: number; z: number; yaw: number; sx: number; sy: number; sz: number; hue: number; emissive: boolean; sector: number; n?: number; w?: number; label?: string };
+export type Prism = { kind: PrismKind; x: number; y: number; z: number; yaw: number; sx: number; sy: number; sz: number; hue: number; emissive: boolean; sector: number; ring: number; n?: number; step?: number; w?: number; label?: string };
 
 /** Heights, in feet, of the things the camps are made of. */
 export const H = { rv: 10, rvRoof: 0.3, pod: 14, tent: 8, shade: 10, shadeRoof: 0.5, canopy: 12, canopyRoof: 0.4, carpet: 0.2, couch: 3, stage: 4, stageLip: 0.5, speaker: 7, rack: 3, flag: 12, flagCloth: 4, arch: 9, potty: 8, signPost: 7, signBoard: 6, bike: 2.4 } as const;
-export const BIKE_SPACING = 4.2;
+/** Feet between parked bikes: in a row of "bikes" (PlayaWin's drawStruct), and in a rack (which also stops at the rack's far end). */
+export const BIKE_SPACING = 4.2, RACK_SPACING = 4;
 
 /** A point `lx` along and `lz` deep in a struct's own frame, as game (x, y). */
 const local = (s: Struct, lx: number, lz: number): Vec => ({ x: s.x + lx * Math.cos(s.rot) - lz * Math.sin(s.rot), y: s.y + lx * Math.sin(s.rot) + lz * Math.cos(s.rot) });
@@ -91,9 +98,9 @@ const local = (s: Struct, lx: number, lz: number): Vec => ({ x: s.x + lx * Math.
 export function campPrisms(plans: readonly BlockPlan[]): Prism[] {
   const out: Prism[] = [];
   for (const plan of plans) {
-    const sector = plan.sector;
+    const sector = plan.sector, ring = plan.ring;
     for (const s of plan.structs) {
-      const yaw = yawOf(s.rot), base = { yaw, hue: s.hue, sector };
+      const yaw = yawOf(s.rot), base = { yaw, hue: s.hue, sector, ring };
       // a piece centred on the struct, at height y
       const box = (kind: PrismKind, y: number, sx: number, sy: number, sz: number, emissive = false, extra: Partial<Prism> = {}): void => { out.push({ kind, x: s.x, y, z: s.y, sx, sy, sz, emissive, ...base, ...extra }); };
       // a piece at a point of the struct's own frame
@@ -127,9 +134,12 @@ export function campPrisms(plans: readonly BlockPlan[]): Prism[] {
         case "speaker": box("speaker", H.speaker / 2, s.w, H.speaker, s.l); break;
         case "rack":
           box("rack", H.rack / 2, s.w, H.rack, s.l);
-          if (s.n) at("bike-row", 0, hl + 5, 0, 1, 1, 1, false, { n: s.n });   // front wheels in the rack, the bikes in front of it
+          if (s.n) {   // front wheels in the rack, the bikes in front of it, the first 4 ft in from the rack's end and no more than fit (drawStruct)
+            let fit = 0; while (fit < s.n && -hw + 4 + fit * RACK_SPACING <= hw - 2) fit++;
+            if (fit) at("bike-row", -hw + 4, hl + 5, 0, 1, 1, 1, false, { n: fit, step: RACK_SPACING });
+          }
           break;
-        case "bikes": if (s.n) box("bike-row", 0, 1, 1, 1, false, { n: s.n }); break;
+        case "bikes": if (s.n) at("bike-row", -hw + 3, 0, 0, 1, 1, 1, false, { n: s.n, step: BIKE_SPACING }); break;
         case "flag":
           box("pole", H.flag / 2, 1, H.flag, 1);
           at("flag-cloth", 3.5, 0, H.flag - H.flagCloth / 2, 1, 1, 1);
@@ -146,10 +156,10 @@ export function campPrisms(plans: readonly BlockPlan[]): Prism[] {
   return out;
 }
 
-/** The 16 wedges of the city: for each, the centre and radius of the circle round each of its 12 blocks, for culling by distance (a wedge is 12 rings and about 4,600 ft deep: one centre point per wedge would drop the camps round you). */
-export function sectorBlocks(plans: readonly BlockPlan[]): { cx: number; cy: number; br: number }[][] {
-  const out: { cx: number; cy: number; br: number }[][] = Array.from({ length: RADIALS.length - 1 }, () => []);
-  for (const p of plans) out[p.sector].push({ cx: p.cx, cy: p.cy, br: p.br });
+/** The 16 wedges of the city: for each, the centre and radius of the circle round each of its 12 blocks (and which ring, 0 at the Esplanade, that block is), for culling by distance (a wedge is 12 rings and about 4,600 ft deep: one centre point per wedge would drop the camps round you). */
+export function sectorBlocks(plans: readonly BlockPlan[]): { cx: number; cy: number; br: number; ring: number }[][] {
+  const out: { cx: number; cy: number; br: number; ring: number }[][] = Array.from({ length: RADIALS.length - 1 }, () => []);
+  for (const p of plans) out[p.sector].push({ cx: p.cx, cy: p.cy, br: p.br, ring: p.ring });
   return out;
 }
 
@@ -195,12 +205,37 @@ export const bikeColor = (k: number) => hslHex((k * 83) % 360, 70, 55);
 
 /* ── the fence, the airport, the Gate ────────────────────────────────────── */
 
-/** A post every ~300 ft along each of the fence's five sides. */
+/**
+ * The fence's pieces: the pentagon's five sides with the airport's wedge (AIRPORT.gap, a range on the clock) cut out, because the sim
+ * has no fence there (playa.ts lets rides and planes through). A side the wedge crosses is cut where the rays from the Man at the wedge's
+ * two edges meet it, so a side is one piece, two, or none.
+ */
+export function fenceSegments(): { a: Vec; b: Vec }[] {
+  const out: { a: Vec; b: Vec }[] = [];
+  const cross = (u: Vec, v: Vec) => u.x * v.y - u.y * v.x;
+  for (let i = 0; i < FENCE.length; i++) {
+    const a = FENCE[i], b = FENCE[(i + 1) % FENCE.length], e = { x: b.x - a.x, y: b.y - a.y };
+    // where along a → b (0..1) the ray from the Man at clock minute m crosses the side
+    const at = (m: number) => { const d = polar(m, 1); return cross(a, d) / cross(d, e); };
+    let ca = toPolar(a).min, cb = toPolar(b).min; if (cb <= ca) cb += 720;
+    const lo = Math.max(ca, AIRPORT.gap.from), hi = Math.min(cb, AIRPORT.gap.to);
+    if (lo >= hi) { out.push({ a, b }); continue; }   // the wedge misses this side
+    const lerp = (t: number): Vec => ({ x: a.x + e.x * t, y: a.y + e.y * t });
+    if (lo > ca) out.push({ a, b: lerp(at(lo)) });
+    if (hi < cb) out.push({ a: lerp(at(hi)), b });
+  }
+  return out;
+}
+
+/** A post every ~300 ft along the fence's pieces (the corners and the ends of a cut side included). */
 export function fencePosts(spacing = 300): Vec[] {
   const out: Vec[] = [];
-  for (let i = 0; i < FENCE.length; i++) {
-    const a = FENCE[i], b = FENCE[(i + 1) % FENCE.length], len = Math.hypot(b.x - a.x, b.y - a.y), n = Math.max(1, Math.round(len / spacing));
-    for (let k = 0; k < n; k++) out.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n });
+  for (const { a, b } of fenceSegments()) {
+    const len = Math.hypot(b.x - a.x, b.y - a.y), n = Math.max(1, Math.round(len / spacing));
+    for (let k = 0; k <= n; k++) {
+      const p = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n };
+      if (!out.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 1e-6)) out.push(p);   // a corner is the end of one piece and the start of the next
+    }
   }
   return out;
 }

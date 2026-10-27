@@ -48,13 +48,13 @@ function temple(group: THREE.Group): void {
   group.add(t);
 }
 
-/** Center Camp's café: a low wall and a wide, shallow striped tent over it (16 stripes, cream and tan). */
+/** Center Camp's café: a low wall and a wide, shallow striped tent over it (16 stripes, cream and tan), CAFE_R across like the top-down drawing and the sim's wall (the painted map's disc is 1.3 times that, not this). */
 function cafe(group: THREE.Group): void {
   const c = document.createElement("canvas"); c.width = 256; c.height = 4;
   const x = c.getContext("2d")!;
   for (let k = 0; k < 16; k++) { x.fillStyle = k % 2 ? "#e8c9a4" : "#f6efe2"; x.fillRect(k * 16, 0, 16, 4); }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = THREE.RepeatWrapping;
-  const R = CAFE_R * 1.3, WALL = 3;
+  const R = CAFE_R, WALL = 3;
   const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, WALL, 32), lambert(0x9c7b52)); wall.position.set(CENTER_CAMP.x, WALL / 2, CENTER_CAMP.y);
   const tent = new THREE.Mesh(new THREE.ConeGeometry(R, 30, 16, 1, true), new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide })); tent.position.set(CENTER_CAMP.x, WALL + 15, CENTER_CAMP.y);
   group.add(wall, tent);

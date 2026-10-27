@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
 import { FENCE, GATE } from "@/lib/brc";
-import { LAYER, LAYER_Y, airportLayout, fencePosts, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
+import { LAYER, LAYER_Y, airportLayout, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
 import { basic, hex, instanced, lambert } from "./materials";
 
@@ -50,8 +50,8 @@ function flatMeshes(flats: Flat[]): THREE.Mesh[] {
     const merged = geoms.length === 1 ? geoms[0] : mergeGeometries(geoms, false);
     if (!merged) continue;
     if (geoms.length > 1) geoms.forEach((g) => g.dispose());
-    // the shapes face down once laid flat, hence DoubleSide; the 0.05 ft steps between layers z-fight at a distance, hence the polygon offset
-    const mat = basic(hex(f.color), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -f.layer, polygonOffsetUnits: -f.layer });
+    // the shapes face down once laid flat, hence DoubleSide; the 0.05 ft steps between layers z-fight at a distance, hence the polygon offset (units only: see LAYER)
+    const mat = basic(hex(f.color), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -f.layer });
     const mesh = new THREE.Mesh(merged, mat);
     mesh.rotation.x = Math.PI / 2; mesh.position.y = f.y; mesh.renderOrder = f.layer;
     out.push(mesh);
@@ -96,7 +96,11 @@ function mountains(): THREE.Mesh {
 export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes {
   const group = new THREE.Group();
   const cy = (MAP_BOX.top + MAP_BOX.bottom) / 2;
-  const texture = (img: HTMLCanvasElement, aniso: number) => { const t = new THREE.CanvasTexture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; return t; };
+  // a textured material is built here, not through basic(): its cache key would stringify the texture (a PNG of the whole canvas)
+  const textured = (img: HTMLCanvasElement, aniso: number, opts: THREE.MeshBasicMaterialParameters = {}) => {
+    const t = new THREE.CanvasTexture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso;
+    return new THREE.MeshBasicMaterial({ color: 0xffffff, map: t, ...opts });
+  };
 
   // the desert past the map: flat dust to the edge of the world, the surrounding desert's painted crust and tracks on it, drawn first and writing no depth so the map over it never z-fights at a distance
   const far = mesh(new THREE.PlaneGeometry(120000, 120000), basic(hex(PALETTE.outside), { depthWrite: false }), 0, -0.7, 0); far.rotation.x = -Math.PI / 2; far.renderOrder = -3;
@@ -104,13 +108,13 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   const around = surroundImage();
   if (around) {
     const big = Math.max(2 * MAP_BOX.half, MAP_BOX.bottom - MAP_BOX.top) * AROUND;
-    const m = mesh(new THREE.PlaneGeometry(big, big), basic(0xffffff, { map: texture(around, Math.min(4, maxAnisotropy)), depthWrite: false }), 0, -0.5, cy); m.rotation.x = -Math.PI / 2; m.renderOrder = -2;
+    const m = mesh(new THREE.PlaneGeometry(big, big), textured(around, Math.min(4, maxAnisotropy), { depthWrite: false }), 0, -0.5, cy); m.rotation.x = -Math.PI / 2; m.renderOrder = -2;
     group.add(m);
   }
 
   // the painted city map, flat on the playa: the far level of detail and the open playa's own look (its top row is north, -Z)
   const side = Math.max(2 * MAP_BOX.half, MAP_BOX.bottom - MAP_BOX.top), img = cityImage();
-  const map = mesh(new THREE.PlaneGeometry(side, side), img ? basic(0xffffff, { map: texture(img, maxAnisotropy) }) : basic(hex(PALETTE.playa)), 0, 0, cy); map.rotation.x = -Math.PI / 2;
+  const map = mesh(new THREE.PlaneGeometry(side, side), img ? textured(img, maxAnisotropy) : basic(hex(PALETTE.playa)), 0, 0, cy); map.rotation.x = -Math.PI / 2;
   group.add(map);
 
   // streets, blocks, plazas, runways, Gate Road
@@ -120,14 +124,14 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   {
     const half = 30000, s = new THREE.Shape([new THREE.Vector2(-half, -half), new THREE.Vector2(half, -half), new THREE.Vector2(half, half), new THREE.Vector2(-half, half)]);
     s.holes.push(new THREE.Path(FENCE.map((p) => new THREE.Vector2(p.x, p.y))));
-    const m = new THREE.Mesh(new THREE.ShapeGeometry(s), basic(hex(PALETTE.outside), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -LAYER.outside, polygonOffsetUnits: -LAYER.outside }));
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s), basic(hex(PALETTE.outside), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.outside }));
     m.rotation.x = Math.PI / 2; m.position.y = LAYER_Y.outside; m.renderOrder = LAYER.outside;
     group.add(m);
   }
 
-  // the fence: a line round the pentagon and a post every 300 ft
+  // the fence: a line round the pentagon and a post every 300 ft, open where the airport's wedge is (the sim has no fence there)
   const FENCE_ORANGE = 0xf08a3c;
-  group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(FENCE.map((p) => new THREE.Vector3(p.x, 3, p.y))), new THREE.LineBasicMaterial({ color: FENCE_ORANGE })));
+  group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(fenceSegments().flatMap(({ a, b }) => [new THREE.Vector3(a.x, 3, a.y), new THREE.Vector3(b.x, 3, b.y)])), new THREE.LineBasicMaterial({ color: FENCE_ORANGE })));
   group.add(instanced(new THREE.CylinderGeometry(0.9, 0.9, 4, 5), lambert(FENCE_ORANGE), fencePosts().map((p) => ({ x: p.x, y: 2, z: p.y }))));
 
   // the airport: five hangars along the apron and the windsock

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { BlockPlan } from "@/lib/camps";
-import { BIKE_SPACING, H, bikeColor, campPrisms, prismColor, sectorBlocks, type Prism, type PrismKind } from "@/lib/scene3d";
+import { H, LAYER, bikeColor, campPrisms, prismColor, sectorBlocks, type Prism, type PrismKind } from "@/lib/scene3d";
 
 /** 0 by day, 1 at night: what the glowing things (the LED arches, the stages' lips, the canopies) multiply their colour by. Set once a frame by the renderer. */
 export const nightUniform = { value: 0 };
@@ -54,11 +54,11 @@ function archGeometry(w: number): THREE.BufferGeometry {
   return mergeGeometries([post(-w / 2), post(w / 2), new THREE.BoxGeometry(w, 1, 1).translate(0, H.arch, 0)])!;
 }
 
-/** A row of n parked bikes, 4.2 ft apart along X, each its own colour (baked as vertex colours), one box a bike. Shared by every row of that n. */
-function bikeRowGeometry(n: number): THREE.BufferGeometry {
+/** A row of n parked bikes, `step` ft apart along X from the first at x = 0 (the row is placed at its first bike, as the top-down painter lays them), each its own colour (baked as vertex colours), one box a bike. Shared by every row of that n and step. */
+function bikeRowGeometry(n: number, step: number): THREE.BufferGeometry {
   const c = new THREE.Color(), parts: THREE.BufferGeometry[] = [];
   for (let k = 0; k < n; k++) {
-    const g = new THREE.BoxGeometry(0.5, H.bike, 5.2).translate((k - (n - 1) / 2) * BIKE_SPACING, H.bike / 2, 0);
+    const g = new THREE.BoxGeometry(0.5, H.bike, 5.2).translate(k * step, H.bike / 2, 0);
     const col = new Float32Array(g.getAttribute("position").count * 3); c.setHex(bikeColor(k), THREE.SRGBColorSpace);
     for (let i = 0; i < col.length; i += 3) { col[i] = c.r; col[i + 1] = c.g; col[i + 2] = c.b; }
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -92,8 +92,10 @@ export function buildCamps(scene: THREE.Scene, plans: readonly BlockPlan[]): Cam
     wire: domeWire(),
   };
   const white = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  // a carpet lies 0.1 ft over its block: pulled toward the camera by units only (see LAYER) so the ground flats never paint over it
+  const carpet = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.carpet });
   const mat: Record<string, THREE.Material> = {
-    box: white, hemi: white, cone: white, carpet: white, pole: white,
+    box: white, hemi: white, cone: white, carpet, pole: white,
     sign: new THREE.MeshLambertMaterial({ color: 0xffffff }),
     cloth: new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
     wire: new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true }),
@@ -101,10 +103,10 @@ export function buildCamps(scene: THREE.Scene, plans: readonly BlockPlan[]): Cam
     arch: glowing({}, "glow-arch", 1),
     canopy: glowing({ transparent: true, opacity: 0.6, depthWrite: false }, "glow-canopy", 0.25),
   };
-  const archs = new Map<number, THREE.BufferGeometry>(), rows = new Map<number, THREE.BufferGeometry>();
+  const archs = new Map<number, THREE.BufferGeometry>(), rows = new Map<string, THREE.BufferGeometry>();
   const shapeOf = (cls: Cls, p: Prism): { geometry: THREE.BufferGeometry; material: THREE.Material } => {
     if (cls === "arch") { const w = Math.round(p.w!); let g = archs.get(w); if (!g) archs.set(w, (g = archGeometry(w))); return { geometry: g, material: mat.arch }; }
-    if (cls === "bikes") { let g = rows.get(p.n!); if (!g) rows.set(p.n!, (g = bikeRowGeometry(p.n!))); return { geometry: g, material: bikesMaterial }; }
+    if (cls === "bikes") { const k = `${p.n}|${p.step}`; let g = rows.get(k); if (!g) rows.set(k, (g = bikeRowGeometry(p.n!, p.step!))); return { geometry: g, material: bikesMaterial }; }
     return { geometry: geo[cls], material: mat[cls] };
   };
   const bikesMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -112,7 +114,7 @@ export function buildCamps(scene: THREE.Scene, plans: readonly BlockPlan[]): Cam
   // bucket the pieces by shape and wedge (and by width for arches, bikes for rows)
   const buckets = new Map<string, { cls: Cls; sector: number; items: Prism[] }>();
   for (const p of prisms) {
-    const cls = CLASS[p.kind], key = `${cls}|${p.sector}|${cls === "arch" ? Math.round(p.w!) : cls === "bikes" ? p.n : 0}`;
+    const cls = CLASS[p.kind], key = `${cls}|${p.sector}|${cls === "arch" ? Math.round(p.w!) : cls === "bikes" ? `${p.n}|${p.step}` : 0}`;
     let b = buckets.get(key); if (!b) buckets.set(key, (b = { cls, sector: p.sector, items: [] }));
     b.items.push(p);
   }
@@ -130,10 +132,12 @@ export function buildCamps(scene: THREE.Scene, plans: readonly BlockPlan[]): Cam
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
     mesh.matrixAutoUpdate = false;   // never moves
+    if (cls === "carpet") mesh.renderOrder = LAYER.carpet;
     group.add(mesh);
     bySector[sector].push({ mesh, detail: DETAIL_CLASSES.has(cls) });
   }
   scene.add(group);
+  const counts = { prisms: prisms.length, meshes: buckets.size };   // numbers, not the arrays: the closures below must not keep the 66,541 pieces alive
 
   const nearest = (cx: number, cz: number, sector: number) => { let best = Infinity; for (const b of circles[sector]) best = Math.min(best, Math.hypot(b.cx - cx, b.cy - cz) - b.br); return best; };
   let shown = 0;
@@ -146,6 +150,6 @@ export function buildCamps(scene: THREE.Scene, plans: readonly BlockPlan[]): Cam
         for (const { mesh, detail } of bySector[s]) { mesh.visible = near < (detail ? DETAIL : CULL); if (mesh.visible) shown++; }
       }
     },
-    stats: () => ({ prisms: prisms.length, meshes: buckets.size, shown }),
+    stats: () => ({ ...counts, shown }),
   };
 }

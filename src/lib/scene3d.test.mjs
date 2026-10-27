@@ -2,9 +2,9 @@
 // The chase view's scene description (scene3d.ts): ground flats, camp prisms, culling circles, colours, fence, airport, Gate, skyline.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AIRPORT, ARC_R, FENCE, GATE, RADIALS, fenceDepth } from "./brc.ts";
+import { AIRPORT, ARC_R, FENCE, GATE, RADIALS, fenceDepth, toPolar } from "./brc.ts";
 import { cityPlan } from "./playa.ts";
-import { H, airportLayout, bikeColor, campPrisms, fencePosts, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
+import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const plans = cityPlan();
@@ -108,13 +108,28 @@ test("colours: hsl to hex the way CSS reads it, and every kind has one", () => {
   assert.notEqual(bikeColor(0), bikeColor(1));
 });
 
-test("the fence posts sit on the pentagon, about 300 ft apart", () => {
-  const posts = fencePosts();
-  assert.ok(posts.length > 200 && posts.length < 260, `${posts.length} posts`);
-  for (const p of posts) assert.ok(Math.abs(fenceDepth(p).depth) < 1e-6, "on the fence line");
-  // each corner has a post, and the spacing is between 250 and 350 ft
-  for (const c of FENCE) assert.ok(posts.some((p) => Math.hypot(p.x - c.x, p.y - c.y) < 1e-6));
+test("the fence is the pentagon with the airport's wedge left open, and its posts sit on it about 300 ft apart", () => {
+  const segs = fenceSegments(), posts = fencePosts();
+  assert.equal(segs.length, 5, "four whole sides' worth of fence and one side cut into two pieces, one side cut short");
+  for (const { a, b } of segs) for (const p of [a, b]) assert.ok(Math.abs(fenceDepth(p).depth) < 1e-6, "on the fence line");
+  // nothing of it stands between 3:35 and 4:50 on the clock (AIRPORT.gap), and the cuts are exactly at those two rays
+  const gap = (p) => { const m = toPolar(p).min; return m > AIRPORT.gap.from + 1e-6 && m < AIRPORT.gap.to - 1e-6; };
+  for (const { a, b } of segs) for (let k = 0; k <= 20; k++) assert.ok(!gap({ x: a.x + ((b.x - a.x) * k) / 20, y: a.y + ((b.y - a.y) * k) / 20 }), "no fence in the gap");
+  assert.ok(segs.some(({ b }) => Math.abs(toPolar(b).min - AIRPORT.gap.from) < 1e-6), "a piece ends where the gap starts");
+  assert.ok(segs.some(({ a }) => Math.abs(toPolar(a).min - AIRPORT.gap.to) < 1e-6), "a piece starts where the gap ends");
+  assert.ok(posts.length > 190 && posts.length < 240, `${posts.length} posts`);
+  for (const p of posts) { assert.ok(Math.abs(fenceDepth(p).depth) < 1e-6, "on the fence line"); assert.ok(!gap(p), "not in the gap"); }
+  // the corners outside the gap each have a post, and the posts on a piece are between 250 and 350 ft apart
+  for (const c of FENCE) if (!gap(c)) assert.ok(posts.some((p) => Math.hypot(p.x - c.x, p.y - c.y) < 1e-6));
   for (let i = 1; i < posts.length; i++) { const d = Math.hypot(posts[i].x - posts[i - 1].x, posts[i].y - posts[i - 1].y); if (d < 600) assert.ok(d > 250 && d < 350, `${d}`); }
+});
+
+test("parked bikes are laid out as the top-down painter lays them: a rack's from 4 ft in, 4 ft apart, as many as fit; a row's from 3 ft in, 4.2 ft apart", () => {
+  const rows = (kind) => campPrisms([{ ring: 0, sector: 3, cx: 0, cy: 0, br: 100, solids: [], structs: [{ kind, x: 100, y: -200, rot: 0, w: kind === "rack" ? 22 : 12, l: 6, hue: 40, solid: false, n: 6 }] }]).find((p) => p.kind === "bike-row");
+  const rack = rows("rack"), row = rows("bikes");
+  // a 22 ft rack: bikes at x = -7, -3, 1, 5, 9 (the sixth would be at 13 > hw - 2); placed at the first, 5 ft in front of the rack's front edge
+  assert.equal(rack.n, 5); assert.equal(rack.step, RACK_SPACING); near(rack.x, 100 - 11 + 4); near(rack.z, -200 + 3 + 5);
+  assert.equal(row.n, 6); assert.equal(row.step, BIKE_SPACING); near(row.x, 100 - 6 + 3); near(row.z, -200);
 });
 
 test("the airport has five hangars along its apron, turned with the runways, and a windsock", () => {

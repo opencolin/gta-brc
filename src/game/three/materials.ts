@@ -14,8 +14,11 @@ export function lambert(hex: number): THREE.MeshLambertMaterial {
   return m;
 }
 
+/** The options `basic()` can cache by value: plain numbers and flags. Anything holding an object (a texture) is built with `new THREE.MeshBasicMaterial` by the caller; stringifying a texture would encode its whole canvas as a PNG. */
+export type BasicOpts = Pick<THREE.MeshBasicMaterialParameters, "side" | "depthWrite" | "transparent" | "opacity" | "fog" | "polygonOffset" | "polygonOffsetFactor" | "polygonOffsetUnits">;
+
 /** An unlit material: exactly the colour, for the ground, which shows the 2D painter's own colours. */
-export function basic(hex: number, opts: THREE.MeshBasicMaterialParameters = {}): THREE.MeshBasicMaterial {
+export function basic(hex: number, opts: BasicOpts = {}): THREE.MeshBasicMaterial {
   const key = hex + JSON.stringify(opts);
   let m = basics.get(key);
   if (!m) basics.set(key, (m = new THREE.MeshBasicMaterial({ color: hex, ...opts })));
