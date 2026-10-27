@@ -79,7 +79,11 @@ const LAMPS: Lamp[] = (() => {
     { x: CENTER_CAMP.x, y: 40, z: CENTER_CAMP.y, color: 0xffd28c, I: 80000, dist: 280, decay: 1.4 },                // Center Camp, amber
   ];
   for (const sp of SPOTS) if (sp.kind === "camp" || sp.kind === "fence") out.push({ x: sp.stage.x, y: 9, z: sp.stage.y, color: hslHex(sp.hue, 90, 60), I: 26000, dist: 150, decay: 1.4 });
-  for (const a of ART) out.push({ x: a.x, y: 30, z: a.y, color: hslHex(a.hue, 90, 62), I: 45000, dist: a.r * 2.8, decay: 1.4 });
+  for (const a of ART) {
+    // the Tree of Ténéré lights itself with its LED leaves (art.ts): its lamp is their warm light under the canopy on the ground and the people, not a lamp inside the leaves blowing them to white
+    if (a.id === "tree-of-tenere") out.push({ x: a.x, y: 14, z: a.y, color: hslHex(25, 90, 60), I: 12000, dist: a.r * 2.8, decay: 1.4 });
+    else out.push({ x: a.x, y: 30, z: a.y, color: hslHex(a.hue, 90, 62), I: 45000, dist: a.r * 2.8, decay: 1.4 });
+  }
   return out;
 })();
 

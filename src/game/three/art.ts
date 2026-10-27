@@ -44,7 +44,7 @@ const STAND_INS: Record<string, Build> = {
   lodestar: () => [P(new THREE.ConeGeometry(10, 70, 12), 0xc9c2ae, { y: 37, rz: Math.PI }), P(box(34, 2, 5), 0xb8b19c, { y: 62, ry: 0.4 }), P(box(5, 2, 34), 0xb8b19c, { y: 60, ry: 0.4 })],
   "black-rock-observatory": () => [0, 1, 2].flatMap((k) => { const a = (k / 3) * Math.PI * 2, x = Math.cos(a) * 28, z = Math.sin(a) * 28; return [P(cyl(3, 3, 10), 0xa9a79f, { x, y: 5, z }), P(dome(18), 0xe8e6e0, { x, y: 10, z })]; }),
   "shrumen-lumen": (h) => [0, 1, 2, 3, 4].flatMap((k) => { const a = (k / 5) * Math.PI * 2 + 0.4, d = k ? 30 : 0, x = Math.cos(a) * d, z = Math.sin(a) * d, s = 0.8 + 0.12 * ((k * 3) % 5); return [P(cyl(3 * s, 4 * s, 14 * s), 0xf2e8d0, { x, y: 7 * s, z }), P(dome(16 * s), hslHex(h + k * 50, 85, 58), { x, y: 14 * s, z, sy: 0.7 })]; }),
-  "elder-mother": () => tree(), "tree-of-tenere": () => tenereTrunk(),
+  "elder-mother": () => tree(), "tree-of-tenere": () => [P(cyl(8, 8.5, 0.6, 12), 0x5b4426, { y: 0.3 })],   // only the footing at the root glows with the art; the tree itself is built in tenereCanopy
   muxalove: (h) => [...Array.from({ length: 8 }, (_, k) => { const a = (k / 8) * Math.PI * 2; return P(cyl(2, 2, 24), 0xe8dcc0, { x: Math.cos(a) * 40, y: 12, z: Math.sin(a) * 40 }); }), P(new THREE.TorusGeometry(40, 3, 6, 32), hslHex(h, 60, 55), { rx: Math.PI / 2, y: 24 })],
   "elemental-dragon": () => [P(ball(1), 0xb83a3a, { sx: 18, sy: 10, sz: 10, x: -22, y: 12, z: 6 }), P(ball(1), 0xc24545, { sx: 14, sy: 8, sz: 8, x: -2, y: 11, z: 0 }), P(ball(1), 0xb83a3a, { sx: 10, sy: 6, sz: 6, x: 16, y: 10, z: -4 }), P(new THREE.ConeGeometry(6, 16, 6), 0xd85a3a, { x: 31, y: 12, z: -6, rz: -Math.PI / 2 }), P(box(6, 14, 1), 0xff8a3c, { x: -2, y: 22, z: 0 })],
   "space-whale": () => [P(cyl(2, 2, 24, 6), 0x6b7390, { x: -16, y: 12 }), P(cyl(2, 2, 24, 6), 0x6b7390, { x: 16, y: 12 }), P(ball(1, 16, 10), 0x4a90c2, { sx: 40, sy: 14, sz: 16, y: 28 }), P(box(18, 3, 14), 0x3d7fb0, { x: -48, y: 34, rz: 0.4 })],
@@ -96,7 +96,7 @@ function tenereSkeleton(): Skeleton {
   }
   return (skeleton = { rods, blobs });
 }
-/** The trunk, flared at the root, and every limb, branch and twig: part of the piece's one glowing mesh. */
+/** The trunk, flared at the root, and every limb, branch and twig: plain lit wood (its own mesh, not the piece's glowing one, so the night does not light it up). */
 function tenereTrunk(): Part[] {
   const { rods } = tenereSkeleton();
   const trunk = new THREE.LatheGeometry([[7.5, 0], [5.4, 1.5], [4.3, 5], [3.6, 11], [3.1, 17], [2.9, 21]].map(([r, y]) => new THREE.Vector2(r, y)), 12);
@@ -110,8 +110,9 @@ function tenereTrunk(): Part[] {
  * The canopy: a clump of leaves at every branch and twig end (one mesh, greens by day, lit warm from within at night) and 16 LED leaves
  * on each clump, their colours washing out from the trunk through the lamp colours at night as the drawing's do, green by day.
  */
-function tenereCanopy(): { canopy: THREE.Mesh; leds: THREE.InstancedMesh; animate(t: number, night: number): void } {
+function tenereCanopy(): { trunk: THREE.Mesh; canopy: THREE.Mesh; leds: THREE.InstancedMesh; animate(t: number, night: number): void } {
   const { blobs } = tenereSkeleton();
+  const trunk = mergedParts(tenereTrunk());
   const canopyMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0xff8a40, emissiveIntensity: 0 });
   const canopy = mergedParts(blobs.map((b, i) => P(ball(1, 8, 6), hslHex(100 + rnd(i + 0.6) * 30, 45, 30 + rnd(i + 0.9) * 22), { sx: b.r, sy: b.r * 0.62, sz: b.r, x: b.c[0], y: b.c[1], z: b.c[2] })), canopyMat);
   const PER = 16, n = blobs.length * PER;
@@ -127,7 +128,7 @@ function tenereCanopy(): { canopy: THREE.Mesh; leds: THREE.InstancedMesh; animat
   });
   let mode = -1, last = -1;
   const animate = (t: number, night: number) => {
-    canopyMat.emissiveIntensity = night * 0.35 * (0.7 + 0.3 * Math.sin(t * 0.6));
+    canopyMat.emissiveIntensity = night * 0.1 * (0.7 + 0.3 * Math.sin(t * 0.6));   // a soft inner light: the LED leaves are the show, and the night's glow pass would bloom more to white
     if (night > 0.3) {
       if (t - last < 0.1) return;
       last = t; mode = 1;
@@ -136,7 +137,7 @@ function tenereCanopy(): { canopy: THREE.Mesh; leds: THREE.InstancedMesh; animat
     if (leds.instanceColor) leds.instanceColor.needsUpdate = true;
   };
   animate(0, 0);
-  return { canopy, leds, animate };
+  return { trunk, canopy, leds, animate };
 }
 
 /** The Orb's metal wants something to reflect: a sky and a floor of playa, as an environment map. */
@@ -176,7 +177,7 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
   }
   // the Tree of Ténéré: its canopy and LED leaves are meshes of their own, lit and recoloured with the night
   const tenere = pieces.find((p) => p.a.id === "tree-of-tenere");
-  if (tenere) { const t = tenereCanopy(); tenere.g.add(t.canopy, t.leds); tenere.animate = t.animate; }
+  if (tenere) { const t = tenereCanopy(); tenere.g.add(t.trunk, t.canopy, t.leds); tenere.animate = t.animate; }
   scene.add(group);
   return {
     group,
