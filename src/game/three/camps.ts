@@ -28,7 +28,7 @@ function glowing(params: THREE.MeshLambertMaterialParameters, key: string, glow:
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, ...params });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = nightUniform; shader.uniforms.uGlow = { value: glow };
-    shader.fragmentShader = "uniform float uNight;\nuniform float uGlow;\n" + shader.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor * uNight * uGlow;");
+    shader.fragmentShader = "uniform float uNight;\nuniform float uGlow;\n" + shader.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor.rgb * uNight * uGlow;");
   };
   m.customProgramCacheKey = () => key;
   return m;
