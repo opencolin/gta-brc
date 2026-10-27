@@ -4,6 +4,7 @@ import { hslHex } from "@/lib/scene3d";
 import { ART_CARS } from "../artcars";
 import { carRoof, hullSize, roofSize, type Drawing } from "./decals";
 import { bigImagination } from "./bigImagination";
+import { dragonLady } from "./dragonLady";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 
 /**
@@ -23,11 +24,12 @@ export type CarMeshes = {
 };
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
 
-/** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts) and Big Imagination's 747 (bigImagination.ts). `roof`: how high a ride on top of it stands. */
+/** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts), Big Imagination's 747 (bigImagination.ts) and the Dragon Lady (dragonLady.ts). `roof`: how high a ride on top of it stands. */
 type Model = Ticket & { roof: number };
 const MODELS: Record<string, () => Model> = {
   "golden-ticket": () => ({ ...goldenTicket(), roof: 9.4 }),
   "big-imagination-747": () => { const j = bigImagination(); return { group: j.group, paint: j.paint, roof: j.roof }; },
+  "dragon-lady": () => { const y = dragonLady(); return { group: y.group, paint: y.paint, roof: y.roof }; },
 };
 
 /** hullX and hullZ: where the hull's centre is from the car's, to the right and toward the tail (the art is not always centred on the car). */
@@ -128,7 +130,8 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
           const tg = c.ticket.group; tg.visible = true; tg.position.set(p!.x, 0, p!.y); tg.rotation.y = -p!.h;
           // painted at 10 Hz while it is near; farther off, once whenever the night comes or goes (as the roofs are), so it is not left lit by day or dark by night
           const nf = night > 0.3;
-          if (dist < LIVE_ROOF ? g.t - c.last > 0.1 : c.nf !== nf) { c.ticket.paint(g.t, night); c.last = g.t; c.nf = nf; }
+          // (the Dragon Lady's deck drawing waits on an image, so it is repainted whenever it shows)
+          if (dist < LIVE_ROOF || (c.id === "dragon-lady" && dist < SHOW_ROOF) ? g.t - c.last > 0.1 : c.nf !== nf) { c.ticket.paint(g.t, night); c.last = g.t; c.nf = nf; }
           return;
         }
         const k = c.kit, yaw = -p!.h, co = Math.cos(yaw), si = Math.sin(yaw);

@@ -179,11 +179,11 @@ export function roofSize(id: string): { w: number; l: number } {
 }
 const K = 3;   // px per foot
 
-/** An art car's roof, nose up, at 3 px a foot; null when there is no drawing for it. */
-export function carRoof(id: string): Drawing | null {
+/** An art car's roof, nose up, at `px` pixels a foot (3 unless a model wants it sharper close up, like the yacht's deck); null when there is no drawing for it. */
+export function carRoof(id: string, px = K): Drawing | null {
   const { w, l } = roofSize(id);
   const draw: Draw | undefined = id === "golden-ticket" ? (c, t, n) => drawGoldenTicket(c, t, n) : ART_CARS[id];
-  return draw ? drawing(w * K, l * K, K, draw, w, l) : null;
+  return draw ? drawing(w * px, l * px, px, draw, w, l) : null;
 }
 
 /** The pink "P" the bays carry, on a transparent 64² canvas. */
