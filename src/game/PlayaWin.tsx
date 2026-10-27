@@ -1282,7 +1282,9 @@ export default function PlayaWin() {
   const big = useRef<HTMLCanvasElement>(null);
   // burningman.chat/dragonlady starts beside the Dragon Lady (asked 2026-10-23); with no place named, at the airport in the plane
   // (asked 2026-10-26): the game opens with the flight over the city and the jump to Agave Lounge
-  const game = useRef<Game>(newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport"));
+  // (made once, in a state initialiser: the argument of useRef is evaluated on every render, and newGame parks the Golden Ticket at Agave in playa.ts's module-level parkedCars each time it runs, so a Golden Ticket left anywhere else went back within a tenth of a second)
+  const [firstGame] = useState(() => newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport"));
+  const game = useRef<Game>(firstGame);
   const keys = useRef<Input>({ ...NO_INPUT });
   const touch = useRef<Input>({ ...NO_INPUT });
   const phaseRef = useRef<Phase>("title");
@@ -1807,9 +1809,11 @@ export default function PlayaWin() {
             <button type="button" className="pl-btn pl-icon pl-trip" onClick={toggleTrip} aria-pressed={trip} aria-label={trip ? "trip: come down (T)" : "trip: visuals (T)"} title={trip ? "come down" : "trip"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0M12 7a5 5 0 1 1-5 5M12 3a9 9 0 1 1-9 9" /></svg>
             </button>
-            <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="7" width="13" height="10" rx="2" /><path d="M15.5 10.5 21 7.5v9l-5.5-3" /></svg>
-            </button>
+            {gl2 && ( // the chase view needs WebGL 2: without it there is nothing to switch to (C and ?view=chase say so)
+              <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="7" width="13" height="10" rx="2" /><path d="M15.5 10.5 21 7.5v9l-5.5-3" /></svg>
+              </button>
+            )}
             <button type="button" className="pl-btn pl-icon" onClick={toggleNight} aria-pressed={hud.night} aria-label={hud.night ? "night: switch to day" : "day: switch to night"} title={hud.night ? "night" : "day"}>
               {hud.night
                 ? <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.3A8 8 0 0 1 14.5 2.5z" /></svg>
