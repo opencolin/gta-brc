@@ -44,7 +44,7 @@ const STAND_INS: Record<string, Build> = {
   lodestar: () => [P(new THREE.ConeGeometry(10, 70, 12), 0xc9c2ae, { y: 37, rz: Math.PI }), P(box(34, 2, 5), 0xb8b19c, { y: 62, ry: 0.4 }), P(box(5, 2, 34), 0xb8b19c, { y: 60, ry: 0.4 })],
   "black-rock-observatory": () => [0, 1, 2].flatMap((k) => { const a = (k / 3) * Math.PI * 2, x = Math.cos(a) * 28, z = Math.sin(a) * 28; return [P(cyl(3, 3, 10), 0xa9a79f, { x, y: 5, z }), P(dome(18), 0xe8e6e0, { x, y: 10, z })]; }),
   "shrumen-lumen": (h) => [0, 1, 2, 3, 4].flatMap((k) => { const a = (k / 5) * Math.PI * 2 + 0.4, d = k ? 30 : 0, x = Math.cos(a) * d, z = Math.sin(a) * d, s = 0.8 + 0.12 * ((k * 3) % 5); return [P(cyl(3 * s, 4 * s, 14 * s), 0xf2e8d0, { x, y: 7 * s, z }), P(dome(16 * s), hslHex(h + k * 50, 85, 58), { x, y: 14 * s, z, sy: 0.7 })]; }),
-  "elder-mother": () => tree(), "tree-of-tenere": () => tree(),
+  "elder-mother": () => tree(), "tree-of-tenere": () => tenereTrunk(),
   muxalove: (h) => [...Array.from({ length: 8 }, (_, k) => { const a = (k / 8) * Math.PI * 2; return P(cyl(2, 2, 24), 0xe8dcc0, { x: Math.cos(a) * 40, y: 12, z: Math.sin(a) * 40 }); }), P(new THREE.TorusGeometry(40, 3, 6, 32), hslHex(h, 60, 55), { rx: Math.PI / 2, y: 24 })],
   "elemental-dragon": () => [P(ball(1), 0xb83a3a, { sx: 18, sy: 10, sz: 10, x: -22, y: 12, z: 6 }), P(ball(1), 0xc24545, { sx: 14, sy: 8, sz: 8, x: -2, y: 11, z: 0 }), P(ball(1), 0xb83a3a, { sx: 10, sy: 6, sz: 6, x: 16, y: 10, z: -4 }), P(new THREE.ConeGeometry(6, 16, 6), 0xd85a3a, { x: 31, y: 12, z: -6, rz: -Math.PI / 2 }), P(box(6, 14, 1), 0xff8a3c, { x: -2, y: 22, z: 0 })],
   "space-whale": () => [P(cyl(2, 2, 24, 6), 0x6b7390, { x: -16, y: 12 }), P(cyl(2, 2, 24, 6), 0x6b7390, { x: 16, y: 12 }), P(ball(1, 16, 10), 0x4a90c2, { sx: 40, sy: 14, sz: 16, y: 28 }), P(box(18, 3, 14), 0x3d7fb0, { x: -48, y: 34, rz: 0.4 })],
@@ -56,8 +56,88 @@ const STAND_INS: Record<string, Build> = {
   "chapel-of-babel": () => [40, 33, 26, 20, 14].map((w, k) => P(box(w, 16, w), 0xc9b36a, { y: 8 + k * 16 })),
   "head-maze": () => [P(box(60, 24, 44), 0xd7c29a, { y: 12 }), P(box(40, 24, 2), 0xb89f70, { y: 12, z: 23 }), P(box(8, 6, 2), 0x8a6d45, { x: -10, y: 16, z: 24.2 }), P(box(8, 6, 2), 0x8a6d45, { x: 10, y: 16, z: 24.2 })],
 };
-/** A trunk and a round canopy: Elder Mother, the Tree of Tenere. */
+/** A trunk and a round canopy: Elder Mother. */
 function tree(): Part[] { return [P(cyl(4, 7, 40, 8), 0x5b4a35, { y: 20 }), P(ball(32, 14, 10), 0x8db36a, { y: 44, sy: 0.6 })]; }
+
+/* ── the Tree of Ténéré (asked 2026-10-27: more than a ball on a post) ─────────────────────────────────────────────────── */
+/** A seeded 0..1, so the same tree grows on every build (a context loss rebuilds the scene). */
+const rnd = (k: number) => { const x = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+type V = [number, number, number];
+type Skeleton = { rods: { a: V; b: V; r: number }[]; blobs: { c: V; r: number }[] };
+let skeleton: Skeleton | null = null;
+/**
+ * Its shape: a trunk forking at 20 ft into six limbs that rise and spread, each into three branches and each of those into two twigs,
+ * with a clump of leaves at every branch and twig end: an umbrella about 60 ft high reaching 50 ft out, inside the piece's 55 ft.
+ */
+function tenereSkeleton(): Skeleton {
+  if (skeleton) return skeleton;
+  const rods: Skeleton["rods"] = [], blobs: Skeleton["blobs"] = [];
+  const dir = (tilt: number, az: number): V => [Math.sin(tilt) * Math.cos(az), Math.cos(tilt), Math.sin(tilt) * Math.sin(az)];
+  const add = (a: V, d: V, len: number): V => [a[0] + d[0] * len, a[1] + d[1] * len, a[2] + d[2] * len];
+  let n = 0;
+  const fork: V = [0, 20, 0];
+  for (let k = 0; k < 6; k++) {
+    const az = (k / 6) * Math.PI * 2 + 0.3 + (rnd(n++) - 0.5) * 0.4, tilt = deg(40 + rnd(n++) * 16), len = 18 + rnd(n++) * 6, d1 = dir(tilt, az);
+    const e1 = add(fork, d1, len);
+    rods.push({ a: fork, b: e1, r: 2.3 });
+    for (let j = 0; j < 3; j++) {
+      const az2 = az + (j - 1) * (0.42 + rnd(n++) * 0.2), tilt2 = deg(46 + rnd(n++) * 20), len2 = 10 + rnd(n++) * 5;
+      const start: V = j === 1 ? e1 : add(fork, d1, len * (0.6 + rnd(n++) * 0.3));
+      const e2 = add(start, dir(tilt2, az2), len2);
+      rods.push({ a: start, b: e2, r: 1.2 });
+      blobs.push({ c: [e2[0], e2[1] + 1, e2[2]], r: 6.5 + rnd(n++) * 2 });
+      for (let m = 0; m < 2; m++) {
+        const az3 = az2 + (m ? 0.35 : -0.35) + (rnd(n++) - 0.5) * 0.3, tilt3 = deg(55 + rnd(n++) * 23), len3 = 5 + rnd(n++) * 3;
+        const e3 = add(e2, dir(tilt3, az3), len3);
+        rods.push({ a: e2, b: e3, r: 0.6 });
+        blobs.push({ c: [e3[0], e3[1] + 1.5, e3[2]], r: 5.5 + rnd(n++) * 2.5 });
+      }
+    }
+  }
+  return (skeleton = { rods, blobs });
+}
+/** The trunk, flared at the root, and every limb, branch and twig: part of the piece's one glowing mesh. */
+function tenereTrunk(): Part[] {
+  const { rods } = tenereSkeleton();
+  const trunk = new THREE.LatheGeometry([[7.5, 0], [5.4, 1.5], [4.3, 5], [3.6, 11], [3.1, 17], [2.9, 21]].map(([r, y]) => new THREE.Vector2(r, y)), 12);
+  return [
+    { geo: trunk, color: 0x5b4426 }, P(ball(3.4, 10, 7), 0x5b4426, { y: 20.5 }),
+    ...[0, 1, 2, 3].map((k) => P(new THREE.ConeGeometry(2.2, 6, 5), 0x4e3a20, { x: Math.cos(k * 1.57 + 0.4) * 6, y: 2.4, z: Math.sin(k * 1.57 + 0.4) * 6, rz: Math.PI })),
+    ...rods.map((r) => rodP(r.a, r.b, r.r, r.r > 1 ? 0x5b4426 : 0x7a5533)),
+  ];
+}
+/**
+ * The canopy: a clump of leaves at every branch and twig end (one mesh, greens by day, lit warm from within at night) and 16 LED leaves
+ * on each clump, their colours washing out from the trunk through the lamp colours at night as the drawing's do, green by day.
+ */
+function tenereCanopy(): { canopy: THREE.Mesh; leds: THREE.InstancedMesh; animate(t: number, night: number): void } {
+  const { blobs } = tenereSkeleton();
+  const canopyMat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0xff8a40, emissiveIntensity: 0 });
+  const canopy = mergedParts(blobs.map((b, i) => P(ball(1, 8, 6), hslHex(100 + rnd(i + 0.6) * 30, 45, 30 + rnd(i + 0.9) * 22), { sx: b.r, sy: b.r * 0.62, sz: b.r, x: b.c[0], y: b.c[1], z: b.c[2] })), canopyMat);
+  const PER = 16, n = blobs.length * PER;
+  const leds = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.2, 1.3), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), n);
+  const o = new THREE.Object3D(), col = new THREE.Color(), where: { d: number; a: number; day: number }[] = [];
+  blobs.forEach((b, i) => {
+    for (let k = 0; k < PER; k++) {
+      const s = i * PER + k, th = rnd(s + 0.1) * 1.9, ph = rnd(s + 0.2) * Math.PI * 2;
+      const x = b.c[0] + Math.sin(th) * Math.cos(ph) * b.r, y = b.c[1] + Math.cos(th) * b.r * 0.62, z = b.c[2] + Math.sin(th) * Math.sin(ph) * b.r;
+      o.position.set(x, y, z); o.rotation.set(rnd(s + 0.3) * 3, rnd(s + 0.4) * 6.3, rnd(s + 0.5) * 3); o.updateMatrix(); leds.setMatrixAt(s, o.matrix);
+      where.push({ d: Math.hypot(x, z), a: Math.atan2(z, x), day: hslHex(100 + rnd(s + 0.6) * 30, 50, 36 + rnd(s + 0.7) * 24) });
+    }
+  });
+  let mode = -1, last = -1;
+  const animate = (t: number, night: number) => {
+    canopyMat.emissiveIntensity = night * 0.35 * (0.7 + 0.3 * Math.sin(t * 0.6));
+    if (night > 0.3) {
+      if (t - last < 0.1) return;
+      last = t; mode = 1;
+      where.forEach((w, i) => { const wash = 0.5 + 0.5 * Math.sin(t * 0.6 - w.d * 0.08 + Math.sin(w.a * 2) * 0.6); leds.setColorAt(i, col.setHSL(((350 + wash * 70) % 360) / 360, 0.95, 0.58 + wash * 0.16, THREE.SRGBColorSpace)); });
+    } else if (mode !== 0) { mode = 0; where.forEach((w, i) => leds.setColorAt(i, col.setHex(w.day, THREE.SRGBColorSpace))); }
+    if (leds.instanceColor) leds.instanceColor.needsUpdate = true;
+  };
+  animate(0, 0);
+  return { canopy, leds, animate };
+}
 
 /** The Orb's metal wants something to reflect: a sky and a floor of playa, as an environment map. */
 function orbEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
@@ -86,7 +166,7 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
       decal.position.y = 0.5; decal.renderOrder = LAYER.decal; g.add(decal);
     }
     group.add(g);
-    return { a, g, drawing, last: -1 };
+    return { a, g, drawing, last: -1, animate: null as ((t: number, night: number) => void) | null };
   });
   // the Orb: a mirror ball on four legs, metal that reflects the sky
   const orb = pieces.find((p) => p.a.id === "the-orb");
@@ -94,6 +174,9 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
     const sphere = new THREE.Mesh(new THREE.SphereGeometry(55, 32, 24), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.12, envMap: orbEnvironment(renderer), envMapIntensity: 1.1 }));
     sphere.position.y = 72; orb.g.add(sphere);
   }
+  // the Tree of Ténéré: its canopy and LED leaves are meshes of their own, lit and recoloured with the night
+  const tenere = pieces.find((p) => p.a.id === "tree-of-tenere");
+  if (tenere) { const t = tenereCanopy(); tenere.g.add(t.canopy, t.leds); tenere.animate = t.animate; }
   scene.add(group);
   return {
     group,
@@ -103,6 +186,7 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
         p.g.visible = d < SHOW;
         // redraw an animated decal at 10 Hz while it is near; farther off it keeps the picture it was last drawn with, so at night a far piece still shows its day one until it comes within LIVE (phase 4: repaint once when night changes)
         if (p.drawing && d < LIVE && g.t - p.last > 0.1) { p.drawing.paint(g.t, night); p.last = g.t; }
+        if (p.animate && p.g.visible) p.animate(g.t, night);
       }
     },
   };
