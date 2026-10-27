@@ -1758,7 +1758,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, R rides along on an art car, E drives it"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down, R rides along on an art car, E drives it"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onBlur={() => { keys.current = { ...NO_INPUT }; }}>
         {/* the 3D canvas goes before the 2D one so the 2D canvas (clear in 3D, opaque in top-down) and then the HUD stack over it by DOM order: no z-index anywhere */}
@@ -1807,11 +1807,9 @@ export default function PlayaWin() {
             <button type="button" className="pl-btn pl-icon pl-trip" onClick={toggleTrip} aria-pressed={trip} aria-label={trip ? "trip: come down (T)" : "trip: visuals (T)"} title={trip ? "come down" : "trip"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0M12 7a5 5 0 1 1-5 5M12 3a9 9 0 1 1-9 9" /></svg>
             </button>
-            {view === "chase" && ( // only while in the chase view, the way back to top-down for a phone player who came by ?view=chase (C and ?view=chase still work everywhere; the button and help line come when phase 2 draws the bays)
-              <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="7" width="13" height="10" rx="2" /><path d="M15.5 10.5 21 7.5v9l-5.5-3" /></svg>
-              </button>
-            )}
+            <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="7" width="13" height="10" rx="2" /><path d="M15.5 10.5 21 7.5v9l-5.5-3" /></svg>
+            </button>
             <button type="button" className="pl-btn pl-icon" onClick={toggleNight} aria-pressed={hud.night} aria-label={hud.night ? "night: switch to day" : "day: switch to night"} title={hud.night ? "night" : "day"}>
               {hud.night
                 ? <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.3A8 8 0 0 1 14.5 2.5z" /></svg>
@@ -1845,7 +1843,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
