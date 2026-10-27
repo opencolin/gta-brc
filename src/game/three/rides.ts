@@ -4,7 +4,8 @@ import type { Game, VehicleId } from "@/lib/playa";
 import { LAYER } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
-import { angelTexture, carRoof, planeShadowTexture } from "./decals";
+import { angelTexture, planeShadowTexture } from "./decals";
+import { goldenTicket, type Ticket } from "./goldenTicket";
 import { mergedParts, shaped as P, type Part } from "./materials";
 
 /**
@@ -68,10 +69,8 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
     ...bike(0xf2c14e, 2.4, 0.8, -4),
     P(box(7, 2.4, 7), 0xf2c14e, { y: 2.2, z: 4.5 }), P(cyl(3.6, 3.6, 7), 0x2f9e5a, { y: 4.2, z: 4.5, rx: Math.PI / 2, sy: 1 }), wheel(2, 0.8, -3.6, 2, 5), wheel(2, 0.8, 3.6, 2, 5),
   ]), 8.2, 4));
-  // the Golden Ticket: a gold body on three wheels, its drawing on top
-  { const g = model([P(box(10, 6, 20), 0xe8b923, { y: 5.2 }), P(box(8.4, 1, 18), 0xc9960c, { y: 8.6 }), wheel(2, 1, 0, 2, -8), wheel(2, 1, -4.6, 2, 6), wheel(2, 1, 4.6, 2, 6)]);
-    const roof = carRoof("golden-ticket"); if (roof) { const m = new THREE.Mesh(new THREE.PlaneGeometry(roof.w * 0.9, roof.l * 0.9).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: roof.tex, alphaTest: 0.04 })); m.position.y = 9.2; m.userData.drawing = roof; g.add(m); }
-    add("artcar", withBrake(g, 10.4, 3)); }
+  // the Golden Ticket: the gold cart with its speaker pods, its sign and its drawing on top (goldenTicket.ts)
+  { const g = goldenTicket().group; g.visible = false; add("artcar", withBrake(g, 10.4, 3)); }
   // the cuttlefish: a soft ellipsoid mantle with a fin round it, two eyes, a bunch of arms in front
   add("fish", model([
     P(ball(1, 16, 10), 0x3fb6a8, { sx: 9, sy: 3.5, sz: 15, y: 4.5 }), P(ball(1, 16, 6), 0xf2a65a, { sx: 10.2, sy: 0.7, sz: 16.2, y: 3.9 }),
@@ -128,9 +127,9 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   if (m) { m.visible = true; m.position.set(g.car.x, flying ? g.alt : lift, g.car.y); m.rotation.y = yawOf(g.car.h); }
   for (const b of r.brakes) b.visible = view.brake;
   for (const p of r.props) p.rotation.z = g.t * 42;
-  // the golden ticket's roof drawing redraws as it moves, ten times a second like the other decals
-  const roof = r.models.artcar.children.find((c) => c.userData.drawing);
-  if (roof && which === "artcar" && g.t - ((roof.userData.last as number | undefined) ?? -1) > 0.1) { (roof.userData.drawing as { paint(t: number, n: number): void }).paint(g.t, view.night); roof.userData.last = g.t; }
+  // the golden ticket's lights and roof drawing redraw as it moves, ten times a second like the other decals
+  const art = r.models.artcar, tk = art.userData.ticket as Ticket | undefined;
+  if (tk && which === "artcar" && g.t - ((art.userData.last as number | undefined) ?? -1) > 0.1) { tk.paint(g.t, view.night); art.userData.last = g.t; }
   // a plane's shadow lies off to one side by its height (the sun is up and to the left, as the 2D has it) and fades as it rises
   const planeShadow = (s: THREE.Mesh, x: number, y: number, h: number, alt: number) => {
     s.visible = true; s.position.set(x + alt * 0.5, 0.4, y + alt * 0.4); s.rotation.y = yawOf(h); (s.material as THREE.MeshBasicMaterial).opacity = 1 / (1 + alt / 600);

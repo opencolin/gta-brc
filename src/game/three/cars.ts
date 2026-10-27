@@ -3,6 +3,7 @@ import { MUTANTS, drivenKey, npcAt, type Game } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import { ART_CARS } from "../artcars";
 import { carRoof, roofSize, type Drawing } from "./decals";
+import { goldenTicket, type Ticket } from "./goldenTicket";
 
 /**
  * The art cars (PLAN-3D.md 2.5): every famous car (the 54 mutants and the Golden Ticket) is a hull, a dark skirt, six wheels and its
@@ -51,7 +52,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const group = new THREE.Group();
   const cars = MUTANTS.map((m) => {
     const id = m.key!.slice(m.key!.indexOf(":") + 1);
-    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, shown: true };
+    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, shown: true, ticket: null as Ticket | null };
   });
   const roofMat = (d: Drawing) => new THREE.MeshBasicMaterial({ map: d.tex, alphaTest: 0.04, side: THREE.DoubleSide });
   const roofOf = (k: Kit): THREE.Mesh | null => {
@@ -59,7 +60,11 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(k.roof.w, k.roof.l).rotateX(-Math.PI / 2), roofMat(k.roof));
     m.position.y = k.hullH + 0.15; m.visible = false; return m;
   };
-  for (const c of cars) { c.roofMesh = roofOf(c.kit); if (c.roofMesh) group.add(c.roofMesh); }
+  for (const c of cars) {
+    // the Golden Ticket is a model of its own (goldenTicket.ts: the pods, the sign, the lights) in place of a hull, a skirt, wheels and a roof
+    if (c.id === "golden-ticket") { c.ticket = goldenTicket(); c.ticket.group.visible = false; group.add(c.ticket.group); continue; }
+    c.roofMesh = roofOf(c.kit); if (c.roofMesh) group.add(c.roofMesh);
+  }
 
   const box = new THREE.BoxGeometry(1, 1, 1);
   const white = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -75,6 +80,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const driven = (id: string, hue: number): THREE.Group => {
     let g = mine.get(id);
     if (g) return g;
+    if (id === "golden-ticket") { g = goldenTicket().group; g.visible = false; scene.add(g); mine.set(id, g); return g; }
     const k = kitOf(id, hue); g = new THREE.Group();
     const hull = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: k.color })); hull.scale.set(k.hullW, k.hullH, k.hullL); hull.position.y = k.hullH / 2 + 1.5;
     const skirt = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x1b1f3b })); skirt.scale.set(k.hullW + 2, 2, k.hullL + 2); skirt.position.y = 1;
@@ -86,6 +92,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   };
 
   const d = new THREE.Object3D(), base = new THREE.Matrix4(), local = new THREE.Matrix4(), out = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  cars.forEach((c, i) => { if (!c.ticket) return; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }); // the Golden Ticket never uses its instanced slots
   let lastDriven = 0;
   const drivenId = (g: Game): string | null => {
     const key = drivenKey();
@@ -96,17 +103,22 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   return {
     group,
     drivenId,
-    roofAt: (g) => { if (!g.aboard) return 0; const c = cars.find((x) => x.m.key === g.aboard); return c ? c.kit.hullH + 1.65 : 0; },
+    roofAt: (g) => { if (!g.aboard) return 0; const c = cars.find((x) => x.m.key === g.aboard); return c ? (c.ticket ? 9.4 : c.kit.hullH + 1.65) : 0; },
     update(g, cam, night) {
       const own = drivenKey();
       cars.forEach((c, i) => {
         const near = c.m.key !== own;
         const p = near ? npcAt(c.m, g.t) : null, dist = p ? Math.hypot(p.x - cam.x, p.y - cam.z) : Infinity, on = dist < SHOW_CAR;
         if (!on) {
-          if (c.shown) { c.shown = false; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); if (c.roofMesh) c.roofMesh.visible = false; }
+          if (c.shown) { c.shown = false; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); if (c.roofMesh) c.roofMesh.visible = false; if (c.ticket) c.ticket.group.visible = false; }
           return;
         }
         c.shown = true;
+        if (c.ticket) {
+          const tg = c.ticket.group; tg.visible = true; tg.position.set(p!.x, 0, p!.y); tg.rotation.y = -p!.h;
+          if (dist < LIVE_ROOF && g.t - c.last > 0.1) { c.ticket.paint(g.t, night); c.last = g.t; }
+          return;
+        }
         const k = c.kit, yaw = -p!.h;
         d.position.set(p!.x, k.hullH / 2 + 1.5, p!.y); d.rotation.set(0, yaw, 0); d.scale.set(k.hullW, k.hullH, k.hullL); d.updateMatrix(); hulls.setMatrixAt(i, d.matrix);
         d.position.y = 1; d.scale.set(k.hullW + 2, 2, k.hullL + 2); d.updateMatrix(); skirts.setMatrixAt(i, d.matrix);
@@ -125,7 +137,8 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
       if (id) {
         const grp = driven(id, 0); grp.visible = true;
         grp.position.set(g.car.x, 0, g.car.y); grp.rotation.y = -g.car.h;
-        const roof = grp.children.find((o) => o.userData.drawing) as THREE.Mesh | undefined, dr = roof?.userData.drawing as Drawing | undefined;
+        const tk = grp.userData.ticket as Ticket | undefined, roof = grp.children.find((o) => o.userData.drawing) as THREE.Mesh | undefined;
+        const dr = tk ?? (roof?.userData.drawing as Drawing | undefined);
         if (dr && g.t - lastDriven > 0.1) { dr.paint(g.t, night); lastDriven = g.t; }
       }
     },
