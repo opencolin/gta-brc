@@ -1200,15 +1200,17 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 let ringShown = true;
 function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec, up?: number) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
   const t = g.t, storm = stormLevel(g.storm);
-  // the dust storm: a whiteout that closes in around the car
+  // the dust storm: a whiteout that closes in around the car. In the chase view the 3D scene already greys itself with the storm (to a dark dust-blue by night), so by
+  // night this beige veil thins to a fifth of itself, or it would hide the darker storm under it; top-down (no camera yaw) keeps its own whiteout, night or day.
+  const veil = yaw === null ? 1 : 1 - 0.8 * nightLevel(g.dayT);
   if (storm > 0) {
     const at = proj(g.car, g.alt) ?? { x: w / 2, y: h / 2 }; // the ride itself, which in the plane or under the chute is well above the ground point under it
     const cx = at.x, cy = at.y;
     const clear = 70 + (1 - storm) * Math.max(w, h);
     const gr = ctx.createRadialGradient(cx, cy, clear * 0.25, cx, cy, clear);
-    gr.addColorStop(0, `rgba(${C.dust}, ${0.25 * storm})`); gr.addColorStop(1, `rgba(${C.dust}, ${0.96 * storm})`);
+    gr.addColorStop(0, `rgba(${C.dust}, ${0.25 * storm * veil})`); gr.addColorStop(1, `rgba(${C.dust}, ${0.96 * storm * veil})`);
     ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = `rgba(255, 248, 230, ${0.5 * storm})`; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(255, 248, 230, ${0.5 * storm * veil})`; ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < 50; i++) {
       const x = ((hash(i) * w * 1.3 + t * (500 + hash(i + 99) * 400)) % (w * 1.3)) - w * 0.15, y = hash(i + 7) * h;

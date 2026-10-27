@@ -6,7 +6,7 @@ import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
 import { angelTexture, planeShadowTexture } from "./decals";
 import { goldenTicket, type Ticket } from "./goldenTicket";
-import { mergedParts, shaped as P, type Part } from "./materials";
+import { mergedParts, registerGround, shaped as P, type Part } from "./materials";
 
 /**
  * Your ride (PLAN-3D.md 2.6), one small model per vehicle, each one merged mesh or two: in its own frame forward is -Z and right is +X
@@ -106,7 +106,7 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.25, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }));
   shadow.position.y = 0.4; shadow.renderOrder = LAYER.decal; group.add(shadow);
   // the dust angels left in the playa: flat decals, up to 64 of them
-  const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }), 64);
+  const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), registerGround(new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal })), 64);   // a flat drawing in the playa: dimmed and lit as the ground is
   angels.count = 0; angels.frustumCulled = false; angels.renderOrder = LAYER.decal; group.add(angels);
   scene.add(group);
   return { group, models, brakes, props, plane2, padPlane, planeShadows, shadow, angels };

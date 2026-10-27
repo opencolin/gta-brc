@@ -57,7 +57,7 @@ export class ChaseRenderer implements Renderer {
   private crowds!: CrowdMeshes;
   private litter!: LitterMeshes;
   private trails!: TrailMeshes;
-  private sky!: { update: (cam: THREE.Vector3, night: number, storm: number) => void };
+  private sky!: ReturnType<typeof buildSky>;
   private lights!: Lights;
   private fx: Fx | null = null;   // made the first time the trip or the night's bloom needs it
   private w = 1; private h = 1; private dpr = 1; private touch = false;
@@ -146,7 +146,7 @@ export class ChaseRenderer implements Renderer {
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     nightUniform.value = view.night; this.places.update(view.night, g.t, this.camera); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
-    this.sky.update(this.camera.position, view.night, view.storm); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
+    this.sky.update(this.camera.position, view.night, view.storm, Math.hypot(this.camera.position.x - g.car.x, this.camera.position.y - g.alt, this.camera.position.z - g.car.y)); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);
     this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera); this.trails.update(g, view.trip);

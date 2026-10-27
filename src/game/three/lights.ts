@@ -4,6 +4,7 @@ import { AGAVE, ART, MUTANTS, SPOTS, npcAt, vehicleOf, type Game } from "@/lib/p
 import { DAY_SECONDS } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import type { ViewState } from "../view";
+import { groundLight } from "./materials";
 
 /**
  * The light of the day and of the night (PLAN-3D.md phase 4). three.js lights are physical since r155, so the plan's intensities (written in
@@ -23,10 +24,10 @@ const mixTo = (out: THREE.Color, a: THREE.ColorRepresentation, b: THREE.ColorRep
 /**
  * The sky: a tall open cylinder round the camera with a gradient from the horizon up, repainted as the night and the dust storm come and go
  * (day blue over cream; night navy over plum; storm, the dust's colour all through), the stars, and the fog that fades the distance into
- * the horizon's colour (2,500 to 14,000 ft by day, closing to 900 to 5,000 at night and to 70 to 300 in a storm). The sky and the stars ignore the fog and
+ * the horizon's colour (2,500 to 14,000 ft by day, closing to 900 to 5,000 at night and to 70 to 300 in a storm, or to 0.9 and 2.2 times your ride's distance from the camera when that is more: the plane and the chute are well below it). The sky and the stars ignore the fog and
  * ride with the camera, or they would be fog-coloured and sit at the Gate's distance. Above the cylinder's rim the scene's background is the zenith.
  */
-export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, night: number, storm: number) => void } {
+export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, night: number, storm: number, ride?: number) => void } {
   const c = document.createElement("canvas"); c.width = 2; c.height = 256;
   const x = c.getContext("2d")!;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -49,7 +50,7 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
   let last = [-1, -1];
   const top = new THREE.Color(), hor = new THREE.Color();
   return {
-    update(cam, night, storm) {
+    update(cam, night, storm, ride = 0) {
       sky.position.x = cam.x; sky.position.z = cam.z; stars.position.set(cam.x, 0, cam.z);
       stars.visible = night > 0.05 && storm < 0.9; (stars.material as THREE.PointsMaterial).opacity = Math.max(0, night - 0.3) / 0.7 * (1 - storm);
       // the gradient is only redrawn when the night or the storm has moved
@@ -64,7 +65,8 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
       (scene.background as THREE.Color).copy(top);
       const fog = scene.fog as THREE.Fog;
       fog.color.copy(hor);
-      fog.near = lerp(lerp(2500, 900, night), 70, storm); fog.far = lerp(lerp(14000, 5000, night), 300, storm);
+      // in a storm the fog closes to 70 to 300 ft, but never on your own ride: the camera's distance to it (the plane and the chute are hundreds of feet below the camera) keeps it clear of the fog's start
+      fog.near = lerp(lerp(2500, 900, night), Math.max(70, 0.9 * ride), storm); fog.far = lerp(lerp(14000, 5000, night), Math.max(300, 2.2 * ride), storm);
     },
   };
 }
@@ -73,16 +75,16 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
 type Lamp = { x: number; y: number; z: number; color: number; I: number; dist: number; decay: number; /** a fire's flicker */ flicker?: boolean };
 const LAMPS: Lamp[] = (() => {
   const out: Lamp[] = [
-    { x: 0, y: 150, z: 0, color: 0xff8a30, I: 30000, dist: 800, decay: 2, flicker: true },                      // the Man, burning: fire orange, lighting the plaza and everyone near him
-    { x: TEMPLE.x, y: 45, z: TEMPLE.y, color: 0xffb050, I: 40000, dist: 380, decay: 2 },                           // the Temple of the Moon, amber, from its tower
-    { x: AGAVE.dome.x, y: 50, z: AGAVE.dome.y, color: 0xff6b9a, I: 70000, dist: 240, decay: 1.4 },                  // Agave's dome, pink
-    { x: CENTER_CAMP.x, y: 40, z: CENTER_CAMP.y, color: 0xffd28c, I: 80000, dist: 280, decay: 1.4 },                // Center Camp, amber
+    { x: 0, y: 150, z: 0, color: 0xff8a30, I: 12000, dist: 800, decay: 2, flicker: true },                      // the Man, burning: fire orange, lighting the plaza and everyone near him
+    { x: TEMPLE.x, y: 45, z: TEMPLE.y, color: 0xffb050, I: 10000, dist: 380, decay: 2 },                           // the Temple of the Moon, amber, from its tower
+    { x: AGAVE.dome.x, y: 50, z: AGAVE.dome.y, color: 0xff6b9a, I: 5000, dist: 240, decay: 1.4 },                  // Agave's dome, pink
+    { x: CENTER_CAMP.x, y: 40, z: CENTER_CAMP.y, color: 0xffd28c, I: 6000, dist: 280, decay: 1.4 },                // Center Camp, amber
   ];
-  for (const sp of SPOTS) if (sp.kind === "camp" || sp.kind === "fence") out.push({ x: sp.stage.x, y: 9, z: sp.stage.y, color: hslHex(sp.hue, 90, 60), I: 26000, dist: 150, decay: 1.4 });
+  for (const sp of SPOTS) if (sp.kind === "camp" || sp.kind === "fence") out.push({ x: sp.stage.x, y: 9, z: sp.stage.y, color: hslHex(sp.hue, 90, 60), I: 2000, dist: 150, decay: 1.4 });
   for (const a of ART) {
     // the Tree of Ténéré lights itself with its LED leaves (art.ts): its lamp is their warm light under the canopy on the ground and the people, not a lamp inside the leaves blowing them to white
-    if (a.id === "tree-of-tenere") out.push({ x: a.x, y: 14, z: a.y, color: hslHex(25, 90, 60), I: 12000, dist: a.r * 2.8, decay: 1.4 });
-    else out.push({ x: a.x, y: 30, z: a.y, color: hslHex(a.hue, 90, 62), I: 45000, dist: a.r * 2.8, decay: 1.4 });
+    if (a.id === "tree-of-tenere") out.push({ x: a.x, y: 14, z: a.y, color: hslHex(25, 90, 60), I: 900, dist: a.r * 2.8, decay: 1.4 });
+    else out.push({ x: a.x, y: 30, z: a.y, color: hslHex(a.hue, 90, 62), I: 3200, dist: a.r * 2.8, decay: 1.4 });
   }
   return out;
 })();
@@ -103,7 +105,7 @@ export function addLights(scene: THREE.Scene): Lights {
   scene.add(hemi, sun, moon, head, head.target);
   const pool = Array.from({ length: NEAR_LAMPS + CAR_LAMPS }, () => { const l = new THREE.PointLight(0xffffff, 0, 100, 1.4); scene.add(l); return { light: l, I: 0, k: 0, want: null as Lamp | null, car: null as (typeof MUTANTS)[number] | null }; });
   let since = RESORT, ride = new THREE.Vector3();
-  const near: { lamp: Lamp; d: number }[] = [];
+  const near: { lamp: Lamp; d: number }[] = [], hv = new THREE.Vector3();
 
   return {
     update(g, view, _cam, dt) {
@@ -124,7 +126,7 @@ export function addLights(scene: THREE.Scene): Lights {
       const v = vehicleOf(g), fx = Math.sin(g.car.h), fz = -Math.cos(g.car.h), y = (g.vehicle === "plane" || g.chute ? g.alt : 0) + 4;
       head.position.set(g.car.x + fx * (v.len / 2), y, g.car.y + fz * (v.len / 2));
       head.target.position.set(g.car.x + fx * 200, g.alt > 0 ? 0 : 0, g.car.y + fz * 200);
-      head.intensity = 18000 * night * (g.alt > 0 ? 0 : 1);
+      head.intensity = 3500 * night * (g.alt > 0 ? 0 : 1);
       ride.set(g.car.x, 0, g.car.y);
 
       // the lamps near you, re-chosen twice a second: the 8 nearest by distance to the ride
@@ -142,7 +144,7 @@ export function addLights(scene: THREE.Scene): Lights {
         const cars = MUTANTS.map((m) => { const p = npcAt(m, g.t); return { m, p, d: Math.hypot(p.x - ride.x, p.y - ride.z) }; }).filter((c) => c.d < 300).sort((a, b) => a.d - b.d).slice(0, CAR_LAMPS);
         for (let i = 0; i < CAR_LAMPS; i++) {
           const slot = pool[NEAR_LAMPS + i], c = cars[i];
-          if (c) { slot.light.color.setHex(hslHex(c.m.hue, 90, 62)); slot.light.distance = 130; slot.light.decay = 1.4; slot.I = 30000; slot.want = LAMPS[0]; slot.car = c.m; } else { slot.want = null; slot.car = null; }
+          if (c) { slot.light.color.setHex(hslHex(c.m.hue, 90, 62)); slot.light.distance = 130; slot.light.decay = 1.4; slot.I = 2400; slot.want = LAMPS[0]; slot.car = c.m; } else { slot.want = null; slot.car = null; }
         }
       }
       for (let i = 0; i < pool.length; i++) {
@@ -150,7 +152,15 @@ export function addLights(scene: THREE.Scene): Lights {
         s.k = s.want ? Math.min(1, s.k + dt / 0.35) : Math.max(0, s.k - dt / 0.35);
         s.light.intensity = s.I * s.k * night * (s.want?.flicker ? 1 + 0.2 * Math.sin(g.t * 17) * Math.sin(g.t * 7.3 + 1) : 1);   // the Man's fire flickers
         if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, 18, p.y); }   // an art car's lamp rides with it
+        // the unlit ground sees the same lamps (materials.ts groundLight): position and range, colour times candelas, and the falloff's power
+        const l = s.light, I = l.intensity;
+        groundLight.lampA.value[i].set(l.position.x, l.position.y, l.position.z, l.distance);
+        groundLight.lampB.value[i].set(l.color.r * I, l.color.g * I, l.color.b * I, l.decay);
       }
+      const hi = head.intensity, hd = hv.copy(head.target.position).sub(head.position).normalize();
+      groundLight.headA.value.set(head.position.x, head.position.y, head.position.z, head.distance);
+      groundLight.headB.value.set(hd.x, hd.y, hd.z, Math.cos(head.angle));
+      groundLight.headC.value.set(head.color.r * hi, head.color.g * hi, head.color.b * hi, Math.cos(head.angle * (1 - head.penumbra)));
     },
   };
 }
