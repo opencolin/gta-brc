@@ -7,6 +7,8 @@ import type { ViewState } from "../view";
 import { angelTexture, planeShadowTexture } from "./decals";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 import { mergedParts, registerGround, shade, shaped as P, type Part } from "./materials";
+import { buildCyclist, buildRv, type Rig } from "./riders";
+import { skinMaterial } from "./skinned";
 
 /**
  * Your ride (PLAN-3D.md 2.6), one small model per vehicle, each one merged mesh or two: in its own frame forward is -Z and right is +X
@@ -19,6 +21,9 @@ export type RideMeshes = {
   group: THREE.Group;
   /** one per ride you can be on, shown one at a time */
   models: Record<string, THREE.Group>;
+  /** the rides that move their bones (riders.ts: the bikes, the unicycle, the tuk-tuk, the RV), by the same ids, and the last frame's clock and heading */
+  rigs: Record<string, Rig>;
+  motion: { t: number; h: number };
   /** a ride's brake light, lit when you brake */
   brakes: THREE.Mesh[];
   /** the plane's propeller, spun with the game clock */
@@ -39,36 +44,22 @@ const ball = (r: number, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
 const wheel = (r: number, w: number, x: number, y: number, z: number): Part => P(cyl(r, r, w), TYRE, { x, y, z, rz: Math.PI / 2 });
 const deg = (d: number) => (d * Math.PI) / 180;
 
-/** A rider on a seat at (0, y, z), leaning forward by `lean` degrees, with a straw hat. */
-const rider = (y: number, z: number, lean: number, shirt = 0xffd27a): Part[] => [
-  P(new THREE.CapsuleGeometry(1.4, 4, 3, 8), shirt, { x: 0, y, z, rx: deg(-lean) }),
-  P(ball(1.3), SKIN, { y: y + 3.6, z: z - Math.sin(deg(lean)) * 2.4 }),
-  P(cyl(2.4, 2.4, 0.3), STRAW, { y: y + 4.6, z: z - Math.sin(deg(lean)) * 2.4 }), P(cyl(1.1, 1.4, 0.9), STRAW, { y: y + 5.1, z: z - Math.sin(deg(lean)) * 2.4 }),
-];
-/** A bicycle: two wheels, a frame, bars and a saddle, the rider on it (shifted by dz along the ride). */
-function bike(frame: number, r: number, tyre: number, dz = 0): Part[] {
-  return [
-    wheel(r, tyre, 0, r, -6 + dz), wheel(r, tyre, 0, r, 6 + dz),
-    P(box(0.8, 3, 11), frame, { y: 3.8, z: dz }), P(box(5, 0.4, 0.4), 0x2a2a33, { y: 6.2, z: -5 + dz }), P(box(1.4, 0.5, 2.5), 0x2a2a33, { y: 5.6, z: 2.5 + dz }),
-    ...rider(8.2, 1.2 + dz, 20),
-  ];
-}
-
 function model(parts: Part[]): THREE.Group { const g = new THREE.Group(); g.add(mergedParts(parts)); g.visible = false; return g; }
-const brakeLight = (z: number, y: number, w = 1.6): THREE.Mesh => { const m = new THREE.Mesh(box(w, 0.9, 0.4), new THREE.MeshBasicMaterial({ color: 0xff2d55 })); m.position.set(0, y, z); m.visible = false; return m; };
+const brakeLight = (z: number, y: number, w = 1.6, x = 0): THREE.Mesh => { const m = new THREE.Mesh(box(w, 0.9, 0.4), new THREE.MeshBasicMaterial({ color: 0xff2d55 })); m.position.set(x, y, z); m.visible = false; return m; };
 
 export function buildRides(scene: THREE.Scene): RideMeshes {
-  const group = new THREE.Group(), models: Record<string, THREE.Group> = {}, brakes: THREE.Mesh[] = [], props: THREE.Mesh[] = [];
+  const group = new THREE.Group(), models: Record<string, THREE.Group> = {}, rigs: Record<string, Rig> = {}, brakes: THREE.Mesh[] = [], props: THREE.Mesh[] = [];
   const add = (id: string, g: THREE.Group) => { models[id] = g; group.add(g); };
   const withBrake = (g: THREE.Group, z: number, y: number) => { const b = brakeLight(z, y); g.add(b); brakes.push(b); return g; };
 
-  add("bike", withBrake(model(bike(PINK, 2.4, 0.8)), 8.4, 5));
-  add("ebike", withBrake(model([...bike(0x2f8fd0, 3, 1.6), P(box(1.4, 2, 3), NAVY, { y: 4.8, z: 3.5 })]), 8.4, 5));
-  add("unicycle", model([wheel(2.6, 0.8, 0, 2.6, 0), P(cyl(0.4, 0.4, 4), PINK, { y: 5, z: 0.4 }), P(box(1.6, 0.5, 2.4), 0x2a2a33, { y: 7, z: 0.6 }), ...rider(10.2, 0.6, 0).slice(0, 4)]));
-  add("tuktuk", withBrake(model([
-    ...bike(0xf2c14e, 2.4, 0.8, -4),
-    P(box(7, 2.4, 7), 0xf2c14e, { y: 2.2, z: 4.5 }), P(cyl(3.6, 3.6, 7), 0x2f9e5a, { y: 4.2, z: 4.5, rx: Math.PI / 2, sy: 1 }), wheel(2, 0.8, -3.6, 2, 5), wheel(2, 0.8, 3.6, 2, 5),
-  ]), 8.2, 4));
+  // the cyclists and the RV are skinned models that move their bones (riders.ts); the brake light is a lamp of its own behind each, lit when you brake
+  const skin = skinMaterial();
+  const rig = (id: string, r: Rig, brakeAt: [number, number, number?, number?][]) => { rigs[id] = r; add(id, r.group); for (const [z, y, w, x] of brakeAt) { const b = brakeLight(z, y, w, x); r.group.add(b); brakes.push(b); } };
+  rig("bike", buildCyclist("bike", skin), [[5.6, 4.6]]);
+  rig("ebike", buildCyclist("ebike", skin), [[5.6, 4.6]]);
+  rig("unicycle", buildCyclist("unicycle", skin), []);
+  rig("tuktuk", buildCyclist("tuktuk", skin), [[9.4, 2.9, 3]]);
+  rig("rv", buildRv(skin), [[15.6, 3.4, 1.4, -3.3], [15.6, 3.4, 1.4, 3.3]]);
   // the Golden Ticket: the gold cart with its speaker pods, its sign and its drawing on top (goldenTicket.ts)
   { const g = goldenTicket().group; g.visible = false; add("artcar", withBrake(g, 10.4, 3)); }
   // the cuttlefish: a soft ellipsoid mantle with a fin round it, two eyes, a bunch of arms in front
@@ -109,10 +100,10 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), registerGround(new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal })), 64);   // a flat drawing in the playa: dimmed and lit as the ground is
   angels.count = 0; angels.frustumCulled = false; angels.renderOrder = LAYER.decal; group.add(angels);
   scene.add(group);
-  return { group, models, brakes, props, plane2, padPlane, planeShadows, shadow, angels };
+  return { group, models, rigs, motion: { t: 0, h: 0 }, brakes, props, plane2, padPlane, planeShadows, shadow, angels };
 }
 
-const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
+const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", rv: "rv", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
 const dummy = new THREE.Object3D();
 
 /**
@@ -126,6 +117,10 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   const flying = g.vehicle === "plane" || g.chute;
   if (m) { m.visible = true; m.position.set(g.car.x, flying ? g.alt : lift, g.car.y); m.rotation.y = yawOf(g.car.h); }
   for (const b of r.brakes) b.visible = view.brake;
+  // the skinned rides move their bones: the speed along the heading, the turn rate (clockwise positive) and the brakes, over the game's own seconds
+  const dt = g.t - r.motion.t, dh = Math.atan2(Math.sin(g.car.h - r.motion.h), Math.cos(g.car.h - r.motion.h));
+  if (which && r.rigs[which] && dt > 0 && dt < 0.3) r.rigs[which].animate({ dt, speed: g.car.vx * Math.sin(g.car.h) - g.car.vy * Math.cos(g.car.h), yaw: dh / dt, brake: view.brake });
+  r.motion.t = g.t; r.motion.h = g.car.h;
   for (const p of r.props) p.rotation.z = g.t * 42;
   // the golden ticket's lights and roof drawing redraw as it moves, ten times a second like the other decals
   const art = r.models.artcar, tk = art.userData.ticket as Ticket | undefined;

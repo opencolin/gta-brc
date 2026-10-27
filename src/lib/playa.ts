@@ -90,6 +90,12 @@ export const VEHICLES = {
     maxSpeed: 210, maxReverse: 45, accel: 135, brake: 300, reverse: 70, handbrake: 230, // 30 mph on the HUD
     drag: 0.3, roll: 16, maxYaw: 2.6, hbYaw: 1.8, restitution: 0.35, dust: 0.95, grip: 0.95, throughCamps: false,
   },
+  // the RV (asked 2026-10-27): a camp's 32-foot Winnebago. A coach: 30 mph, slow to pull, weak brakes, a wide slow turn, no bounce, heavy in the dust, on the streets like a car
+  rv: {
+    name: "RV", len: 32, wid: 9,
+    maxSpeed: 210, maxReverse: 30, accel: 60, brake: 130, reverse: 35, handbrake: 105, // 30 mph on the HUD
+    drag: 0.22, roll: 14, maxYaw: 0.9, hbYaw: 1.1, restitution: 0.1, dust: 0.8, grip: 0.8, throughCamps: false,
+  },
   unicycle: {
     name: "unicycle", len: 10, wid: 8,
     maxSpeed: 75, maxReverse: 25, accel: 90, brake: 220, reverse: 40, handbrake: 200,

@@ -308,7 +308,29 @@ function drawTuktuk(ctx: CanvasRenderingContext2D, t: number, night: number, bra
   ctx.fillStyle = brake ? "#ff4d4d" : "#7a2020"; ctx.fillRect(-3.4, 7.9, 1.5, 0.7); ctx.fillRect(1.9, 7.9, 1.5, 0.7);
   if (night > 0.3) { ctx.fillStyle = "#fff3b0"; ctx.fillRect(-0.8, -9, 1.6, 1.2); ctx.fillStyle = hsl((t * 90) % 360, 100, 65); ctx.fillRect(-3.8, 4, 0.8, 0.8); ctx.fillRect(3, 4, 0.8, 0.8); }
 }
+/** The RV (asked 2026-10-27) from above, nose at -y, 32 by 9 ft: a white roof with a brown stripe down each side, the windscreen at the front, the air conditioner and two vents, the rolled awning along the right, dual wheels at the rear. */
+function drawRV(ctx: CanvasRenderingContext2D, t: number, night: number, brake: boolean) {
+  ctx.fillStyle = "#15161d"; for (const y of [-10, -5.5]) ctx.fillRect(-4.9, y, 1.1, 4); for (const y of [-10]) ctx.fillRect(3.8, y, 1.1, 4);   // the front wheels
+  for (const y of [5.5, 9.5]) { ctx.fillRect(-4.9, y, 1.1, 3.6); ctx.fillRect(3.8, y, 1.1, 3.6); }   // the dual wheels at the back
+  ctx.fillStyle = "#f4f1ea"; ctx.beginPath(); ctx.roundRect(-4.3, -16, 8.6, 32, 1.4); ctx.fill();
+  ctx.strokeStyle = "#cfc9bb"; ctx.lineWidth = 0.35; ctx.stroke();
+  ctx.fillStyle = "#8a5a3b"; ctx.fillRect(-4.3, -8, 0.9, 23.2); ctx.fillRect(3.4, -8, 0.9, 23.2);   // the brown stripe down both sides
+  ctx.fillStyle = "#2b3a4a"; ctx.beginPath(); ctx.moveTo(-3.6, -14.8); ctx.lineTo(3.6, -14.8); ctx.lineTo(3.9, -10.6); ctx.lineTo(-3.9, -10.6); ctx.closePath(); ctx.fill();   // the windscreen
+  ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.moveTo(-3, -14.4); ctx.lineTo(-0.6, -14.4); ctx.lineTo(-1.6, -11); ctx.lineTo(-3.2, -11); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#e9e4d6"; ctx.fillRect(-4.3, -10.4, 8.6, 0.5);   // the cab's roof line
+  ctx.fillStyle = "#aeb4bf"; ctx.beginPath(); ctx.roundRect(-2.2, -3, 4.4, 5.6, 0.9); ctx.fill();   // the air conditioner
+  ctx.fillStyle = "#8a8f99"; ctx.beginPath(); ctx.arc(0, -1, 1.2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(0, 1.2, 0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#cfd5dd"; ctx.fillRect(-1.2, 5.2, 2.4, 1.6); ctx.fillRect(-1.2, 9.4, 2.4, 1.6);   // the vents
+  ctx.fillStyle = "#b9ad8f"; ctx.beginPath(); ctx.roundRect(2.4, -7.5, 1.2, 15.5, 0.6); ctx.fill();   // the rolled awning
+  ctx.fillStyle = "#e9e4d6"; ctx.fillRect(-0.5, 13.4, 1, 2.6);   // the ladder up the back
+  ctx.fillStyle = brake ? "#ff4d4d" : "#7a2020"; ctx.fillRect(-4, 15.4, 1.6, 0.6); ctx.fillRect(2.4, 15.4, 1.6, 0.6);
+  if (night > 0.3) {
+    ctx.fillStyle = "#fff3b0"; ctx.fillRect(-3.8, -16.5, 1.4, 0.8); ctx.fillRect(2.4, -16.5, 1.4, 0.8);   // the headlights
+    for (let y = -6; y <= 7; y += 2.3) { ctx.fillStyle = hsl((y * 25 + t * 120) % 360, 100, 66); ctx.beginPath(); ctx.arc(3, y, 0.45, 0, Math.PI * 2); ctx.fill(); }   // the camp's lights along the awning
+  }
+}
 function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night: number, brake: boolean) {
+  if (id === "rv") { drawRV(ctx, t, night, brake); return; }
   if (id === "tuktuk") { drawTuktuk(ctx, t, night, brake); return; }
   if (id === "found" && rideSkin && ART_CARS[rideSkin]) ART_CARS[rideSkin](ctx, t, night); // full size: it is the art car itself
   else if (id === "artcar") drawGoldenTicket(ctx, t, night, brake);

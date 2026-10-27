@@ -104,6 +104,40 @@ function goldenTicket(c: Ctx, t: number, night: number) {
   if (night > 0.3) for (let x = -48; x < 50; x += 6) { c.fillStyle = `hsl(${(x * 4 + t * 240) % 360} 100% 65%)`; disc(c, x, -17, 1.3); c.fill(); }
 }
 
+/**
+ * The RV (asked 2026-10-27): a camp's white Winnebago with a brown stripe, seen from the driver's side, nose to the right: a sloped windscreen, a band of side windows,
+ * the entry door, a rolled awning along the roof, the air conditioner and a vent on top, a ladder up the back, a bull bar, dual wheels at the rear. At night its
+ * lamps come on and the camp's lights run along the awning.
+ */
+function rv(c: Ctx, t: number, night: number) {
+  shadow(c, 86);
+  c.fillStyle = "#e9e4d6"; c.strokeStyle = "#8a8f99"; c.lineWidth = 1.2;
+  for (let k = 0; k < 5; k++) { const y = -22 - k * 8; c.beginPath(); c.moveTo(-84, y); c.lineTo(-80, y); c.stroke(); } // the ladder's rungs
+  c.beginPath(); c.moveTo(-84, -20); c.lineTo(-84, -60); c.moveTo(-80, -20); c.lineTo(-80, -60); c.stroke();
+  for (const x of [-46, 44]) { c.fillStyle = "#1b1f3b"; disc(c, x, -13, 16); c.fill(); } // the wheel arches
+  c.fillStyle = "#f4f1ea"; c.beginPath(); c.moveTo(-80, -18); c.lineTo(-80, -62); c.lineTo(50, -62); c.lineTo(72, -46); c.lineTo(76, -32); c.lineTo(76, -18); c.closePath(); c.fill(); // the coach
+  c.strokeStyle = "#cfc9bb"; c.lineWidth = 1; c.stroke();
+  c.fillStyle = "#8a5a3b"; c.beginPath(); c.moveTo(-80, -32); c.lineTo(52, -32); c.lineTo(76, -26); c.lineTo(76, -22); c.lineTo(52, -26); c.lineTo(-80, -26); c.closePath(); c.fill(); // the brown stripe
+  c.fillStyle = "#c9a37e"; c.beginPath(); c.moveTo(-80, -34); c.lineTo(52, -34); c.lineTo(76, -28); c.lineTo(76, -27); c.lineTo(52, -33); c.lineTo(-80, -33); c.closePath(); c.fill();
+  c.fillStyle = "#2b3a4a"; rr(c, -66, -56, 100, 14, 3); c.fill(); // the side windows
+  c.strokeStyle = "#f4f1ea"; c.lineWidth = 2; c.beginPath(); for (const x of [-33, 0]) { c.moveTo(x, -56); c.lineTo(x, -42); } c.stroke();
+  c.fillStyle = "rgba(255,255,255,.22)"; c.beginPath(); c.moveTo(-62, -55); c.lineTo(-48, -55); c.lineTo(-56, -43); c.lineTo(-62, -43); c.closePath(); c.fill(); // a glint
+  c.fillStyle = "#2b3a4a"; c.beginPath(); c.moveTo(52, -60); c.lineTo(68, -46); c.lineTo(72, -36); c.lineTo(52, -36); c.closePath(); c.fill(); // the windscreen
+  c.fillStyle = "rgba(255,255,255,.2)"; c.beginPath(); c.moveTo(54, -58); c.lineTo(62, -50); c.lineTo(54, -44); c.closePath(); c.fill();
+  c.fillStyle = SKIN; disc(c, 60, -46, 4); c.fill(); c.fillStyle = "#e3c98a"; c.beginPath(); c.ellipse(60, -49, 7, 2, 0, 0, Math.PI * 2); c.fill(); // the driver, in a hat
+  c.fillStyle = "#e9e4d6"; rr(c, 40, -56, 2, 38, 1); c.fill(); // the cab's door line
+  c.strokeStyle = "#cfc9bb"; c.lineWidth = 1.2; rr(c, 10, -54, 24, 36, 2); c.stroke(); // the entry door
+  c.fillStyle = "#2b3a4a"; rr(c, 14, -50, 12, 14, 2); c.fill(); c.fillStyle = "#8a8f99"; rr(c, 29, -36, 3, 6, 1); c.fill(); // its window and handle
+  c.fillStyle = "#b9ad8f"; rr(c, -62, -66, 96, 5, 2.5); c.fill(); c.fillStyle = "#8a7d5f"; disc(c, 34, -63.5, 2.5); c.fill(); // the rolled awning
+  c.fillStyle = "#aeb4bf"; rr(c, -40, -74, 34, 9, 3); c.fill(); c.fillStyle = "#8a8f99"; rr(c, -40, -66, 34, 2, 0); c.fill(); // the air conditioner
+  c.fillStyle = "#cfd5dd"; rr(c, 4, -69, 14, 5, 2); c.fill(); rr(c, 22, -68, 10, 4, 2); c.fill(); // the roof vents
+  c.fillStyle = "#4b5068"; rr(c, 74, -26, 6, 4, 1); c.fill(); rr(c, 74, -22, 6, 3, 1); c.fill(); // the bull bar
+  c.fillStyle = "#4b5068"; rr(c, -82, -24, 4, 5, 1); c.fill(); // the hitch
+  wheel(c, -52, -13, 13, t); wheel(c, -42, -13, 13, t); wheel(c, 44, -13, 13, t); // the rear pair and the front
+  lamp(c, 75, -30, night); lamp(c, -80, -30, night, "#ff4d4d");
+  if (night > 0.3) { c.shadowColor = "#fff3b0"; c.shadowBlur = 10; for (let x = -58; x <= 28; x += 7) { c.fillStyle = `hsl(${(x * 5 + t * 120) % 360} 100% 68%)`; disc(c, x, -66, 1.8); c.fill(); } c.shadowBlur = 0; } // the camp's lights along the awning
+}
+
 export const SIDE_VIEWS: Record<string, (c: Ctx, t: number, night: number) => void> = {
-  unicycle, bike: (c, t, n) => cruiser(c, t, n, false), tuktuk, ebike: (c, t, n) => cruiser(c, t, n, true), fish: cuttlefish, artcar: goldenTicket,
+  unicycle, bike: (c, t, n) => cruiser(c, t, n, false), tuktuk, ebike: (c, t, n) => cruiser(c, t, n, true), fish: cuttlefish, artcar: goldenTicket, rv,
 };

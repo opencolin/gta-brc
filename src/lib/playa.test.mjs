@@ -248,6 +248,15 @@ test("rides: every vehicle's physics stays finite, caps its speed, and collides"
   assert.ok(VEHICLES.bike.maxSpeed < VEHICLES.artcar.maxSpeed && VEHICLES.bike.maxYaw > VEHICLES.artcar.maxYaw);
   assert.ok(VEHICLES.artcar.dust > 1 && VEHICLES.bike.dust < 1);
   assert.notEqual(nextVehicle("bike"), "bike");
+  // the RV (asked 2026-10-27): a 30 mph coach that is the slowest of all the rides to turn, to pull away and to stop, keeps to the streets and does not bounce
+  const rv = VEHICLES.rv;
+  assert.ok(Math.abs(rv.maxSpeed * MPH - 30) < 1, "an RV about 30");
+  assert.ok(VEHICLE_IDS.filter((id) => id !== "rv").every((id) => VEHICLES[id].maxYaw > rv.maxYaw), "the RV is the slowest to turn");
+  assert.ok(VEHICLE_IDS.filter((id) => id !== "rv" && id !== "plane").every((id) => VEHICLES[id].accel > rv.accel && VEHICLES[id].brake > rv.brake), "and to pull away and to stop (the plane aside, which is slow to roll)");
+  assert.ok(!rv.throughCamps && rv.restitution < 0.2 && rv.dust < 1 && rv.len <= 36, "it keeps to the streets, barely bounces, is heavy in the dust and fits the street");
+  let cycle = "bike"; const seen = new Set();
+  do { seen.add(cycle); cycle = nextVehicle(cycle); } while (cycle !== "bike" && seen.size < 30);
+  assert.ok(seen.has("rv") && !seen.has("found") && !seen.has("plane"), "the ride cycle takes in the RV, never the art car or the plane, and comes round");
 });
 
 test("streets are at least twice the longest ride, so two pass and one can turn round", () => {
