@@ -12,7 +12,7 @@ export const nightUniform = { value: 0 };
  * a wedge of the city cut into groups of RINGS_PER_GROUP rings (a whole wedge is 12 rings and about 4,600 ft deep: one test for the wedge
  * drew blocks that were 4,600 ft away as soon as any of its blocks was near).
  */
-export const CULL = 2600, DETAIL = 900, RINGS_PER_GROUP = 4;
+export const CULL = 2600, DETAIL = 700, RINGS_PER_GROUP = 4;
 
 /**
  * Pieces are drawn by shape, not by what camp they belong to: every kind that is a plain box shares one unit box and one white
