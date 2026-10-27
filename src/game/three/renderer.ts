@@ -16,6 +16,7 @@ import { buildCars, type CarMeshes } from "./cars";
 import { buildTargets, type TargetMeshes } from "./targets";
 import { buildPeople, type PeopleMeshes } from "./people";
 import { buildCrowds, type CrowdMeshes } from "./crowds";
+import { buildLitter, type LitterMeshes } from "./litter";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
@@ -52,6 +53,7 @@ export class ChaseRenderer implements Renderer {
   private targets!: TargetMeshes;
   private people: PeopleMeshes | null = null;   // built at the first frame: it needs the game's NPC list
   private crowds!: CrowdMeshes;
+  private litter!: LitterMeshes;
   private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -80,6 +82,7 @@ export class ChaseRenderer implements Renderer {
     this.cars = buildCars(this.scene);
     this.targets = buildTargets(this.scene);
     this.crowds = buildCrowds(this.scene);
+    this.litter = buildLitter(this.scene);
     this.people = null;
     this.ride = buildRides(this.scene);
     addLights(this.scene);
@@ -138,7 +141,7 @@ export class ChaseRenderer implements Renderer {
     this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);
-    this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position);
+    this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera);
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     this.renderer.render(this.scene, this.camera);
     const t1 = performance.now();
