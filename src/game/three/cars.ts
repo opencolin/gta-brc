@@ -22,7 +22,8 @@ export type CarMeshes = {
 };
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
 
-type Kit = { id: string; w: number; l: number; hullW: number; hullL: number; hullH: number; color: number; roof: Drawing | null };
+/** hullX and hullZ: where the hull's centre is from the car's, to the right and toward the tail (the art is not always centred on the car). */
+type Kit = { id: string; w: number; l: number; hullW: number; hullL: number; hullH: number; hullX: number; hullZ: number; color: number; roof: Drawing | null };
 
 /** The average colour of the drawing's opaque pixels, for the hull under it. */
 function average(d: Drawing | null, fallback: number): number {
@@ -41,12 +42,13 @@ function kitOf(id: string, hue: number): Kit {
   return {
     id, w, l, roof,
     hullW: ticket ? 10 : lady ? 40 : hull.w, hullL: ticket ? 20 : lady ? 132 : hull.l, hullH: ticket ? 7 : lady ? 14 : 12,
+    hullX: ticket || lady ? 0 : hull.cx, hullZ: ticket || lady ? 0 : hull.cz,
     color: ticket ? 0xe8b923 : average(roof, hslHex(hue, 55, 40)),
   };
 }
 
-/** Where a car's six wheels are in its own frame: x ±(hullW/2 - 1), z a third of the hull's length apart. */
-const wheelsOf = (k: Kit) => [-1, 0, 1].flatMap((i) => [-1, 1].map((s) => ({ x: s * (k.hullW / 2 - 1), z: (i * k.hullL) / 3.2 })));
+/** Where a car's six wheels are in its own frame: x ±(hullW/2 - 1), z a third of the hull's length apart, round the hull's centre. */
+const wheelsOf = (k: Kit) => [-1, 0, 1].flatMap((i) => [-1, 1].map((s) => ({ x: k.hullX + s * (k.hullW / 2 - 1), z: k.hullZ + (i * k.hullL) / 3.2 })));
 
 export function buildCars(scene: THREE.Scene): CarMeshes {
   const group = new THREE.Group();
@@ -82,8 +84,8 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
     if (g) return g;
     if (id === "golden-ticket") { g = goldenTicket().group; g.visible = false; scene.add(g); mine.set(id, g); return g; }
     const k = kitOf(id, hue); g = new THREE.Group();
-    const hull = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: k.color })); hull.scale.set(k.hullW, k.hullH, k.hullL); hull.position.y = k.hullH / 2 + 1.5;
-    const skirt = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x1b1f3b })); skirt.scale.set(k.hullW + 2, 2, k.hullL + 2); skirt.position.y = 1;
+    const hull = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: k.color })); hull.scale.set(k.hullW, k.hullH, k.hullL); hull.position.set(k.hullX, k.hullH / 2 + 1.5, k.hullZ);
+    const skirt = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x1b1f3b })); skirt.scale.set(k.hullW + 2, 2, k.hullL + 2); skirt.position.set(k.hullX, 1, k.hullZ);
     g.add(hull, skirt);
     for (const w of wheelsOf(k)) { const m = new THREE.Mesh(wheels.geometry, new THREE.MeshLambertMaterial({ color: 0x15161d })); m.position.set(w.x, 4, w.z); g.add(m); }
     const r = roofOf(k); if (r) { r.position.y = k.hullH + 1.65; r.visible = true; r.userData.drawing = k.roof; g.add(r); }
@@ -116,11 +118,13 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
         c.shown = true;
         if (c.ticket) {
           const tg = c.ticket.group; tg.visible = true; tg.position.set(p!.x, 0, p!.y); tg.rotation.y = -p!.h;
-          if (dist < LIVE_ROOF && g.t - c.last > 0.1) { c.ticket.paint(g.t, night); c.last = g.t; }
+          // painted at 10 Hz while it is near; farther off, once whenever the night comes or goes (as the roofs are), so it is not left lit by day or dark by night
+          const nf = night > 0.3;
+          if (dist < LIVE_ROOF ? g.t - c.last > 0.1 : c.nf !== nf) { c.ticket.paint(g.t, night); c.last = g.t; c.nf = nf; }
           return;
         }
-        const k = c.kit, yaw = -p!.h;
-        d.position.set(p!.x, k.hullH / 2 + 1.5, p!.y); d.rotation.set(0, yaw, 0); d.scale.set(k.hullW, k.hullH, k.hullL); d.updateMatrix(); hulls.setMatrixAt(i, d.matrix);
+        const k = c.kit, yaw = -p!.h, co = Math.cos(yaw), si = Math.sin(yaw);
+        d.position.set(p!.x + k.hullX * co + k.hullZ * si, k.hullH / 2 + 1.5, p!.y - k.hullX * si + k.hullZ * co); d.rotation.set(0, yaw, 0); d.scale.set(k.hullW, k.hullH, k.hullL); d.updateMatrix(); hulls.setMatrixAt(i, d.matrix);
         d.position.y = 1; d.scale.set(k.hullW + 2, 2, k.hullL + 2); d.updateMatrix(); skirts.setMatrixAt(i, d.matrix);
         d.position.set(p!.x, 0, p!.y); d.scale.set(1, 1, 1); d.updateMatrix(); base.copy(d.matrix);
         wheelsOf(k).forEach((w, j) => { local.makeTranslation(w.x, 4, w.z); out.multiplyMatrices(base, local); wheels.setMatrixAt(i * 6 + j, out); });

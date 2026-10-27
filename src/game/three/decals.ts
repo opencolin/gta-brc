@@ -107,69 +107,71 @@ const ROOF: Record<string, [number, number]> = {
   "whomp-wagon": [36, 64]
 };
 /**
- * The solid part of each drawing by day (pixels more than half opaque at t = 0, measured the same way with the same one-off script): what the
- * hull under the roof is sized from, so no plain slab shows past the end of the art. The roof itself is the larger ROOF above, which also holds the lights and steam.
+ * The solid part of each drawing by day (pixels more than half opaque at t = 0, measured the same way with the same one-off script, as the box round them: x0, x1
+ * across and y0, y1 along, feet from the drawing's centre, x to the right and y toward the tail): what the hull under the roof is sized and placed from, so no plain
+ * slab shows past the end of the art, and none is missing from the end where the art reaches farthest (Luna's crane is 55 ft of art ahead of its centre and 20 behind).
+ * The roof itself is the larger ROOF above, which also holds the lights and steam.
  */
-const SOLID: Record<string, [number, number]> = {
-  amphora: [32, 68],
-  axolotl: [40, 68],
-  baaahs: [40, 70],
-  "big-imagination-747": [64, 68],
-  "bipolar-express": [24, 62],
-  blockhaus: [32, 62],
-  "celestial-sideshow": [28, 84],
-  chelonix: [26, 76],
-  "church-of-the-open-mind": [28, 84],
-  damavand: [30, 64],
-  dancetronauts: [32, 62],
-  "disco-doge": [32, 60],
-  discow: [32, 82],
-  "dont-panic": [32, 62],
-  "dr-brainlove": [32, 62],
-  "dragon-lady": [36, 132],
-  dragonfly: [64, 62],
-  "el-pulpo-mecanico": [56, 60],
-  "eye-of-horus": [34, 62],
-  "favela-art-car": [32, 62],
-  funkadelephant: [48, 80],
-  "galactic-jungle": [36, 60],
-  "golden-gate-art-car": [32, 64],
-  "golden-ticket": [14, 20],
-  "heart-car": [30, 54],
-  "heavy-meta": [36, 64],
-  "hels-diner": [28, 84],
-  hermes: [44, 68],
-  jaguara: [36, 64],
-  kalliope: [34, 62],
-  "krusty-bunny": [30, 54],
-  kuker: [26, 68],
-  "lonely-submarine": [30, 76],
-  "lucy-s-cargo": [30, 64],
-  "luna-the-artcrane": [28, 110],
-  maxa: [36, 60],
-  "mayan-warrior": [36, 62],
-  "mighty-misfits": [36, 60],
-  nudibranch: [28, 68],
-  "playa-peace-project": [30, 54],
-  rexan: [30, 78],
-  "robot-heart": [34, 62],
-  "smile-high": [32, 62],
-  "sol-riser": [30, 64],
-  technogecko: [40, 82],
-  "the-scarab": [38, 68],
-  "the-slug": [26, 78],
-  thor: [36, 60],
-  "titanics-end": [34, 84],
-  tommy: [30, 54],
-  treehouse: [36, 60],
-  trion: [24, 60],
-  unimog: [36, 60],
-  "whomp-wagon": [34, 62]
+const SOLID: Record<string, [number, number, number, number]> = {
+  amphora: [-16, 16, -34, 28.5],
+  axolotl: [-19.5, 19.5, -28, 34],
+  baaahs: [-20, 17.5, -32, 35],
+  "big-imagination-747": [-31.5, 31.5, -33.5, 32],
+  "bipolar-express": [-12, 12, -31, 30],
+  blockhaus: [-15.5, 15.5, -31, 31],
+  "celestial-sideshow": [-13.5, 13.5, -41.5, 31],
+  chelonix: [-13, 13, -38, 28.5],
+  "church-of-the-open-mind": [-13.5, 13.5, -41.5, 31],
+  damavand: [-15, 15, -32, 30],
+  dancetronauts: [-15.5, 15.5, -31, 31],
+  "disco-doge": [-15.5, 15.5, -30, 28],
+  discow: [-16, 16, -41, 37],
+  "dont-panic": [-15.5, 15.5, -31, 31],
+  "dr-brainlove": [-15.5, 15.5, -31, 31],
+  "dragon-lady": [-17, 17, -66, 66],
+  dragonfly: [-32, 32, -18, 31],
+  "el-pulpo-mecanico": [-27.5, 24.5, -23, 29],
+  "eye-of-horus": [-16.5, 16.5, -30.5, 30.5],
+  "favela-art-car": [-15.5, 15.5, -31, 31],
+  funkadelephant: [-24, 24, -40, 28],
+  "galactic-jungle": [-18, 18, -30, 30],
+  "golden-gate-art-car": [-15.5, 15.5, -32, 32],
+  "golden-ticket": [-6.5, 6.5, -10, 9],
+  "heart-car": [-14.5, 14.5, -27, 27],
+  "heavy-meta": [-17.5, 17.5, -30, 32],
+  "hels-diner": [-13.5, 13.5, -41.5, 31],
+  hermes: [-22, 22, -34, 28.5],
+  jaguara: [-18, 18, -32, 30],
+  kalliope: [-16.5, 16.5, -30.5, 31],
+  "krusty-bunny": [-14.5, 14.5, -27, 27],
+  kuker: [-13, 13, -34, 28.5],
+  "lonely-submarine": [-14.5, 14.5, -30.5, 37],
+  "lucy-s-cargo": [-15, 15, -32, 30],
+  "luna-the-artcrane": [-14, 14, -55, 20],
+  maxa: [-18, 18, -30, 30],
+  "mayan-warrior": [-17.5, 17.5, -30, 30],
+  "mighty-misfits": [-18, 18, -30, 30],
+  nudibranch: [-13.5, 13.5, -34, 33],
+  "playa-peace-project": [-14.5, 14.5, -27, 27],
+  rexan: [-15, 15, -32, 39.5],
+  "robot-heart": [-16.5, 16.5, -31, 31],
+  "smile-high": [-15.5, 15.5, -31, 31],
+  "sol-riser": [-15, 15, -32, 30],
+  technogecko: [-20, 20, -28, 41],
+  "the-scarab": [-18.5, 18.5, -34, 30],
+  "the-slug": [-12.5, 12.5, -38, 34],
+  thor: [-18, 18, -30, 30],
+  "titanics-end": [-16.5, 16.5, -42, 30],
+  tommy: [-14.5, 14.5, -27, 27],
+  treehouse: [-18, 18, -30, 30],
+  trion: [-12, 12, -30, 30],
+  unimog: [-18, 18, -30, 30],
+  "whomp-wagon": [-16.5, 16.5, -31, 31]
 };
-/** The hull's footprint (width, length) in feet: the solid day drawing less a little for the wheels and the shadow's edge. */
-export function hullSize(id: string): { w: number; l: number } {
-  const [w, l] = SOLID[id] ?? [34, 62];
-  return { w: Math.max(10, w - 4), l: Math.max(16, l - 2) };
+/** The hull's footprint (width, length) in feet, less a little for the wheels and the shadow's edge, and where its centre is from the car's (cx to the right, cz toward the tail). */
+export function hullSize(id: string): { w: number; l: number; cx: number; cz: number } {
+  const [x0, x1, y0, y1] = SOLID[id] ?? [-17, 17, -31, 31];
+  return { w: Math.max(10, x1 - x0 - 4), l: Math.max(16, y1 - y0 - 2), cx: (x0 + x1) / 2, cz: (y0 + y1) / 2 };
 }
 export function roofSize(id: string): { w: number; l: number } {
   const [w, l] = ROOF[id] ?? [40, 66];

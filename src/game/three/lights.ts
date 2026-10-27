@@ -52,7 +52,7 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
   return {
     update(cam, night, storm, ride = 0) {
       sky.position.x = cam.x; sky.position.z = cam.z; stars.position.set(cam.x, 0, cam.z);
-      stars.visible = night > 0.05 && storm < 0.9; (stars.material as THREE.PointsMaterial).opacity = Math.max(0, night - 0.3) / 0.7 * (1 - storm);
+      const so = Math.max(0, night - 0.3) / 0.7 * (1 - storm); stars.visible = so > 0.005; (stars.material as THREE.PointsMaterial).opacity = so;   // not drawn while it would be invisible: a draw call less through the dusk and the storms
       // the gradient is only redrawn when the night or the storm has moved
       // the storm's colour is the dust's, darker at night (a lit whiteout in the dark would be the one bright thing)
       const dust = mixTo(c1, DUST, "#3a3550", night).clone();

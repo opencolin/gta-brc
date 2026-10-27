@@ -133,8 +133,11 @@ function tenereCanopy(): { trunk: THREE.Mesh; canopy: THREE.Mesh; leds: THREE.In
       if (t - last < 0.1) return;
       last = t; mode = 1;
       where.forEach((w, i) => { const wash = 0.5 + 0.5 * Math.sin(t * 0.6 - w.d * 0.08 + Math.sin(w.a * 2) * 0.6); leds.setColorAt(i, col.setHSL(((350 + wash * 70) % 360) / 360, 0.95, 0.58 + wash * 0.16, THREE.SRGBColorSpace)); });
-    } else if (mode !== 0) { mode = 0; where.forEach((w, i) => leds.setColorAt(i, col.setHex(w.day, THREE.SRGBColorSpace))); }
-    if (leds.instanceColor) leds.instanceColor.needsUpdate = true;
+      if (leds.instanceColor) leds.instanceColor.needsUpdate = true;
+    } else if (mode !== 0) {
+      mode = 0; where.forEach((w, i) => leds.setColorAt(i, col.setHex(w.day, THREE.SRGBColorSpace)));
+      if (leds.instanceColor) leds.instanceColor.needsUpdate = true;   // the colours go up only when they changed: by day, never
+    }
   };
   animate(0, 0);
   return { trunk, canopy, leds, animate };

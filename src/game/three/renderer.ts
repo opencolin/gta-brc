@@ -94,25 +94,33 @@ export class ChaseRenderer implements Renderer {
     this.lights = addLights(this.scene);
   }
 
-  /** Free what the scene holds on the GPU and empty it (the builders are deterministic, so build() can fill it again). */
-  private clear(): void {
-    this.fx?.dispose(); this.fx = null;
-    this.scene.traverse((o) => {
-      const m = o as THREE.Mesh;
-      m.geometry?.dispose();
-      const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
-      for (const mat of mats) {
-        for (const v of Object.values(mat)) if (v instanceof THREE.Texture) v.dispose();
-        mat.dispose();
-      }
-    });
+  /**
+   * Free what the scene holds on the GPU and empty it (the builders are deterministic, so build() can fill it again). `lost`: the GL context is
+   * already gone and is being rebuilt, so there is nothing on the GPU to free (every dispose would delete a buffer or a texture that belongs to
+   * the old context): the scene is only emptied.
+   */
+  private clear(lost = false): void {
+    if (!lost) {
+      this.fx?.dispose();
+      this.scene.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        if ((o as THREE.InstancedMesh).isInstancedMesh) (o as THREE.InstancedMesh).dispose();   // its matrices and colours are buffers of their own
+        const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+        for (const mat of mats) {
+          for (const v of Object.values(mat)) if (v instanceof THREE.Texture) v.dispose();
+          mat.dispose();
+        }
+      });
+    }
+    this.fx = null;
     this.scene.clear();
     clearMaterials();
   }
 
   /** The browser took the GL context (a backgrounded phone tab) and gave it back: everything on the GPU is gone, so build it again. */
   private rebuild(): void {
-    this.clear();
+    this.clear(true);
     this.build();
     this.applySize();
     this.lost = false;
