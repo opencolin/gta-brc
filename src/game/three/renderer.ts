@@ -14,6 +14,7 @@ import { buildArt, type ArtMeshes } from "./art";
 import { buildAgave, type AgaveMeshes } from "./agave";
 import { buildCars, type CarMeshes } from "./cars";
 import { buildTargets, type TargetMeshes } from "./targets";
+import { Fx } from "./fx";
 import { buildPeople, type PeopleMeshes } from "./people";
 import { buildCrowds, type CrowdMeshes } from "./crowds";
 import { buildLitter, type LitterMeshes } from "./litter";
@@ -56,6 +57,7 @@ export class ChaseRenderer implements Renderer {
   private litter!: LitterMeshes;
   private sky!: { update: (cam: THREE.Vector3, night: number, storm: number) => void };
   private lights!: Lights;
+  private fx: Fx | null = null;   // made the first time the trip or the night's bloom needs it
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
   private tmp = new THREE.Vector3();
@@ -65,6 +67,7 @@ export class ChaseRenderer implements Renderer {
   mount(canvas: HTMLCanvasElement): void {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    this.renderer.info.autoReset = false;   // frame() resets it: a composer renders several times a frame
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.build();
     canvas.addEventListener("webglcontextlost", this.onLost);
@@ -91,6 +94,7 @@ export class ChaseRenderer implements Renderer {
 
   /** Free what the scene holds on the GPU and empty it (the builders are deterministic, so build() can fill it again). */
   private clear(): void {
+    this.fx?.dispose(); this.fx = null;
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose();
@@ -114,6 +118,7 @@ export class ChaseRenderer implements Renderer {
 
   private applySize(): void {
     this.renderer.setPixelRatio(Math.min(this.dpr, this.touch ? 1.5 : 2));
+    this.fx?.setSize(this.w, this.h, Math.min(this.dpr, this.touch ? 1.5 : 2));
     this.renderer.setSize(this.w, this.h, false);   // the canvas is sized by CSS (100% of the stage); this sets its drawing buffer
     this.camera.aspect = this.w / this.h;
     this.camera.updateProjectionMatrix();
@@ -144,7 +149,11 @@ export class ChaseRenderer implements Renderer {
     this.people ??= buildPeople(this.scene, g);
     this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera);
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
-    this.renderer.render(this.scene, this.camera);
+    // the composer draws it while the trip's trails or the night's bloom are on, the renderer straight otherwise; the info is for the whole frame, whichever passes made it
+    this.renderer.info.reset();
+    const pr = Math.min(this.dpr, this.touch ? 1.5 : 2), wantFx = view.trip > 0.02 || (view.night > 0.3 && !this.touch);
+    if (wantFx) { this.fx ??= new Fx(this.renderer, this.scene, this.camera, this.w, this.h, pr); this.fx.render(view.trip, view.night, this.touch, dt); }
+    else this.renderer.render(this.scene, this.camera);
     const t1 = performance.now();
     this.samples.push({ at: t1, dt: this.samples.length ? t1 - this.samples[this.samples.length - 1].at : 0, cpu: t1 - t0 });
     while (this.samples.length > 1 && t1 - this.samples[0].at > 2000) this.samples.shift();
