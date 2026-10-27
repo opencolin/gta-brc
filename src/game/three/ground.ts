@@ -4,7 +4,7 @@ import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
 import { FENCE, GATE } from "@/lib/brc";
 import { LAYER, LAYER_Y, airportLayout, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
-import { basic, hex, instanced, lambert } from "./materials";
+import { basic, hex, instanced, lambert, mergedParts, placed, type Part } from "./materials";
 
 export type GroundMeshes = { group: THREE.Group; /** keeps what rides with the camera (the mountains) on it */ update: (cam: THREE.Vector3) => void };
 
@@ -134,25 +134,29 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(fenceSegments().flatMap(({ a, b }) => [new THREE.Vector3(a.x, 3, a.y), new THREE.Vector3(b.x, 3, b.y)])), new THREE.LineBasicMaterial({ color: FENCE_ORANGE })));
   group.add(instanced(new THREE.CylinderGeometry(0.9, 0.9, 4, 5), lambert(FENCE_ORANGE), fencePosts().map((p) => ({ x: p.x, y: 2, z: p.y }))));
 
-  // the airport: five hangars along the apron and the windsock
+  // the airport: five hangars along the apron and the windsock, one mesh
   const ap = airportLayout();
-  group.add(instanced(new THREE.BoxGeometry(1, 1, 1), lambert(0xffffff), ap.hangars.map((h, k) => ({ x: h.x, y: 12, z: h.y, yaw: h.yaw, sx: h.w, sy: 24, sz: h.d, color: k % 2 ? 0xd9d0bd : 0xcfc5ae }))));
-  group.add(mesh(new THREE.CylinderGeometry(0.8, 0.8, 30, 6), lambert(0x6b7390), ap.windsock.x, 15, ap.windsock.y));
-  { const sock = mesh(new THREE.ConeGeometry(2.4, 14, 8), lambert(0xff7a2f), ap.windsock.x + 7, 29, ap.windsock.y); sock.rotation.z = -Math.PI / 2; group.add(sock); }
+  group.add(mergedParts([
+    ...ap.hangars.map((h, k): Part => ({ geo: placed(new THREE.BoxGeometry(h.w, 24, h.d), h.x, 12, h.y, h.yaw), color: k % 2 ? 0xd9d0bd : 0xcfc5ae })),
+    { geo: placed(new THREE.CylinderGeometry(0.8, 0.8, 30, 6), ap.windsock.x, 15, ap.windsock.y), color: 0x6b7390 },
+    { geo: placed(new THREE.ConeGeometry(2.4, 14, 8).rotateZ(-Math.PI / 2), ap.windsock.x + 7, 29, ap.windsock.y), color: 0xff7a2f },
+  ]));
 
-  // the Gate: a long shade on four poles with seven booths under it, a flag at each end, the Greeters' bell, the pink ring to pull up in
-  const gate = gateLayout(), g = GATE;
-  group.add(mesh(new THREE.BoxGeometry(360, 1, 52), lambert(0xe9e4d6), gate.shade.x, 12, gate.shade.y, gate.yaw));
-  group.add(instanced(new THREE.CylinderGeometry(1, 1, 12, 6), lambert(0x6b5a44), gate.poles.map((p) => ({ x: p.x, y: 6, z: p.y }))));
-  const BOOTH = [0xff9a8b, 0x8ec5fc, 0xffd27a, 0xe0c3fc];
-  group.add(instanced(new THREE.BoxGeometry(28, 8, 28), lambert(0xffffff), gate.booths.map((p, k) => ({ x: p.x, y: 4, z: p.y, yaw: gate.yaw, color: BOOTH[k % 4] }))));
+  // the Gate: a long shade on four poles with seven booths under it, a flag at each end, the Greeters' bell (one mesh), the pink ring to pull up in
+  const gate = gateLayout(), g = GATE, BOOTH = [0xff9a8b, 0x8ec5fc, 0xffd27a, 0xe0c3fc];
+  const gateParts: Part[] = [
+    { geo: placed(new THREE.BoxGeometry(360, 1, 52), gate.shade.x, 12, gate.shade.y, gate.yaw), color: 0xe9e4d6 },
+    ...gate.poles.map((p): Part => ({ geo: placed(new THREE.CylinderGeometry(1, 1, 12, 6), p.x, 6, p.y), color: 0x6b5a44 })),
+    ...gate.booths.map((p, k): Part => ({ geo: placed(new THREE.BoxGeometry(28, 8, 28), p.x, 4, p.y, gate.yaw), color: BOOTH[k % 4] })),
+    { geo: placed(new THREE.CylinderGeometry(0.6, 0.6, 6, 6), gate.bell.x, 3, gate.bell.y), color: 0x6b4226 },
+    { geo: placed(new THREE.SphereGeometry(1.7, 10, 8), gate.bell.x, 7, gate.bell.y), color: 0xffd27a },
+  ];
   for (const lx of [-200, 200]) {
     const px = g.at.x + lx * Math.cos(g.a), pz = g.at.y + lx * Math.sin(g.a);
-    group.add(mesh(new THREE.CylinderGeometry(0.7, 0.7, 24, 6), lambert(0x8a8f99), px, 12, pz));
-    const flag = mesh(new THREE.PlaneGeometry(26, 12), lambert(lx < 0 ? 0xff6b9a : 0xffd27a), px + 13 * Math.cos(g.a), 18, pz + 13 * Math.sin(g.a), gate.yaw); (flag.material as THREE.Material).side = THREE.DoubleSide; group.add(flag);
+    gateParts.push({ geo: placed(new THREE.CylinderGeometry(0.7, 0.7, 24, 6), px, 12, pz), color: 0x8a8f99 });
+    gateParts.push({ geo: placed(new THREE.PlaneGeometry(26, 12), px + 13 * Math.cos(g.a), 18, pz + 13 * Math.sin(g.a), gate.yaw), color: lx < 0 ? 0xff6b9a : 0xffd27a });
   }
-  group.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 6, 6), lambert(0x6b4226), gate.bell.x, 3, gate.bell.y));
-  group.add(mesh(new THREE.SphereGeometry(1.7, 10, 8), lambert(0xffd27a), gate.bell.x, 7, gate.bell.y));
+  group.add(mergedParts(gateParts));
   { const ring = mesh(new THREE.TorusGeometry(60, 1.2, 6, 72), basic(hex(PALETTE.pink)), gate.stop.x, 1.2, gate.stop.y); ring.rotation.x = Math.PI / 2; group.add(ring); }
 
   // the mountains ring the horizon and ride with the camera, so they never come nearer

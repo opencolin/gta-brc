@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 /**
  * Shared materials, one per colour: a thousand boxes of the same colour are one material, and a rebuild after a lost GL
@@ -6,6 +7,7 @@ import * as THREE from "three";
  */
 const lamberts = new Map<number, THREE.MeshLambertMaterial>();
 const basics = new Map<string, THREE.MeshBasicMaterial>();
+const vertexLamberts = new Map<THREE.Side, THREE.MeshLambertMaterial>();
 
 /** A lit matte material (camps, rides, landmarks). */
 export function lambert(hex: number): THREE.MeshLambertMaterial {
@@ -26,7 +28,7 @@ export function basic(hex: number, opts: BasicOpts = {}): THREE.MeshBasicMateria
 }
 
 /** Forget the cached materials (the scene that held them has been disposed). */
-export function clearMaterials(): void { lamberts.clear(); basics.clear(); }
+export function clearMaterials(): void { lamberts.clear(); basics.clear(); vertexLamberts.clear(); }
 
 /** "#rrggbb" as 0xRRGGBB. */
 export const hex = (css: string) => parseInt(css.slice(1), 16);
@@ -47,4 +49,28 @@ export function instanced(geometry: THREE.BufferGeometry, material: THREE.Materi
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   mesh.computeBoundingSphere();
   return mesh;
+}
+
+/** A shape already in place: a geometry (built-in shapes carry position, normal and uv) and its colour. */
+export type Part = { geo: THREE.BufferGeometry; color: number };
+/** `geo` turned about Y by `yaw` and moved to (x, y, z): the placement a mesh's position and rotation.y would give. */
+export const placed = (geo: THREE.BufferGeometry, x: number, y: number, z: number, yaw = 0): THREE.BufferGeometry => geo.rotateY(yaw).translate(x, y, z);
+
+/**
+ * A landmark's many one-off shapes in several colours as one mesh and so one draw call: each part's colour is baked in as a vertex
+ * colour under one shared lit material. Two-sided (the flags and the like have no back).
+ */
+export function mergedParts(parts: Part[]): THREE.Mesh {
+  const c = new THREE.Color();
+  for (const { geo, color } of parts) {
+    c.setHex(color, THREE.SRGBColorSpace);
+    const n = geo.getAttribute("position").count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  }
+  const merged = mergeGeometries(parts.map((p) => p.geo))!;
+  parts.forEach((p) => p.geo.dispose());
+  let m = vertexLamberts.get(THREE.DoubleSide);
+  if (!m) vertexLamberts.set(THREE.DoubleSide, (m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  return new THREE.Mesh(merged, m);
 }

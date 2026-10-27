@@ -2,12 +2,15 @@
 // The chase view's scene description (scene3d.ts): ground flats, camp prisms, culling circles, colours, fence, airport, Gate, skyline.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AIRPORT, ARC_R, FENCE, GATE, RADIALS, fenceDepth, toPolar } from "./brc.ts";
+import { AIRPORT, ARCS, ARC_R, CENTER_CAMP, CENTER_CAMP_R, CITY_FROM, CITY_TO, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, clockToAngle, fenceDepth, polar, surfaceAt, toPolar } from "./brc.ts";
 import { cityPlan } from "./playa.ts";
 import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const plans = cityPlan();
+// a point from canvas angle a (the Flat shapes' own: from +x, clockwise on a y-down screen) and radius r, as game feet
+const at = (a, r) => ({ x: r * Math.cos(a), y: r * Math.sin(a) });
+const lerp = (a, b, t) => a + (b - a) * t;
 
 test("the ground has 13 arc streets, 17 radials and 192 blocks, each well formed", () => {
   const flats = groundFlats();
@@ -161,4 +164,100 @@ test("the skyline: n heights in 0..1 that close up, tallest in the west and low 
   assert.ok(northEast > 2 * south, `north-east ${northEast} vs south ${south}`);
   assert.ok(west > northEast, "the Granite Range is the tallest");
   assert.ok(new Set(s.map((h) => h.toFixed(3))).size > n / 4, "jagged, not smooth");
+});
+
+/* ── the layout, pinned to brc.ts and the sim (a rotated, mirrored or mis-sized city must fail these) ─────────────── */
+
+test("every block flat lies on the block the sim says is there (surfaceAt), ring and sector", () => {
+  const blocks = groundFlats().filter((f) => f.kind === "block");
+  assert.equal(blocks.length, (ARC_R.length - 1) * (RADIALS.length - 1));
+  blocks.forEach((b, i) => {
+    const ring = Math.floor(i / (RADIALS.length - 1)), sector = i % (RADIALS.length - 1);
+    // the edges are A0 + w0/r and A1 - w1/r (a street keeps its width in feet): recover them from the inner and outer angles
+    const w0 = (b.a0i - b.a0o) / (1 / b.r0 - 1 / b.r1), A0 = b.a0i - w0 / b.r0, w1 = (b.a1o - b.a1i) / (1 / b.r0 - 1 / b.r1), A1 = b.a1i + w1 / b.r0;
+    // the sector's edges are its two radials (clock minutes 120 + 30 sector and 150 + 30 sector), in canvas angles, with the half widths of those streets
+    const wide = (m) => ([180, 270, 360, 450, 540].includes(m) ? 52 : 36);
+    near(A0, clockToAngle(120 + 30 * sector) - Math.PI / 2, 1e-9); near(A1, clockToAngle(150 + 30 * sector) - Math.PI / 2, 1e-9);
+    near(w0, wide(120 + 30 * sector), 1e-6); near(w1, wide(150 + 30 * sector), 1e-6);
+    for (const u of [0.02, 0.5, 0.98]) for (const v of [0.02, 0.5, 0.98]) {
+      const r = lerp(b.r0, b.r1, u), p = at(lerp(A0 + w0 / r, A1 - w1 / r, v), r), sf = surfaceAt(p);
+      if (sf.kind === "plaza") continue;   // Center Camp's plaza reaches into the blocks beside it
+      assert.deepEqual(sf, { kind: "block", ring, sector }, `block ${ring}/${sector} at u ${u} v ${v}`);
+    }
+    // the flat's radii are the arcs' edges with the street half widths off (the Esplanade is 104 ft wide, every other street 72)
+    near(b.r0, ARC_R[ring] + (ring === 0 ? 52 : 36), 1e-9); near(b.r1, ARC_R[ring + 1] - 36, 1e-9);
+  });
+  // the first block is the Esplanade-to-A block at 2:00-2:30, i.e. up and to the right of the Man's east: x > 0, y < 0 (north is -y)
+  const b0 = blocks[0], mid = at((b0.a0i + b0.a1i) / 2, (b0.r0 + b0.r1) / 2);
+  assert.ok(mid.x > 0 && mid.y < 0 && mid.y > -mid.x, "2:15 is east-north-east of the Man");
+});
+
+test("every arc street flat lies on its own street, named by brc.ts, and only inside the city's span", () => {
+  const arcs = groundFlats().filter((f) => f.kind === "arc");
+  arcs.forEach((f, i) => {
+    near(f.r0, ARC_R[i] - (i === 0 ? 52 : 36), 1e-9); near(f.r1, ARC_R[i] + (i === 0 ? 52 : 36), 1e-9);
+    for (const t of [0.05, 0.3, 0.5, 0.7, 0.95]) {
+      const sf = surfaceAt(at(lerp(f.a0, f.a1, t), ARC_R[i]));
+      if (sf.kind === "plaza") continue;   // the Esplanade and A run through Center Camp's plaza at 6:00
+      assert.equal(sf.kind === "road" ? sf.arc : null, ARCS[i], `street ${ARCS[i]} at ${t}`);
+    }
+    // the street runs from 2:00 to 10:00 (with a half road of overhang), not round the whole circle
+    near((f.a0 + f.a1) / 2, (clockToAngle(CITY_FROM) + clockToAngle(CITY_TO)) / 2 - Math.PI / 2, 1e-9);
+  });
+});
+
+test("every radial flat lies on its own radial street, centred and the width the sim gives it", () => {
+  const radials = groundFlats().filter((f) => f.kind === "radial");
+  radials.forEach((f, i) => {
+    const m = RADIALS[i];
+    near(f.from.x, polar(m, ARC_R[0]).x, 1e-9); near(f.from.y, polar(m, ARC_R[0]).y, 1e-9);
+    near(f.width, [180, 270, 360, 450, 540].includes(m) ? 104 : 72, 1e-9);
+    for (const t of [0.1, 0.5, 0.9]) for (const side of [-0.4, 0, 0.4]) {
+      const cx = lerp(f.from.x, f.to.x, t), cy = lerp(f.from.y, f.to.y, t), len = Math.hypot(f.to.x - f.from.x, f.to.y - f.from.y);
+      const p = { x: cx + (-(f.to.y - f.from.y) / len) * f.width * side, y: cy + ((f.to.x - f.from.x) / len) * f.width * side }, sf = surfaceAt(p);
+      if (sf.kind === "plaza") continue;
+      assert.ok(sf.kind === "road" && sf.radial === m, `radial ${m} at ${t}/${side}: ${JSON.stringify(sf)}`);
+    }
+  });
+});
+
+test("the plazas, rings, runways and Gate Road are where brc.ts has them, at the sizes the top-down map draws", () => {
+  const flats = groundFlats(), discs = flats.filter((f) => f.kind === "disc"), ring = flats.find((f) => f.kind === "ring"), strips = flats.filter((f) => f.kind === "strip");
+  const disc = (cx, cy) => discs.find((d) => Math.hypot(d.cx - cx, d.cy - cy) < 1e-9);
+  assert.equal(disc(CENTER_CAMP.x, CENTER_CAMP.y).r, CENTER_CAMP_R);
+  assert.equal(disc(0, 0).r, MAN_R * 5);
+  assert.equal(disc(TEMPLE.x, TEMPLE.y).r, TEMPLE_R * 3.4);
+  assert.deepEqual([ring.cx, ring.cy, ring.r0, ring.r], [CENTER_CAMP.x, CENTER_CAMP.y, CENTER_CAMP_R - 30, CENTER_CAMP_R + 30]);
+  // the sim's own plaza is the same disc
+  assert.equal(surfaceAt({ x: CENTER_CAMP.x + CENTER_CAMP_R * 0.99, y: CENTER_CAMP.y }).kind, "plaza");
+  assert.notEqual(surfaceAt({ x: CENTER_CAMP.x + CENTER_CAMP_R * 1.01 + 40, y: CENTER_CAMP.y }).kind, "plaza");
+  // Gate Road: the strip from the city's last street to 1.7 fence radii, along the 4:30... 9:00 radial the Gate stands on
+  const road = strips.find((f) => Math.hypot(f.from.x - GATE.road.from.x, f.from.y - GATE.road.from.y) < 1e-9);
+  assert.deepEqual(road.to, GATE.road.to); assert.equal(road.width, GATE.width);
+  // the runways: AIRPORT.runwayLen long, runwayW wide, 2·runwayOff apart, along the airport's heading
+  const runways = strips.filter((f) => Math.abs(Math.hypot(f.to.x - f.from.x, f.to.y - f.from.y) - AIRPORT.runwayLen) < 1e-6);
+  assert.equal(runways.length, 2);
+  for (const r of runways) {
+    assert.equal(r.width, AIRPORT.runwayW);
+    const dir = Math.atan2(r.to.y - r.from.y, r.to.x - r.from.x) - AIRPORT.ta; near(Math.atan2(Math.sin(dir), Math.cos(dir)), 0, 1e-9);   // along the airport's heading (mod a turn)
+  }
+  const mid = (r) => ({ x: (r.from.x + r.to.x) / 2, y: (r.from.y + r.to.y) / 2 });
+  near(Math.hypot(mid(runways[0]).x - mid(runways[1]).x, mid(runways[0]).y - mid(runways[1]).y), 2 * AIRPORT.runwayOff, 1e-6);
+  near((mid(runways[0]).x + mid(runways[1]).x) / 2, AIRPORT.at.x, 1e-6); near((mid(runways[0]).y + mid(runways[1]).y) / 2, AIRPORT.at.y, 1e-6);
+});
+
+test("the shapes' heights: a pod is 7 ft, a tent 8 ft to its tip, a dome as tall as it is wide, a canopy and a shade on poles", () => {
+  const one = (kind, w, l) => campPrisms([{ ring: 2, sector: 5, cx: 0, cy: 0, br: 100, solids: [], structs: [{ kind, x: 10, y: 20, rot: 0, w, l, hue: 1, solid: false }] }]);
+  const [pod] = one("pod", 12, 12), [tent] = one("tent", 10, 10), [dome] = one("dome", 30, 30);
+  near(pod.y + pod.sy * 0.5, 7); near(pod.y, 0);                 // a hemisphere of diameter 1 is 0.5 tall: scaled by sy = 14 it is 7 ft, its base on the ground
+  near(tent.y + tent.sy / 2, H.tent); near(tent.y - tent.sy / 2, 0); assert.equal(H.tent, 8);   // a cone is centred on its middle: base at 0, tip at 8
+  near(dome.y + dome.sy * 0.5, 15); near(dome.sx, 30); near(dome.sz, 30);   // a dome 30 ft across rises 15 ft
+  const shade = one("shade", 20, 10), roof = shade.find((p) => p.kind === "shade-roof"), poles = shade.filter((p) => p.kind === "pole");
+  near(roof.y, H.shade); assert.ok(poles.every((p) => Math.abs(p.y + p.sy / 2 - H.shade) < 1e-9 && Math.abs(p.y - p.sy / 2) < 1e-9), "poles stand on the ground and reach the roof");
+  const canopy = one("canopy", 20, 10), croof = canopy.find((p) => p.kind === "canopy");
+  near(croof.y, H.canopy); assert.equal(canopy.filter((p) => p.kind === "pole").length, 6);
+  const [rv, rvRoof] = one("rv", 28, 10); near(rv.y + rv.sy / 2, H.rv); near(rvRoof.y - rvRoof.sy / 2, H.rv);
+  // the structs of the whole city are where the sim has them: every prism sits within its block's circle (plus its own size)
+  const circles = sectorBlocks(plans);
+  for (const p of campPrisms(plans).slice(0, 4000)) { const c = circles[p.sector].find((b) => b.ring === p.ring); assert.ok(Math.hypot(p.x - c.cx, p.z - c.cy) < c.br + 30, `${p.kind} in its block's circle`); }
 });
