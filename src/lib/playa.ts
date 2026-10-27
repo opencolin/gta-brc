@@ -1074,7 +1074,7 @@ export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null
   return {
     t: 0, car: newCar(start.at, start.h), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
     moop: Array.from({ length: MOOP_N }, () => moopSpot(rand)), moopCount: 0,
-    storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: (at?.startsWith("mutant:") ? 0.62 : 0.1) * DAY_SECONDS, dust: [], /* starting at an art car (burningman.chat/goldenticket, /dragonlady) it is night, when the art cars are at their best (asked 2026-10-27) */ bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
+    storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: (at?.startsWith("mutant:") || at === "man" ? 0.62 : 0.1) * DAY_SECONDS, dust: [], /* starting at an art car (burningman.chat/goldenticket, /dragonlady) or at the Man (/theman) it is night, when the art cars and his fire are at their best (asked 2026-10-27) */ bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
     parking: newParking(), alt: 0, chute: false, plane: null, angels: [], angelT: 0,
     rand,
   };

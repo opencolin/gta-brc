@@ -605,6 +605,7 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
 test("starting at an art car, it is night; anywhere else, day (asked 2026-10-27)", () => {
   assert.equal(nightLevel(newGame(7, undefined, "mutant:golden-ticket").dayT), 1, "the Golden Ticket's link starts at night");
   assert.equal(nightLevel(newGame(7, undefined, "mutant:dragon-lady").dayT), 1);
+  assert.equal(nightLevel(newGame(7, undefined, "man").dayT), 1, "/theman starts at night, for his fire");
   assert.equal(nightLevel(newGame(7, undefined, "agave").dayT), 0, "a camp starts by day");
   assert.equal(nightLevel(newGame(7).dayT), 0, "the airport starts by day");
   assert.equal(startKey("airport"), "airport"); assert.equal(startKey("plane"), "airport"); assert.ok(atAirport(newGame(1, "bike", "airport")), "in reach of the plane on the pad");
