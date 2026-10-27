@@ -80,6 +80,15 @@ export function mergedParts(parts: Part[], material?: THREE.Material): THREE.Mes
   return new THREE.Mesh(merged, m);
 }
 
+/**
+ * The two ways a frame is drawn blend a translucent layer differently: the plain renderer blends the picture as it is encoded (sRGB), the linear target
+ * of the trip's and the night's passes blends the light itself, so the same 25% navy shadow on the beige ground comes out 22% darker in one and 11% in the
+ * other, and would jump at dusk. `shade(a)` is the opacity that looks in the passes' path as `a` does in the plain one, for a dark layer on a light
+ * ground (the shadows); the renderer says which path this frame takes.
+ */
+export const blend = { linear: false };
+export const shade = (a: number) => (blend.linear ? 1 - Math.pow(1 - a, 2.2) : a);
+
 /** How many lamps the ground sees at once: the renderer's pool of point lights (lights.ts). */
 export const GROUND_LAMPS = 10;
 /**

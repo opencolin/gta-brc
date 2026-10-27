@@ -7,7 +7,7 @@ import { cityPlan } from "@/lib/playa";
 import { buildCamps, nightUniform, type CampMeshes } from "./camps";
 import { buildGround, type GroundMeshes } from "./ground";
 import { addLights, buildSky, type Lights } from "./lights";
-import { clearMaterials, tintGround } from "./materials";
+import { blend, clearMaterials, tintGround } from "./materials";
 import { buildPlaces, type PlaceMeshes } from "./places";
 import { buildStages, type StageMeshes } from "./stages";
 import { buildArt, type ArtMeshes } from "./art";
@@ -59,7 +59,7 @@ export class ChaseRenderer implements Renderer {
   private trails!: TrailMeshes;
   private sky!: ReturnType<typeof buildSky>;
   private lights!: Lights;
-  private fx: Fx | null = null;   // made the first time the trip or the night's bloom needs it
+  private fx: Fx | null = null;   // the trip's and the night's passes: made and compiled at the first frame, their buffers only while they are on
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
   private tmp = new THREE.Vector3();
@@ -150,12 +150,16 @@ export class ChaseRenderer implements Renderer {
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);
     this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera); this.trails.update(g, view.trip);
+    const wantFx = Fx.wanted(view.trip, view.night, this.touch);
+    blend.linear = wantFx;   // which of the two blends the translucent shadows are drawn for
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     // the composer draws it while the trip's trails or the night's bloom are on, the renderer straight otherwise; the info is for the whole frame, whichever passes made it
+    const pr = Math.min(this.dpr, this.touch ? 1.5 : 2);
+    // the passes (and the scene's shaders for a target rather than the screen) are compiled once, on the first frame while "loading the 3D view" is up, not at the first dusk or trip
+    if (!this.fx) { this.fx = new Fx(this.renderer, this.scene, this.camera, this.w, this.h, pr); this.fx.warm(); }
     this.renderer.info.reset();
-    const pr = Math.min(this.dpr, this.touch ? 1.5 : 2), wantFx = view.trip > 0.02 || (view.night > 0.3 && !this.touch);
-    if (wantFx) { this.fx ??= new Fx(this.renderer, this.scene, this.camera, this.w, this.h, pr); this.fx.render(view.trip, view.night, this.touch, dt); }
-    else this.renderer.render(this.scene, this.camera);
+    if (wantFx) this.fx.render(view.trip, view.night, this.touch, dt);
+    else { this.fx.idle(dt); this.renderer.render(this.scene, this.camera); }
     const t1 = performance.now();
     this.samples.push({ at: t1, dt: this.samples.length ? t1 - this.samples[this.samples.length - 1].at : 0, cpu: t1 - t0 });
     while (this.samples.length > 1 && t1 - this.samples[0].at > 2000) this.samples.shift();

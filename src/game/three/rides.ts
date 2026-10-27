@@ -6,7 +6,7 @@ import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
 import { angelTexture, planeShadowTexture } from "./decals";
 import { goldenTicket, type Ticket } from "./goldenTicket";
-import { mergedParts, registerGround, shaped as P, type Part } from "./materials";
+import { mergedParts, registerGround, shade, shaped as P, type Part } from "./materials";
 
 /**
  * Your ride (PLAN-3D.md 2.6), one small model per vehicle, each one merged mesh or two: in its own frame forward is -Z and right is +X
@@ -132,7 +132,7 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   if (tk && which === "artcar" && g.t - ((art.userData.last as number | undefined) ?? -1) > 0.1) { tk.paint(g.t, view.night); art.userData.last = g.t; }
   // a plane's shadow lies off to one side by its height (the sun is up and to the left, as the 2D has it) and fades as it rises
   const planeShadow = (s: THREE.Mesh, x: number, y: number, h: number, alt: number) => {
-    s.visible = true; s.position.set(x + alt * 0.5, 0.4, y + alt * 0.4); s.rotation.y = yawOf(h); (s.material as THREE.MeshBasicMaterial).opacity = 1 / (1 + alt / 600);
+    s.visible = true; s.position.set(x + alt * 0.5, 0.4, y + alt * 0.4); s.rotation.y = yawOf(h); (s.material as THREE.MeshBasicMaterial).opacity = shade(1 / (1 + alt / 600));
   };
   // the plane you bailed out of
   r.plane2.visible = !!g.plane;
@@ -153,7 +153,7 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
       r.shadow.visible = true; r.shadow.position.set(g.car.x + alt * 0.5, 0.4, g.car.y + alt * 0.4);
       r.shadow.rotation.y = chute ? 0 : yawOf(g.car.h);
       r.shadow.scale.set(chute ? 14 : Math.max(4, wid * 0.55), 1, chute ? 11 : Math.max(6, len * 0.6));
-      (r.shadow.material as THREE.MeshBasicMaterial).opacity = (chute ? 0.2 : 0.25) / (1 + alt / 600);
+      (r.shadow.material as THREE.MeshBasicMaterial).opacity = shade((chute ? 0.2 : 0.25) / (1 + alt / 600));
     }
   }
   // the angels (the last 64 left), centred where the sim has them (the drawing's middle is 5 ft south of the spot it was drawn from)
