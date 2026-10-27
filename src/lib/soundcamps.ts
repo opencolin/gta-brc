@@ -556,7 +556,7 @@ export const VIDEO_CLIPS: ReadonlySet<string> = new Set([
   "NvrJGjrPf74", "ZRO8zU3FT0w", "c4gRCYPkJrk", "n_PAzFWfn84", "o8lP5VsCUa8", "sNxTXYogY6A",
   "J4MfreVqRic", "_OtwOP7HyyQ", "pZVjT-DwCTo", // fire spinners, Collin's links 2026-10-22
   "-6wnDcOE_So", "0-JIOljYYeg", "00u9-96I_7E", "1ZyKWoYWAJE", "4gi8MpxJ2ao", "5MAUCozCn0Y", "5S0S5MWGlFY", "5caPeiKq8lo",
-  "6UIVvZdsO28", "6h9IjbnHko4", "6nLSzPE_Fh4", "7aP0RpDt4Z0", "8TtlBB9b2qg", "8uAzw0VnfGs", "8zThJmZDFnA", "98PaFIkVJXA",
+  "6UIVvZdsO28", "6h9IjbnHko4", "6nLSzPE_Fh4", "7aP0RpDt4Z0", "8uAzw0VnfGs", "8zThJmZDFnA", "98PaFIkVJXA",
   "9S0jodRgbKY", "AEz3Y7GQgTs", "Agmi1s8qNg8", "BHvFw0mx4oo", "BS3p4l6Ci9U", "D_qC8lDjrdQ", "DgNsd_hCwv8", "EFtpfRZ5HH4",
   "F-_MmgwBwig", "F4NOd3jJohE", "Fal2Tc3sLaw", "HHE1PqREsAA", "Hyz2TrmDxtE", "J7LUC2o-XHo", "JCMv9cngcCE", "K-zRQa3UAWw",
   "L89YNZZObsw", "LBIY6uLXEK4", "LK-IQ1eaKAo", "LRoT8GJWZnY", "LcYDvsfBILU", "Ldqulcz8yhU", "Li4t_C-FLpc", "Lj-3gB383U4",
