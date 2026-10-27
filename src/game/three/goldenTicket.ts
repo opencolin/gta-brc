@@ -74,18 +74,15 @@ export function goldenTicket(): Ticket {
     P(box(10, 6, 20), GOLD, { y: 5.2 }), P(box(8.4, 1, 18), TRIM, { y: 8.6 }),
     P(cyl(2, 1), TYRE, { y: 2, z: -8, rz: Math.PI / 2 }), P(cyl(2, 1), TYRE, { x: -4.6, y: 2, z: 6, rz: Math.PI / 2 }), P(cyl(2, 1), TYRE, { x: 4.6, y: 2, z: 6, rz: Math.PI / 2 }),
   ];
-  for (const s of [-1, 1]) for (const y of [5.2, 8.4]) body.push(P(box(1.8, 0.8, 1.6), TRIM, { x: s * 5.5, y, z: 5.2 }));
+  for (const s of [-1, 1]) body.push(P(box(2.2, 1.0, 2.0), TRIM, { x: s * 5.6, y: 6.6, z: 5.2 }));
   group.add(mergedParts(body));
-  // the pods: a pair of rounded barrels stacked at each rear corner like jet nacelles (asked 2026-10-27: pointing forward), their grilles
-  // facing the way the cart goes, the pair joined by a bridge; polished gold
+  // the pods: one rounded barrel at each rear corner, the two side by side at the same height like jet nacelles (asked 2026-10-27: pointing
+  // forward, left and right, not stacked), their grilles facing the way the cart goes; polished gold
   const pods: Part[] = [], grilles: THREE.BufferGeometry[] = [];
-  const profile = [[0.05, -1.7], [1.0, -1.4], [1.5, -0.7], [1.7, 0.2], [1.55, 0.95], [1.3, 1.1]].map(([r, y]) => new THREE.Vector2(r, y));
+  const profile = [[0.05, -2.3], [1.3, -1.9], [2.0, -0.9], [2.25, 0.3], [2.05, 1.3], [1.75, 1.5]].map(([r, y]) => new THREE.Vector2(r, y));
   for (const s of [-1, 1]) {
-    for (const y of [5.2, 8.4]) {
-      pods.push(P(new THREE.LatheGeometry(profile, 20), GOLD, { rx: -Math.PI / 2, x: s * 6.7, y, z: 5.2 }));   // the lathe's +Y turned to face forward (-Z)
-      grilles.push(new THREE.CircleGeometry(1.32, 24).rotateY(Math.PI).translate(s * 6.7, y, 5.2 - 1.12));
-    }
-    pods.push(P(box(1.5, 2.4, 1.4), GOLD, { x: s * 6.7, y: 6.8, z: 5.4 }));
+    pods.push(P(new THREE.LatheGeometry(profile, 22), GOLD, { rx: -Math.PI / 2, x: s * 7.3, y: 6.6, z: 5.2 }));   // the lathe's +Y turned to face forward (-Z)
+    grilles.push(new THREE.CircleGeometry(1.78, 26).rotateY(Math.PI).translate(s * 7.3, 6.6, 5.2 - 1.52));
   }
   group.add(mergedParts(pods, new THREE.MeshPhongMaterial({ color: GOLD, specular: 0xfff0b0, shininess: 70 })));
   const grille = canvasTexture(64, 64), back = canvasTexture(200, 120);
