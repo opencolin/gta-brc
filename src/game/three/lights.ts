@@ -74,7 +74,7 @@ type Lamp = { x: number; y: number; z: number; color: number; I: number; dist: n
 const LAMPS: Lamp[] = (() => {
   const out: Lamp[] = [
     { x: 0, y: 150, z: 0, color: 0xff8a30, I: 30000, dist: 800, decay: 2, flicker: true },                      // the Man, burning: fire orange, lighting the plaza and everyone near him
-    { x: TEMPLE.x, y: 40, z: TEMPLE.y, color: 0xffbe78, I: 90000, dist: 300, decay: 1.4 },                          // the Temple, warm
+    { x: TEMPLE.x, y: 45, z: TEMPLE.y, color: 0xffb050, I: 40000, dist: 380, decay: 2 },                           // the Temple of the Moon, amber, from its tower
     { x: AGAVE.dome.x, y: 50, z: AGAVE.dome.y, color: 0xff6b9a, I: 70000, dist: 240, decay: 1.4 },                  // Agave's dome, pink
     { x: CENTER_CAMP.x, y: 40, z: CENTER_CAMP.y, color: 0xffd28c, I: 80000, dist: 280, decay: 1.4 },                // Center Camp, amber
   ];
