@@ -1825,6 +1825,7 @@ export default function PlayaWin() {
               <button type="button" className="pl-hear-btn" onClick={() => stopSound(hud.hearKey)} aria-label={`stop ${hud.hear}`}>×</button>
             </span>
           )}
+          {hud.warn && phase === "play" && <span className="pl-warn" role="status">{hud.warn}</span>} {/* the slow-down and bump notes sit under the speedometer, out of the way (asked 2026-10-27) */}
         </div>
 
         <div className="pl-side">
@@ -1860,7 +1861,6 @@ export default function PlayaWin() {
         </div>
         </div>
 
-        {hud.warn && phase === "play" && <div className="pl-warn" role="status">{hud.warn}</div>}
 
         {keysUi && phase === "play" && (
           <dl className="pl-keys" aria-label="the keys">

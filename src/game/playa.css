@@ -53,10 +53,10 @@
 .pl .pl-btn:hover, .pl .pl-btn[aria-pressed="true"] { background: var(--pl-pink); color: var(--pl-navy); }
 
 /* "slow down: bikes. 5 mph" */
-.pl .pl-warn {
-  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 8px 16px; border-radius: 8px;
-  background: var(--pl-pink); color: var(--pl-navy); font-family: var(--font-display, var(--font)); font-size: var(--t-heading); font-weight: var(--w-heading);
-  line-height: var(--lh-ui); white-space: nowrap; pointer-events: none; box-shadow: 0 4px 18px rgba(27, 31, 59, .35);
+.pl .pl-warn { /* under the speedometer in the where box, not across the middle of the screen (asked 2026-10-27) */
+  align-self: flex-start; margin-top: 3px; padding: 3px 8px; border-radius: 6px;
+  background: var(--pl-pink); color: var(--pl-navy); font-family: var(--font-display, var(--font)); font-size: var(--t-control); font-weight: var(--w-heading);
+  line-height: var(--lh-ui); white-space: nowrap; pointer-events: none;
 }
 
 /* the title, the pause card */
