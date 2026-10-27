@@ -935,7 +935,7 @@ function speckle(ctx: CanvasRenderingContext2D): CanvasPattern | null {
 /** The last frame, at half size, for the trip's trails (asked 2026-10-26): drawn faintly under the next one. */
 let echo: HTMLCanvasElement | null = null;
 function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam: Cam, input: Input, font: string, trip = 0) {
-  const t = g.t, night = nightLevel(g.dayT), storm = stormLevel(g.storm), z = cam.z;
+  const t = g.t, night = nightLevel(g.dayT), z = cam.z;
   const vw = w / z, vh = h / z;
   const view = { x0: cam.x - vw / 2, y0: cam.y - vh / 2, x1: cam.x + vw / 2, y1: cam.y + vh / 2 };
   const seen = (x: number, y: number, r: number) => x + r > view.x0 && x - r < view.x1 && y + r > view.y0 && y - r < view.y1;
@@ -1153,9 +1153,29 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   }
 
   screen();
+  paintOverlay(ctx, w, h, g, (p) => ({ x: w / 2 + (p.x - cam.x) * z, y: h / 2 + (p.y - cam.y) * z }), tg);
+
+  // keep this frame for the next one's trails
+  if (trip > 0) {
+    const ew = Math.max(1, Math.round(ctx.canvas.width / 2)), eh = Math.max(1, Math.round(ctx.canvas.height / 2));
+    if (!echo) echo = document.createElement("canvas");
+    if (echo.width !== ew || echo.height !== eh) { echo.width = ew; echo.height = eh; }
+    const ex = echo.getContext("2d")!; ex.globalCompositeOperation = "copy"; ex.drawImage(ctx.canvas, 0, 0, ew, eh);
+  } else if (echo) echo.width = 0;
+}
+
+/**
+ * What is drawn over the finished picture, in screen pixels (the caller has set the screen transform): the dust storm's whiteout and
+ * streaks, and the arrow to a pager target that is off the screen. Top-down and the chase camera share it. `proj` turns a world point
+ * into screen pixels, or null when it is behind the 3D camera; `yaw` is that camera's heading (null in top-down), which points the arrow
+ * round behind you when the target is.
+ */
+function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
+  const t = g.t, storm = stormLevel(g.storm);
   // the dust storm: a whiteout that closes in around the car
   if (storm > 0) {
-    const cx = w / 2 + (g.car.x - cam.x) * z, cy = h / 2 + (g.car.y - cam.y) * z;
+    const at = proj(g.car) ?? { x: w / 2, y: h / 2 };
+    const cx = at.x, cy = at.y;
     const clear = 70 + (1 - storm) * Math.max(w, h);
     const gr = ctx.createRadialGradient(cx, cy, clear * 0.25, cx, cy, clear);
     gr.addColorStop(0, `rgba(${C.dust}, ${0.25 * storm})`); gr.addColorStop(1, `rgba(${C.dust}, ${0.96 * storm})`);
@@ -1171,27 +1191,28 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 
   // an arrow pointing to a target off the screen: on a ring round the ride, not out at the edge (2026-10-22)
   if (tg) {
-    const sx = w / 2 + (tg.at.x - cam.x) * z, sy = h / 2 + (tg.at.y - cam.y) * z;
-    const m = 34;
-    if (sx < m || sx > w - m || sy < m || sy > h - m) {
-      const a = Math.atan2(sy - h / 2, sx - w / 2);
-      const k = Math.min((w / 2 - m) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - m) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(90, Math.min(w, h) * 0.3));
-      ctx.save(); ctx.translate(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k); ctx.rotate(a);
+    const arrow = (x: number, y: number, a: number) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
       ctx.fillStyle = C.pink; ctx.strokeStyle = C.navy; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-10, -11); ctx.lineTo(-4, 0); ctx.lineTo(-10, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
+    };
+    const m = 34, s = proj(tg.at);
+    if (s) {
+      const sx = s.x, sy = s.y;
+      if (sx < m || sx > w - m || sy < m || sy > h - m) {
+        const a = Math.atan2(sy - h / 2, sx - w / 2);
+        const k = Math.min((w / 2 - m) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - m) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(90, Math.min(w, h) * 0.3));
+        arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a);
+      }
+    } else if (yaw !== null) {
+      // behind the 3D camera: the arrow rides the bottom edge, to the side of the screen the target is on, pointing round behind you
+      const rel = wrapAngle(Math.atan2(tg.at.x - g.car.x, -(tg.at.y - g.car.y)) - yaw); // the target's bearing from the ride, relative to where the camera looks (+ is to the right)
+      arrow(w / 2 + Math.sin(rel) * (w / 2 - m * 2), h - m * 2, Math.atan2(-Math.cos(rel), Math.sin(rel)));
     }
   }
-
-  // keep this frame for the next one's trails
-  if (trip > 0) {
-    const ew = Math.max(1, Math.round(ctx.canvas.width / 2)), eh = Math.max(1, Math.round(ctx.canvas.height / 2));
-    if (!echo) echo = document.createElement("canvas");
-    if (echo.width !== ew || echo.height !== eh) { echo.width = ew; echo.height = eh; }
-    const ex = echo.getContext("2d")!; ex.globalCompositeOperation = "copy"; ex.drawImage(ctx.canvas, 0, 0, ew, eh);
-  } else if (echo) echo.width = 0;
 }
-const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
+const dprOf =(ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
 type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
@@ -1500,7 +1521,9 @@ export default function PlayaWin() {
       const r = viewRef.current === "chase" ? three.current : null;
       if (r && w && h) {
         r.frame(g, { w, h, dpr, trip: tripLevel.current, orbit: orbitRef.current, touchUi: touchUiRef.current, brake: inp.brake || inp.handbrake, night: nightLevel(g.dayT), storm: stormLevel(g.storm) }, dt);
-        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); // the 2D canvas sits over the 3D one, clear
+        // the 2D canvas sits over the 3D one: clear it, then draw the screen-space things paint() ends with (the storm, the arrow to the pager's target)
+        const d = dprOf(ctx); ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, w, h);
+        paintOverlay(ctx, w, h, g, (p) => r.project(p), missionTarget(g.mission, g.t), r.yaw());
       } else if (w && h) paint(ctx, w, h, g, cam, inp, font, tripLevel.current);
       // the clip in passing floats just above its place on the playa, kept inside the screen
       const pk = peekEl.current, at = pk?.dataset.key ? placeAt(pk.dataset.key, g.t) : null;
