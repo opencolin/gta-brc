@@ -143,7 +143,7 @@ export class ChaseRenderer implements Renderer {
     this.camera.position.set(e.x, e.y, e.z);
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-    nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
+    nightUniform.value = view.night; this.places.update(view.night, g.t, this.camera); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
     this.sky.update(this.camera.position, view.night, view.storm); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);

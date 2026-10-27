@@ -15,7 +15,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 const VERT = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }";
 /**
  * The night's glow, in four draws instead of UnrealBloomPass's fifteen (the plan's 150-draw-call budget counts every fullscreen pass): the bright part of the
- * picture at a quarter of its size, blurred across and then down with a 13-tap kernel, and added back over the picture with `strength`.
+ * picture at a quarter of its size, blurred across and then down with a 17-tap kernel one texel apart (a wider spacing leaves bands on thin bright lines), and added back over the picture with `strength`.
  */
 class GlowPass extends Pass {
   strength = 0.6;
@@ -33,7 +33,7 @@ class GlowPass extends Pass {
     this.bright = new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, threshold: { value: 0.75 } }, vertexShader: VERT, depthTest: false, depthWrite: false,
       fragmentShader: "uniform sampler2D tDiffuse; uniform float threshold; varying vec2 vUv; void main() { vec3 c = texture2D(tDiffuse, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(threshold, threshold + 0.35, l), 1.0); }" });
     this.blur = new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, step: { value: new THREE.Vector2() } }, vertexShader: VERT, depthTest: false, depthWrite: false,
-      fragmentShader: "uniform sampler2D tDiffuse; uniform vec2 step; varying vec2 vUv; void main() { vec3 s = texture2D(tDiffuse, vUv).rgb * 0.1964; for (int i = 1; i <= 6; i++) { float w = exp(-float(i * i) / 18.0) * 0.2; vec2 o = step * float(i) * 1.6; s += (texture2D(tDiffuse, vUv + o).rgb + texture2D(tDiffuse, vUv - o).rgb) * w * 0.55; } gl_FragColor = vec4(s, 1.0); }" });
+      fragmentShader: "uniform sampler2D tDiffuse; uniform vec2 step; varying vec2 vUv; void main() { vec3 s = texture2D(tDiffuse, vUv).rgb; float tot = 1.0; for (int i = 1; i <= 8; i++) { float w = exp(-float(i * i) / 32.0); vec2 o = step * float(i); s += (texture2D(tDiffuse, vUv + o).rgb + texture2D(tDiffuse, vUv - o).rgb) * w; tot += 2.0 * w; } gl_FragColor = vec4(s / tot, 1.0); }" });
     this.comp = new THREE.ShaderMaterial({ uniforms: { tDiffuse: { value: null }, tGlow: { value: null }, strength: { value: 0.6 } }, vertexShader: VERT, depthTest: false, depthWrite: false,
       fragmentShader: "uniform sampler2D tDiffuse; uniform sampler2D tGlow; uniform float strength; varying vec2 vUv; void main() { gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb + texture2D(tGlow, vUv).rgb * strength, 1.0); }" });
   }

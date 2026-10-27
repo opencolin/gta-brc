@@ -70,10 +70,10 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
 }
 
 /** A light that can stand anywhere: the Man, the Temple, a stage, a piece of art. */
-type Lamp = { x: number; y: number; z: number; color: number; I: number; dist: number; decay: number };
+type Lamp = { x: number; y: number; z: number; color: number; I: number; dist: number; decay: number; /** a fire's flicker */ flicker?: boolean };
 const LAMPS: Lamp[] = (() => {
   const out: Lamp[] = [
-    { x: 0, y: 70, z: 0, color: 0x7df9ff, I: 140000, dist: 380, decay: 1.4 },                                      // the Man, neon cyan
+    { x: 0, y: 150, z: 0, color: 0xff8a30, I: 30000, dist: 800, decay: 2, flicker: true },                      // the Man, burning: fire orange, lighting the plaza and everyone near him
     { x: TEMPLE.x, y: 40, z: TEMPLE.y, color: 0xffbe78, I: 90000, dist: 300, decay: 1.4 },                          // the Temple, warm
     { x: AGAVE.dome.x, y: 50, z: AGAVE.dome.y, color: 0xff6b9a, I: 70000, dist: 240, decay: 1.4 },                  // Agave's dome, pink
     { x: CENTER_CAMP.x, y: 40, z: CENTER_CAMP.y, color: 0xffd28c, I: 80000, dist: 280, decay: 1.4 },                // Center Camp, amber
@@ -98,7 +98,7 @@ const NEAR_LAMPS = 8, CAR_LAMPS = 2, RESORT = 0.5;
 export function addLights(scene: THREE.Scene): Lights {
   const hemi = new THREE.HemisphereLight("#cfe3f5", "#e6d3ae", 0.45 * Math.PI);
   const sun = new THREE.DirectionalLight("#fff4e0", 0.6 * Math.PI);
-  const moon = new THREE.DirectionalLight("#8aa6ff", 0), head = new THREE.SpotLight("#fff3b0", 0, 260, 0.45, 0.5, 1.2);
+  const moon = new THREE.DirectionalLight("#8aa6ff", 0), head = new THREE.SpotLight("#fff3b0", 0, 260, 0.45, 0.5, 2);
   moon.position.set(-0.3, 1, 0.4);
   scene.add(hemi, sun, moon, head, head.target);
   const pool = Array.from({ length: NEAR_LAMPS + CAR_LAMPS }, () => { const l = new THREE.PointLight(0xffffff, 0, 100, 1.4); scene.add(l); return { light: l, I: 0, k: 0, want: null as Lamp | null, car: null as (typeof MUTANTS)[number] | null }; });
@@ -124,7 +124,7 @@ export function addLights(scene: THREE.Scene): Lights {
       const v = vehicleOf(g), fx = Math.sin(g.car.h), fz = -Math.cos(g.car.h), y = (g.vehicle === "plane" || g.chute ? g.alt : 0) + 4;
       head.position.set(g.car.x + fx * (v.len / 2), y, g.car.y + fz * (v.len / 2));
       head.target.position.set(g.car.x + fx * 200, g.alt > 0 ? 0 : 0, g.car.y + fz * 200);
-      head.intensity = 90000 * night * (g.alt > 0 ? 0 : 1);
+      head.intensity = 18000 * night * (g.alt > 0 ? 0 : 1);
       ride.set(g.car.x, 0, g.car.y);
 
       // the lamps near you, re-chosen twice a second: the 8 nearest by distance to the ride
@@ -148,7 +148,7 @@ export function addLights(scene: THREE.Scene): Lights {
       for (let i = 0; i < pool.length; i++) {
         const s = pool[i];
         s.k = s.want ? Math.min(1, s.k + dt / 0.35) : Math.max(0, s.k - dt / 0.35);
-        s.light.intensity = s.I * s.k * night;
+        s.light.intensity = s.I * s.k * night * (s.want?.flicker ? 1 + 0.2 * Math.sin(g.t * 17) * Math.sin(g.t * 7.3 + 1) : 1);   // the Man's fire flickers
         if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, 18, p.y); }   // an art car's lamp rides with it
       }
     },

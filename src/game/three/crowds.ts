@@ -14,7 +14,7 @@ const SHOW = 600;
 
 export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
   const group = new THREE.Group();
-  const places = SPOTS.map((sp) => ({ x: sp.stage.x, y: sp.stage.y, r: sp.stage.r + 22, people: crowdSpots(sp) as CrowdPerson[] }));
+  const places = SPOTS.map((sp) => ({ x: sp.stage.x, y: sp.stage.y, r: sp.stage.r + 22, people: crowdSpots(sp) as CrowdPerson[], man: sp.key === "camp:the-man" }));
   const total = places.reduce((n, p) => n + p.people.length, 0);
   const mesh = new THREE.InstancedMesh(walkerGeometry(), glowing({ vertexColors: true }, "glow-people", 0.3), total);
   mesh.count = 0; mesh.frustumCulled = false; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.setColorAt(0, new THREE.Color(1, 1, 1));
@@ -33,7 +33,8 @@ export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
           const qx = p.x - g.car.x, qz = p.y - g.car.y, f = fadeAt(Math.sqrt(qx * qx + qz * qz + cam.y * cam.y), SHOW);
           if (f <= 0) continue;
           d.position.set(p.x, p.dancing ? 0.6 * Math.abs(Math.sin(g.t * p.rate + p.phase)) : 0, p.y);
-          d.rotation.set(0, -(p.a - Math.PI / 2), 0); d.scale.setScalar(f); d.updateMatrix();   // facing the stage: the heading that looks inward from angle a
+          // facing the stage: the heading that looks inward from angle a; the Man's crowd faces the Man, who is toward the bay from his invisible stage
+          d.rotation.set(0, pl.man ? -Math.atan2(-p.x, p.y) : -(p.a - Math.PI / 2), 0); d.scale.setScalar(f); d.updateMatrix();
           mesh.setMatrixAt(n, d.matrix); mesh.setColorAt(n, c.setHSL(p.hue / 360, 0.7, 0.55, THREE.SRGBColorSpace)); n++;
         }
       }

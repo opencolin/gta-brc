@@ -31,7 +31,7 @@ const FACING = (sp: Spot) => Math.atan2(sp.mid.y - sp.stage.y, sp.mid.x - sp.sta
 
 export function buildStages(scene: THREE.Scene): StageMeshes {
   const group = new THREE.Group();
-  const spots = SPOTS.filter((s) => s.kind !== "agave" && !(s.kind === "art" && s.camp?.piece));
+  const spots = SPOTS.filter((s) => s.kind !== "agave" && !(s.kind === "art" && s.camp?.piece) && s.key !== "camp:the-man");   // the Man is his own stage: no stone behind his bay
 
   // ── bays: the road's colour under a pink wash; the open-playa bays (fence, art) the playa's colour; one mesh each
   const geoOf = (sp: Spot) => new THREE.ShapeGeometry(bayShape(sp), 6);
