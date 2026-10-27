@@ -10,6 +10,7 @@ import { addLights, buildSky } from "./lights";
 import { clearMaterials } from "./materials";
 import { buildPlaces, type PlaceMeshes } from "./places";
 import { buildStages, type StageMeshes } from "./stages";
+import { buildArt, type ArtMeshes } from "./art";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
@@ -40,6 +41,7 @@ export class ChaseRenderer implements Renderer {
   private camps!: CampMeshes;
   private places!: PlaceMeshes;
   private stages!: StageMeshes;
+  private art!: ArtMeshes;
   private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -63,6 +65,7 @@ export class ChaseRenderer implements Renderer {
     this.camps = buildCamps(this.scene, cityPlan());
     this.places = buildPlaces(this.scene);
     this.stages = buildStages(this.scene);
+    this.art = buildArt(this.scene, this.renderer);
     this.ride = buildRides(this.scene);
     addLights(this.scene);
   }
@@ -116,7 +119,7 @@ export class ChaseRenderer implements Renderer {
     this.camera.position.set(e.x, e.y, e.z);
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-    nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t);
+    nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night);
     this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     updateRide(this.ride, g, view);
     this.renderer.render(this.scene, this.camera);
