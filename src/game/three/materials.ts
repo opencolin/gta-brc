@@ -1,0 +1,47 @@
+import * as THREE from "three";
+
+/**
+ * Shared materials, one per colour: a thousand boxes of the same colour are one material, and a rebuild after a lost GL
+ * context starts a fresh set (clearMaterials). Colours are 0xRRGGBB in sRGB, the way the 2D painter's CSS colours are.
+ */
+const lamberts = new Map<number, THREE.MeshLambertMaterial>();
+const basics = new Map<string, THREE.MeshBasicMaterial>();
+
+/** A lit matte material (camps, rides, landmarks). */
+export function lambert(hex: number): THREE.MeshLambertMaterial {
+  let m = lamberts.get(hex);
+  if (!m) lamberts.set(hex, (m = new THREE.MeshLambertMaterial({ color: hex })));
+  return m;
+}
+
+/** An unlit material: exactly the colour, for the ground, which shows the 2D painter's own colours. */
+export function basic(hex: number, opts: THREE.MeshBasicMaterialParameters = {}): THREE.MeshBasicMaterial {
+  const key = hex + JSON.stringify(opts);
+  let m = basics.get(key);
+  if (!m) basics.set(key, (m = new THREE.MeshBasicMaterial({ color: hex, ...opts })));
+  return m;
+}
+
+/** Forget the cached materials (the scene that held them has been disposed). */
+export function clearMaterials(): void { lamberts.clear(); basics.clear(); }
+
+/** "#rrggbb" as 0xRRGGBB. */
+export const hex = (css: string) => parseInt(css.slice(1), 16);
+
+/**
+ * Many copies of one shape in one draw call: each placed by (x, y, z, yaw, sx, sy, sz) with its own colour. For the few dozen
+ * of a kind (fence posts, hangars, booths); the camps' tens of thousands are built in camps.ts.
+ */
+export function instanced(geometry: THREE.BufferGeometry, material: THREE.Material, items: { x: number; y: number; z: number; yaw?: number; sx?: number; sy?: number; sz?: number; color?: number }[]): THREE.InstancedMesh {
+  const mesh = new THREE.InstancedMesh(geometry, material, items.length);
+  const d = new THREE.Object3D(), c = new THREE.Color();
+  items.forEach((it, i) => {
+    d.position.set(it.x, it.y, it.z); d.rotation.set(0, it.yaw ?? 0, 0); d.scale.set(it.sx ?? 1, it.sy ?? 1, it.sz ?? 1); d.updateMatrix();
+    mesh.setMatrixAt(i, d.matrix);
+    if (it.color !== undefined) mesh.setColorAt(i, c.setHex(it.color, THREE.SRGBColorSpace));
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  return mesh;
+}

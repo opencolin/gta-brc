@@ -3,15 +3,15 @@ import { vehicleOf, type Game } from "@/lib/playa";
 import type { Vec } from "@/lib/brc";
 import { camAt, camAvoid, camGoal, camStep, camYaw, type CamState, type CamTarget } from "@/lib/chaseCam";
 import type { Renderer, ViewState } from "../view";
-import { buildGround } from "./ground";
-import { addLights } from "./lights";
+import { buildGround, type GroundMeshes } from "./ground";
+import { addLights, buildSky } from "./lights";
+import { clearMaterials } from "./materials";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
 const SNAP = 1500;
 /** frame() is not called while top-down is showing, so a gap longer than this (seconds) since the last frame means the camera's state is stale: start behind the ride again instead of easing across what it drove meanwhile. */
 const STALE = 0.25;
-const SKY = "#cfe3f5";
 
 /** What the camera needs from the game. */
 const camTargetOf = (g: Game): CamTarget => {
@@ -31,6 +31,8 @@ export class ChaseRenderer implements Renderer {
   private cam: CamState | null = null;
   private lastAt = 0;
   private ride!: RideMeshes;
+  private ground!: GroundMeshes;
+  private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
   private tmp = new THREE.Vector3();
@@ -48,8 +50,8 @@ export class ChaseRenderer implements Renderer {
   }
 
   private build(): void {
-    this.scene.background = new THREE.Color(SKY);
-    buildGround(this.scene, Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
+    this.sky = buildSky(this.scene);
+    this.ground = buildGround(this.scene, Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
     this.ride = buildRides(this.scene);
     addLights(this.scene);
   }
@@ -66,6 +68,7 @@ export class ChaseRenderer implements Renderer {
       }
     });
     this.scene.clear();
+    clearMaterials();
   }
 
   /** The browser took the GL context (a backgrounded phone tab) and gave it back: everything on the GPU is gone, so build it again. */
@@ -101,6 +104,7 @@ export class ChaseRenderer implements Renderer {
     this.camera.position.set(e.x, e.y, e.z);
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    this.sky.update(this.camera.position); this.ground.update(this.camera.position);
     updateRide(this.ride, g, view);
     this.renderer.render(this.scene, this.camera);
   }

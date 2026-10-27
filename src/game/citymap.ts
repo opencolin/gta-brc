@@ -145,7 +145,7 @@ const clockLabel = (min: number) => `${Math.floor(min / 60) || 12}:${String(min 
 /* ── the desert round the city ───────────────────────────────────────────── */
 
 /** The surroundings reach this many times the city image's side out from its middle (asked 2026-10-22: the big map is full screen, the dust goes on). */
-const AROUND = 4;
+export const AROUND = 4;
 let AROUND_IMG: HTMLCanvasElement | null = null;
 /**
  * The Black Rock Desert beyond the fence at a coarser scale: the playa crust with its lighter and darker
@@ -153,7 +153,7 @@ let AROUND_IMG: HTMLCanvasElement | null = null;
  * that close the playa in: dark hills along the west (left) and the north-east, the way the Landsat view has
  * them, with the dust flats open to the south.
  */
-function surroundImage(): HTMLCanvasElement | null {
+export function surroundImage(): HTMLCanvasElement | null {
   if (AROUND_IMG) return AROUND_IMG;
   if (typeof document === "undefined") return null;
   const size = 1536;
