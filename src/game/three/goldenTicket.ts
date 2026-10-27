@@ -74,17 +74,18 @@ export function goldenTicket(): Ticket {
     P(box(10, 6, 20), GOLD, { y: 5.2 }), P(box(8.4, 1, 18), TRIM, { y: 8.6 }),
     P(cyl(2, 1), TYRE, { y: 2, z: -8, rz: Math.PI / 2 }), P(cyl(2, 1), TYRE, { x: -4.6, y: 2, z: 6, rz: Math.PI / 2 }), P(cyl(2, 1), TYRE, { x: 4.6, y: 2, z: 6, rz: Math.PI / 2 }),
   ];
-  for (const s of [-1, 1]) for (const z of [2.2, 5.8]) body.push(P(box(1.6, 0.7, 1.2), TRIM, { x: s * 5.6, y: 7.2, z }));
+  for (const s of [-1, 1]) for (const y of [5.2, 8.4]) body.push(P(box(1.8, 0.8, 1.6), TRIM, { x: s * 5.5, y, z: 5.2 }));
   group.add(mergedParts(body));
-  // the pods: a rounded barrel each, its grille facing out, the pair joined by a bridge; polished gold
+  // the pods: a pair of rounded barrels stacked at each rear corner like jet nacelles (asked 2026-10-27: pointing forward), their grilles
+  // facing the way the cart goes, the pair joined by a bridge; polished gold
   const pods: Part[] = [], grilles: THREE.BufferGeometry[] = [];
   const profile = [[0.05, -1.7], [1.0, -1.4], [1.5, -0.7], [1.7, 0.2], [1.55, 0.95], [1.3, 1.1]].map(([r, y]) => new THREE.Vector2(r, y));
   for (const s of [-1, 1]) {
-    for (const z of [2.2, 5.8]) {
-      pods.push(P(new THREE.LatheGeometry(profile, 20), GOLD, { rz: (-s * Math.PI) / 2, x: s * 7.0, y: 7.4, z }));   // the lathe's +Y turned to face out along ±X
-      grilles.push(new THREE.CircleGeometry(1.32, 24).rotateY((s * Math.PI) / 2).translate(s * 8.12, 7.4, z));
+    for (const y of [5.2, 8.4]) {
+      pods.push(P(new THREE.LatheGeometry(profile, 20), GOLD, { rx: -Math.PI / 2, x: s * 6.7, y, z: 5.2 }));   // the lathe's +Y turned to face forward (-Z)
+      grilles.push(new THREE.CircleGeometry(1.32, 24).rotateY(Math.PI).translate(s * 6.7, y, 5.2 - 1.12));
     }
-    pods.push(P(box(1.4, 1.5, 2.6), GOLD, { x: s * 6.9, y: 7.4, z: 4 }));
+    pods.push(P(box(1.5, 2.4, 1.4), GOLD, { x: s * 6.7, y: 6.8, z: 5.4 }));
   }
   group.add(mergedParts(pods, new THREE.MeshPhongMaterial({ color: GOLD, specular: 0xfff0b0, shininess: 70 })));
   const grille = canvasTexture(64, 64), back = canvasTexture(200, 120);
