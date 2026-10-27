@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MOOP_N, type Game } from "@/lib/playa";
+import { MOOP_N, nightLevel, type Game } from "@/lib/playa";
 import { hash } from "@/lib/scene3d";
 
 /**
@@ -42,10 +42,13 @@ export function buildLitter(scene: THREE.Scene): LitterMeshes {
       }
       moop.count = n; moop.instanceMatrix.needsUpdate = true; if (moop.instanceColor) moop.instanceColor.needsUpdate = true;
       const m2 = g.alt > 0 ? 0 : Math.min(g.dust.length, MAX_DUST);   // the sim spawns dust at any speed over 50, aloft too: none from a plane or a chute
+      // smaller and fainter than the top-down puffs, and dimmer still at night (asked 2026-10-27: too much dust behind the ride, worst at night)
+      const night = nightLevel(g.dayT), fade = 0.3 - 0.14 * night;
+      mat.color.setRGB(1 - 0.8 * night, 1 - 0.78 * night, 1 - 0.66 * night);   // by night the cream puffs go to a dark dust-blue, not white (asked 2026-10-27)
       for (let i = 0; i < m2; i++) {
         const p = g.dust[i], life = Math.max(0, p.life);
-        d.position.set(p.x, 1.5 + (1 - life) * 3, p.y); d.quaternion.copy(camera.quaternion); d.scale.setScalar(2 * p.size); d.updateMatrix(); dust.setMatrixAt(i, d.matrix);
-        alpha.setX(i, 0.55 * life);
+        d.position.set(p.x, 1.2 + (1 - life) * 2.2, p.y); d.quaternion.copy(camera.quaternion); d.scale.setScalar(1.3 * p.size); d.updateMatrix(); dust.setMatrixAt(i, d.matrix);
+        alpha.setX(i, fade * life);
       }
       d.quaternion.identity();
       dust.count = m2; dust.instanceMatrix.needsUpdate = true; alpha.needsUpdate = true;

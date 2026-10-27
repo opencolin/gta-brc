@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
-import { FENCE, GATE } from "@/lib/brc";
+import { ARCS, ARC_R, FENCE, FENCE_R, GATE, WIDE_RADIALS, polar } from "@/lib/brc";
 import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
 import { basic, hex, instanced, lambert, mergedParts, placed, registerGround, type Part } from "./materials";
@@ -93,6 +93,36 @@ function mountains(): THREE.Mesh {
  * as flat shapes over it, the shape beyond the fence, the fence and its posts, the airport's hangars, the Gate, the mountains.
  * Camps, the Man, the Temple and the café are camps.ts and places.ts.
  */
+/**
+ * The map's lettering, drawn again above the street flats (asked 2026-10-27: Gate Road's strip hid "4:30" from the air): the clock at each
+ * wide radial's end, the street letters along 6:06, "airport" and "gate", the same words at the same places and sizes as citymap.ts
+ * paints them, in one atlas canvas on one mesh, crisper than the map's own. The baked ones stay under them.
+ */
+function buildLabels(group: THREE.Group, maxAnisotropy: number): void {
+  const clock = (m: number) => `${Math.floor(m / 60) || 12}:${String(m % 60).padStart(2, "0")}`;
+  const ap = polar(252, FENCE_R * 1.09), g2 = polar(270, FENCE_R * 1.25);
+  const labels = [
+    ...WIDE_RADIALS.map((m) => { const p = polar(m, ARC_R.at(-1)! + 330); return { text: clock(m), x: p.x, y: p.y, ft: 180, weight: 700 }; }),
+    ...[0, 2, 4, 6, 8, 10, 12].map((i) => { const p = polar(606, ARC_R[i]); return { text: ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], x: p.x, y: p.y, ft: 120, weight: 600 }; }),
+    { text: "airport", x: ap.x, y: ap.y + 700, ft: 150, weight: 600 }, { text: "gate", x: g2.x, y: g2.y + 260, ft: 150, weight: 600 },
+  ];
+  const CW = 256, CH = 96, PX = 64, COLS = 4, rows = Math.ceil(labels.length / COLS);
+  const c = document.createElement("canvas"); c.width = CW * COLS; c.height = CH * rows;
+  const x = c.getContext("2d")!; x.fillStyle = PALETTE.navy; x.textAlign = "center"; x.textBaseline = "middle";
+  const quads: THREE.BufferGeometry[] = [];
+  labels.forEach((l, i) => {
+    const col = i % COLS, row = Math.floor(i / COLS);
+    x.font = `${l.weight} ${PX}px system-ui, sans-serif`;
+    x.fillText(l.text, col * CW + CW / 2, row * CH + CH / 2, CW - 8);
+    const q = new THREE.PlaneGeometry(l.ft * (CW / PX), l.ft * (CH / PX)), uv = q.getAttribute("uv") as THREE.BufferAttribute;   // the cell in feet at the map's font size
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, (col + uv.getX(k)) / COLS, 1 - (row + 1 - uv.getY(k)) / rows);
+    quads.push(q.rotateX(-Math.PI / 2).translate(l.x, 0, l.y));   // the texture's top is north, as the map's text stands
+  });
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAnisotropy;
+  const m = new THREE.Mesh(mergeGeometries(quads)!, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.mark }));
+  m.position.y = LAYER_Y.mark; m.renderOrder = LAYER.mark; group.add(m);
+}
+
 export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes {
   const group = new THREE.Group();
   const cy = (MAP_BOX.top + MAP_BOX.bottom) / 2;
@@ -177,5 +207,6 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   const ring = mountains(); group.add(ring);
 
   scene.add(group);
+  buildLabels(group, maxAnisotropy);
   return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; } };
 }
