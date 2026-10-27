@@ -7,6 +7,7 @@ import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, sou
 import { ART_CARS, drawGoldenTicket } from "./artcars";
 import { ART_PIECES } from "./artpieces";
 import { RidePicker } from "./RidePicker";
+import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
 import { hasWebGL2, readViewMode, VIEW_KEY, writeViewMode, type Renderer, type ViewMode } from "./view";
 import { wrapAngle } from "@/lib/view3d";
 import { drawAmbulance, drawSuperbike } from "./artplatforms";
@@ -705,13 +706,36 @@ function drawMan(ctx: CanvasRenderingContext2D, night: number) {
   ctx.beginPath(); ctx.arc(0, -36, 6, 0, Math.PI * 2); ctx.stroke();
   ctx.lineCap = "butt";
 }
-function drawTemple(ctx: CanvasRenderingContext2D) {
-  ctx.save(); ctx.translate(TEMPLE.x, TEMPLE.y);
-  ctx.fillStyle = "#d7c29a";
-  ctx.beginPath(); for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2 + Math.PI / 8; ctx.lineTo(Math.cos(a) * TEMPLE_R, Math.sin(a) * TEMPLE_R); } ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "#8a6d45"; ctx.lineWidth = 2; ctx.stroke();
-  ctx.beginPath(); for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * TEMPLE_R * 0.8, Math.sin(a) * TEMPLE_R * 0.8); } ctx.stroke();
-  ctx.fillStyle = "#f6ead2"; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+/** The Temple of the Moon from above (BRC 2026; the plan is lib/templeMoon.ts, shared with the 3D build): the circular fence with its eight moon gates, the ring of twenty pointed outer petals, the five crescent arms of the rosette, the crown ring round the tower and the stamen's globes, in pale timber by day and glowing amber at night. */
+function drawTemple(ctx: CanvasRenderingContext2D, night: number) {
+  const lit = night > 0.3, timber = lit ? "#f6c47a" : "#e0c690", edge = lit ? "#ffe3b0" : "#9c7b52", floor = lit ? "#6a4a26" : "#efe3c4";
+  ctx.save(); ctx.translate(TEMPLE.x, TEMPLE.y); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.fillStyle = floor; ctx.beginPath(); ctx.arc(0, 0, TEMPLE_FENCE_R - 2, 0, Math.PI * 2); ctx.fill();   // the courtyard inside the fence
+  // the twenty outer petals: pointed leaves lying turned off their radius
+  ctx.lineWidth = 1.4; ctx.strokeStyle = edge; ctx.fillStyle = timber;
+  for (const p of outerPetals()) {
+    const c = Math.cos(p.a), s = Math.sin(p.a), hl = p.len / 2, hw = p.wid / 2, at = (u: number, v: number) => [p.x + c * u - s * v, p.y + s * u + c * v] as const;
+    ctx.beginPath(); ctx.moveTo(...at(-hl, 0)); ctx.quadraticCurveTo(...at(-hl * 0.1, hw * 1.5), ...at(hl, 0)); ctx.quadraticCurveTo(...at(-hl * 0.1, -hw * 1.5), ...at(-hl, 0)); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // the five arms: crescent walls leaving the tower and folding back on themselves
+  ctx.lineCap = "round";
+  for (let k = 0; k < TEMPLE_ARMS; k++) {
+    ctx.beginPath();
+    for (let i = 0; i <= 36; i++) { const q = armPoint(k, i / 36); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.strokeStyle = edge; ctx.lineWidth = 6; ctx.stroke(); ctx.strokeStyle = timber; ctx.lineWidth = 3.4; ctx.stroke();
+  }
+  // the crown round the tower: sixteen petals' ring, and the stamen's globes in the middle
+  ctx.fillStyle = timber; ctx.strokeStyle = edge; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(0, 0, TEMPLE_TOWER_R + 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); for (let k = 0; k < TEMPLE_CROWN_N; k++) { const a = (k / TEMPLE_CROWN_N) * Math.PI * 2; ctx.moveTo(Math.cos(a) * 6, Math.sin(a) * 6); ctx.lineTo(Math.cos(a) * (TEMPLE_TOWER_R + 3), Math.sin(a) * (TEMPLE_TOWER_R + 3)); } ctx.stroke();
+  ctx.fillStyle = lit ? "#fff3d0" : "#fff8e4";
+  for (let k = 0; k < TEMPLE_STEMS; k++) { const t = stemTip(k); ctx.beginPath(); ctx.arc(t.x, t.y, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  // the fence: a lattice ring (dashes), a lamp on every fourth post, and the eight moon gates as bright bars across it
+  ctx.strokeStyle = edge; ctx.lineWidth = 3; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.arc(0, 0, TEMPLE_FENCE_R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = lit ? "#fff3d0" : "#fff8e4";
+  for (let k = 0; k < 12; k++) { const a = ((k * 4 + 0.5) / 48) * Math.PI * 2; ctx.beginPath(); ctx.arc(Math.cos(a) * TEMPLE_FENCE_R, Math.sin(a) * TEMPLE_FENCE_R, 2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.lineWidth = 4.5; ctx.strokeStyle = lit ? "#ffe0a0" : "#d9a85c";
+  for (let j = 0; j < TEMPLE_GATES; j++) { const a = gateAngle(j), x = Math.cos(a) * TEMPLE_FENCE_R, y = Math.sin(a) * TEMPLE_FENCE_R, tx = -Math.sin(a) * 7, ty = Math.cos(a) * 7; ctx.beginPath(); ctx.moveTo(x - tx, y - ty); ctx.lineTo(x + tx, y + ty); ctx.stroke(); }
   ctx.restore();
 }
 function drawArt(ctx: CanvasRenderingContext2D, a: (typeof ART)[number], t: number, night: number) {
@@ -1001,7 +1025,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   }
   if (seen(AGAVE.dome.x, AGAVE.dome.y, 240)) drawAgave(ctx, t, night);
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
-  if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_R + 20)) drawTemple(ctx);
+  if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_FENCE_R + 20)) drawTemple(ctx, night);
   for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t, night);
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
