@@ -14,6 +14,8 @@ import { buildArt, type ArtMeshes } from "./art";
 import { buildAgave, type AgaveMeshes } from "./agave";
 import { buildCars, type CarMeshes } from "./cars";
 import { buildTargets, type TargetMeshes } from "./targets";
+import { buildPeople, type PeopleMeshes } from "./people";
+import { buildCrowds, type CrowdMeshes } from "./crowds";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
@@ -48,6 +50,8 @@ export class ChaseRenderer implements Renderer {
   private agave!: AgaveMeshes;
   private cars!: CarMeshes;
   private targets!: TargetMeshes;
+  private people: PeopleMeshes | null = null;   // built at the first frame: it needs the game's NPC list
+  private crowds!: CrowdMeshes;
   private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -75,6 +79,8 @@ export class ChaseRenderer implements Renderer {
     this.agave = buildAgave(this.scene);
     this.cars = buildCars(this.scene);
     this.targets = buildTargets(this.scene);
+    this.crowds = buildCrowds(this.scene);
+    this.people = null;
     this.ride = buildRides(this.scene);
     addLights(this.scene);
   }
@@ -131,6 +137,8 @@ export class ChaseRenderer implements Renderer {
     nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
     this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
+    this.people ??= buildPeople(this.scene, g);
+    this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position);
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     this.renderer.render(this.scene, this.camera);
     const t1 = performance.now();
@@ -139,9 +147,9 @@ export class ChaseRenderer implements Renderer {
   }
 
   perf(): RenderPerf {
-    const n = this.samples.length, r = this.renderer.info, s = this.camps.stats();
+    const n = this.samples.length, r = this.renderer.info, s = this.camps.stats(), pe = this.people?.stats() ?? { ms: 0, shown: 0 };
     const ms = n > 1 ? this.samples.slice(1).reduce((a, x) => a + x.dt, 0) / (n - 1) : 0, cpuMs = n ? this.samples.reduce((a, x) => a + x.cpu, 0) / n : 0;
-    return { calls: r.render.calls, triangles: r.render.triangles, geometries: r.memory.geometries, textures: r.memory.textures, ms, fps: ms ? 1000 / ms : 0, cpuMs, extra: `${s.shown}/${s.meshes} camp meshes shown, ${s.prisms} pieces` };
+    return { calls: r.render.calls, triangles: r.render.triangles, geometries: r.memory.geometries, textures: r.memory.textures, ms, fps: ms ? 1000 / ms : 0, cpuMs, extra: `${s.shown}/${s.meshes} camp meshes shown, ${s.prisms} pieces, ${pe.shown} people + ${this.crowds.shown()} in crowds drawn in ${pe.ms.toFixed(2)} ms` };
   }
 
   project(p: Vec, up = 0): { x: number; y: number } | null {

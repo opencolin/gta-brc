@@ -101,7 +101,7 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
       for (const p of pieces) {
         const d = Math.hypot(p.a.x - cam.x, p.a.y - cam.z);
         p.g.visible = d < SHOW;
-        // redraw an animated decal at 10 Hz when it is near, and once more when it has drifted out
+        // redraw an animated decal at 10 Hz while it is near; farther off it keeps the picture it was last drawn with, so at night a far piece still shows its day one until it comes within LIVE (phase 4: repaint once when night changes)
         if (p.drawing && d < LIVE && g.t - p.last > 0.1) { p.drawing.paint(g.t, night); p.last = g.t; }
       }
     },

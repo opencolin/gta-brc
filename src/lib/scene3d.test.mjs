@@ -3,8 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIRPORT, ARCS, ARC_R, CENTER_CAMP, CENTER_CAMP_R, CITY_FROM, CITY_TO, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, clockToAngle, fenceDepth, polar, surfaceAt, toPolar } from "./brc.ts";
-import { cityPlan } from "./playa.ts";
-import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
+import { AGAVE, SPOTS, cityPlan } from "./playa.ts";
+import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, crowdSpots, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const plans = cityPlan();
@@ -274,4 +274,25 @@ test("the part of the fence inside the airport's wedge is what fenceGap says, an
   }
   const perimeter = FENCE.reduce((t, c, i) => t + Math.hypot(FENCE[(i + 1) % 5].x - c.x, FENCE[(i + 1) % 5].y - c.y), 0);
   near([...gap, ...kept].reduce((t, s) => t + len(s), 0), perimeter, 1e-6);
+});
+
+test("the crowds: 34 at Agave within 21 ft of the dome's rim on the bay's side, the generator PlayaWin's drawCrowd uses, about 2,860 in all", () => {
+  const agave = SPOTS.find((s) => s.key === "agave"), crowd = crowdSpots(agave), dir = Math.atan2(agave.mid.y - agave.stage.y, agave.mid.x - agave.stage.x);
+  assert.equal(crowd.length, 34);
+  for (const p of crowd) {
+    const d = Math.hypot(p.x - AGAVE.dome.x, p.y - AGAVE.dome.y);
+    assert.ok(d >= AGAVE.dome.r + 5 - 1e-9 && d <= AGAVE.dome.r + 21 + 1e-9, `${d} from the dome's centre`);
+    assert.ok(Math.abs(Math.atan2(Math.sin(p.a - dir), Math.cos(p.a - dir))) <= 1.6 + 1e-9, "within 1.6 rad of the bay's direction");
+    assert.ok(p.hue >= 0 && p.hue < 360 && p.rate >= 5 && p.rate < 8);
+  }
+  assert.ok(crowd.filter((p) => p.dancing).length > 15, "most are dancing");
+  // the generator, written out again: h = (h * 31 + char) >>> 0 over the key, then h = (h * 1664525 + 1013904223) >>> 0, draws a, d, hue, phase, rate, dancing
+  let h = 0; for (const ch of "agave") h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const a = dir + (rnd() - 0.5) * 3.2, d = AGAVE.dome.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360);
+  near(crowd[0].a, a, 1e-12); near(crowd[0].x, AGAVE.dome.x + Math.cos(a) * d, 1e-9); assert.equal(crowd[0].hue, hue);
+  const total = SPOTS.reduce((n, s) => n + crowdSpots(s).length, 0);
+  assert.ok(total > 2800 && total < 2900, `${total} people in all`);
+  assert.equal(crowdSpots(SPOTS.find((s) => s.camp?.piece)).length, 8);
+  assert.deepEqual(crowdSpots(agave), crowdSpots(agave), "the same people every time");
 });

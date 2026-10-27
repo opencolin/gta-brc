@@ -163,6 +163,27 @@ export function sectorBlocks(plans: readonly BlockPlan[]): { cx: number; cy: num
   return out;
 }
 
+/* ── the crowds at the stages ────────────────────────────────────────────── */
+
+/** One person of a stage's crowd: where they stand (game feet), the angle round the stage they stand at, their colour, and how they dance. */
+export type CrowdPerson = { x: number; y: number; a: number; hue: number; phase: number; rate: number; dancing: boolean };
+/**
+ * The crowd at a place you can stop, as PlayaWin's drawCrowd makes it (same seed from the place's key, same generator, same draws in the
+ * same order, so the same people stand in the same spots in both views): 34 at Agave, 8 at an art piece with its own stage, 12 at another
+ * art place, 20 everywhere else, on the bay's side of the stage within 21 ft of its rim, 72% of them dancing. About 2,860 over all SPOTS.
+ */
+export function crowdSpots(sp: { key: string; kind: string; camp?: { piece?: unknown }; stage: { x: number; y: number; r: number }; mid: Vec }): CrowdPerson[] {
+  let h = 0; for (const ch of sp.key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.camp?.piece ? 8 : sp.kind === "art" ? 12 : 20;
+  const out: CrowdPerson[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = dir + (rnd() - 0.5) * 3.2, d = st.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360), phase = rnd() * Math.PI * 2, rate = 5 + rnd() * 3, dancing = rnd() < 0.72;
+    out.push({ x: st.x + Math.cos(a) * d, y: st.y + Math.sin(a) * d, a, hue, phase, rate, dancing });
+  }
+  return out;
+}
+
 /* ── colours ─────────────────────────────────────────────────────────────── */
 
 /** hsl (degrees, percent, percent) as 0xRRGGBB in sRGB, the way CSS reads it. */
@@ -259,7 +280,7 @@ export function gateLayout(): { booths: Vec[]; poles: Vec[]; shade: Vec; yaw: nu
 
 /* ── the mountains ───────────────────────────────────────────────────────── */
 
-const hash = (n: number) => { let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
+export const hash = (n: number) => { let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 const smooth = (t: number) => t * t * (3 - 2 * t);
 /** Value noise that repeats every n columns, `cells` cells round. */
 function ringNoise(i: number, n: number, cells: number, seed: number): number {
