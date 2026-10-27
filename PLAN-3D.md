@@ -375,6 +375,16 @@ Tests (`view3d.test.mjs`): `groundFlats()` has 13 arcs, 17 radials, 192 blocks, 
 
 **1.5 Phase 1 acceptance:** the four checks above; 60 fps on a laptop (`requestAnimationFrame` timestamps averaged over 2 s, printed with the same dev key); `npm test` (tests from 1.1 added) and the gate. Commit after 1.2, 1.3 and 1.5.
 
+**Phase 1 as built (2026-10-27)**: steps 1.1 to 1.4 are in (commits 5d77149, ecedc06, 43a5277, 01aa4bd); where the code differs from the text above, the code is right:
+- The pure builders are in `src/lib/scene3d.ts` (with `scene3d.test.mjs`), not `view3d.ts`, which is in the main chunk. Extra prism kinds: `dome-wire`, `stage-lip`, `flag-cloth`; `Prism.w` is an arch's width. `Flat.layer` carries the polygon-offset layer; `LAYER_Y`/`LAYER` give the heights and layers.
+- Camps are instanced **by geometry class**, not by `StructKind` (all plain boxes share one unit box and one white Lambert material, the colour is per instance): 256 meshes in all, about 15 per wedge, a busy street about 60 draw calls, the worst of 104 positions 86. Big shapes cull at 2,600 ft, small details (poles, flag cloth, sign boards, dome wire, bike rows) at 1,500 ft (`CULL`, `DETAIL` in `camps.ts`). Hemispheres are 8x2 segments and a parked bike is one box (the plan's counts would be about 800k triangles for the bikes alone).
+- Curves: three.js doubles the segment count you pass an arc, so streets use 96 (the text's "64 gives about 1 ft" is about 4 ft; the default 12 puts L 120 ft off its circle).
+- Ground flats are unlit `MeshBasicMaterial`s so daylight matches the 2D painter; phase 4 must dim them at night. `surroundImage()` (now exported with `AROUND`) is the far ground plane under the city map.
+- Glow: arches, stage lips and canopies add `vColor.rgb * uNight * k` to `totalEmissiveRadiance` through `onBeforeCompile` (`vColor` is a vec4 in this three build, so use `.rgb`); `nightUniform` in `camps.ts` is set from `view.night` each frame.
+- Measured (Apple M5, 1024x768, headless Chrome): at most 86 draw calls and 305k triangles anywhere in the city, 60 fps capped and about 700 fps uncapped. Phones are untested (phase 5). Bundles: main chunk +2.1 KB gzip, `three` + `renderer` 149 KB gzip.
+- Dev key `P` (DEV builds only) prints draw calls, triangles and frame times; `Renderer.perf?()` feeds it.
+- Still to come from this phase's list: nothing. The camera button and help line are hidden until phase 2 draws bays and the target ring.
+
 ### Phase 2: places (≈ 16 h)
 
 **Goal:** stages, bays, the art pieces, Agave's domes, the art cars (roaming, parked and driven, the Dragon Lady included); you can stop at any camp or piece and its panel opens; you can drive any found car.
