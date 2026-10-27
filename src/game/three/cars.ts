@@ -3,6 +3,7 @@ import { MUTANTS, drivenKey, npcAt, type Game } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import { ART_CARS } from "../artcars";
 import { carRoof, hullSize, roofSize, type Drawing } from "./decals";
+import { bigImagination } from "./bigImagination";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 
 /**
@@ -21,6 +22,13 @@ export type CarMeshes = {
   roofAt(g: Game): number;
 };
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
+
+/** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts) and Big Imagination's 747 (bigImagination.ts). `roof`: how high a ride on top of it stands. */
+type Model = Ticket & { roof: number };
+const MODELS: Record<string, () => Model> = {
+  "golden-ticket": () => ({ ...goldenTicket(), roof: 9.4 }),
+  "big-imagination-747": () => { const j = bigImagination(); return { group: j.group, paint: j.paint, roof: j.roof }; },
+};
 
 /** hullX and hullZ: where the hull's centre is from the car's, to the right and toward the tail (the art is not always centred on the car). */
 type Kit = { id: string; w: number; l: number; hullW: number; hullL: number; hullH: number; hullX: number; hullZ: number; color: number; roof: Drawing | null };
@@ -54,7 +62,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const group = new THREE.Group();
   const cars = MUTANTS.map((m) => {
     const id = m.key!.slice(m.key!.indexOf(":") + 1);
-    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, nf: false, shown: true, ticket: null as Ticket | null };
+    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, nf: false, shown: true, ticket: null as Model | null };
   });
   const roofMat = (d: Drawing) => new THREE.MeshBasicMaterial({ map: d.tex, alphaTest: 0.04, side: THREE.DoubleSide });
   const roofOf = (k: Kit): THREE.Mesh | null => {
@@ -63,8 +71,8 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
     m.position.y = k.hullH + 0.15; m.visible = false; return m;
   };
   for (const c of cars) {
-    // the Golden Ticket is a model of its own (goldenTicket.ts: the pods, the sign, the lights) in place of a hull, a skirt, wheels and a roof
-    if (c.id === "golden-ticket") { c.ticket = goldenTicket(); c.ticket.group.visible = false; group.add(c.ticket.group); continue; }
+    // the Golden Ticket and the 747 are models of their own (goldenTicket.ts: the pods, the sign, the lights; bigImagination.ts) in place of a hull, a skirt, wheels and a roof
+    if (MODELS[c.id]) { c.ticket = MODELS[c.id](); c.ticket.group.visible = false; group.add(c.ticket.group); continue; }
     c.roofMesh = roofOf(c.kit); if (c.roofMesh) group.add(c.roofMesh);
   }
 
@@ -82,7 +90,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const driven = (id: string, hue: number): THREE.Group => {
     let g = mine.get(id);
     if (g) return g;
-    if (id === "golden-ticket") { g = goldenTicket().group; g.visible = false; scene.add(g); mine.set(id, g); return g; }
+    if (MODELS[id]) { g = MODELS[id]().group; g.visible = false; scene.add(g); mine.set(id, g); return g; }
     const k = kitOf(id, hue); g = new THREE.Group();
     const hull = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: k.color })); hull.scale.set(k.hullW, k.hullH, k.hullL); hull.position.set(k.hullX, k.hullH / 2 + 1.5, k.hullZ);
     const skirt = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x1b1f3b })); skirt.scale.set(k.hullW + 2, 2, k.hullL + 2); skirt.position.set(k.hullX, 1, k.hullZ);
@@ -94,7 +102,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   };
 
   const d = new THREE.Object3D(), base = new THREE.Matrix4(), local = new THREE.Matrix4(), out = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  cars.forEach((c, i) => { if (!c.ticket) return; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }); // the Golden Ticket never uses its instanced slots
+  cars.forEach((c, i) => { if (!c.ticket) return; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }); // the models never use their instanced slots
   let lastDriven = 0;
   const drivenId = (g: Game): string | null => {
     const key = drivenKey();
@@ -105,7 +113,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   return {
     group,
     drivenId,
-    roofAt: (g) => { if (!g.aboard) return 0; const c = cars.find((x) => x.m.key === g.aboard); return c ? (c.ticket ? 9.4 : c.kit.hullH + 1.65) : 0; },
+    roofAt: (g) => { if (!g.aboard) return 0; const c = cars.find((x) => x.m.key === g.aboard); return c ? (c.ticket ? c.ticket.roof : c.kit.hullH + 1.65) : 0; },
     update(g, cam, night) {
       const own = drivenKey();
       cars.forEach((c, i) => {

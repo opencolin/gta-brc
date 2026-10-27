@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CENTER_CAMP, TEMPLE } from "@/lib/brc";
-import { AGAVE, ART, MUTANTS, SPOTS, npcAt, vehicleOf, type Game } from "@/lib/playa";
+import { AGAVE, ART, MUTANTS, SPOTS, drivenKey, npcAt, vehicleOf, type Game } from "@/lib/playa";
 import { DAY_SECONDS } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import type { ViewState } from "../view";
@@ -91,6 +91,8 @@ const LAMPS: Lamp[] = (() => {
 
 export type Lights = { update(g: Game, view: ViewState, cam: THREE.Vector3, dt: number): void };
 const NEAR_LAMPS = 8, CAR_LAMPS = 2, RESORT = 0.5;
+/** How high an art car's lamp rides when it is not 18 ft (a model that tall is lit by it from inside otherwise). */
+const LAMP_Y: Record<string, number> = { "mutant:big-imagination-747": 40 };
 
 /**
  * The lights: the hemisphere fill and the sun by day (the sun lower, warmer and dimmer toward dusk), a faint cool moon, your headlight, and a fixed pool of
@@ -141,7 +143,9 @@ export function addLights(scene: THREE.Scene): Lights {
         for (let i = 0; i < NEAR_LAMPS; i++) { const w = pool[i].want; if (w && chosen.has(w)) free.splice(free.indexOf(w), 1); else pool[i].want = null; }
         for (let i = 0; i < NEAR_LAMPS; i++) if (!pool[i].want) { const l = free.shift(); if (l) { pool[i].want = l; pool[i].k = 0; pool[i].light.position.set(l.x, l.y, l.z); pool[i].light.color.setHex(l.color); pool[i].light.distance = l.dist; pool[i].light.decay = l.decay; pool[i].I = l.I; } }
         // the two nearest art cars within 300 ft, in their colours
-        const cars = MUTANTS.map((m) => { const p = npcAt(m, g.t); return { m, p, d: Math.hypot(p.x - ride.x, p.y - ride.z) }; }).filter((c) => c.d < 300).sort((a, b) => a.d - b.d).slice(0, CAR_LAMPS);
+        // (not the car you drive: its lamp would light it from within, and a 747's wings are 10 ft from it)
+        const own = drivenKey();
+        const cars = MUTANTS.map((m) => { const p = npcAt(m, g.t); return { m, p, d: Math.hypot(p.x - ride.x, p.y - ride.z) }; }).filter((c) => c.d < 300 && c.m.key !== own).sort((a, b) => a.d - b.d).slice(0, CAR_LAMPS);
         for (let i = 0; i < CAR_LAMPS; i++) {
           const slot = pool[NEAR_LAMPS + i], c = cars[i];
           if (c) { slot.light.color.setHex(hslHex(c.m.hue, 90, 62)); slot.light.distance = 130; slot.light.decay = 1.4; slot.I = 2400; slot.want = LAMPS[0]; slot.car = c.m; } else { slot.want = null; slot.car = null; }
@@ -151,7 +155,7 @@ export function addLights(scene: THREE.Scene): Lights {
         const s = pool[i];
         s.k = s.want ? Math.min(1, s.k + dt / 0.35) : Math.max(0, s.k - dt / 0.35);
         s.light.intensity = s.I * s.k * night * (s.want?.flicker ? 1 + 0.2 * Math.sin(g.t * 17) * Math.sin(g.t * 7.3 + 1) : 1);   // the Man's fire flickers
-        if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, 18, p.y); }   // an art car's lamp rides with it
+        if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, LAMP_Y[s.car.key ?? ""] ?? 18, p.y); }   // an art car's lamp rides with it, above it (over a 747's fin)
         // the unlit ground sees the same lamps (materials.ts groundLight): position and range, colour times candelas, and the falloff's power
         const l = s.light, I = l.intensity;
         groundLight.lampA.value[i].set(l.position.x, l.position.y, l.position.z, l.distance);
