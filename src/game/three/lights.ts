@@ -91,8 +91,8 @@ const LAMPS: Lamp[] = (() => {
 
 export type Lights = { update(g: Game, view: ViewState, cam: THREE.Vector3, dt: number): void };
 const NEAR_LAMPS = 8, CAR_LAMPS = 2, RESORT = 0.5;
-/** How high an art car's lamp rides when it is not 18 ft (a model that tall is lit by it from inside otherwise). */
-const LAMP_Y: Record<string, number> = { "mutant:big-imagination-747": 40 };
+/** An art car's lamp rides 18 ft up at full strength (2,400 cd) unless it is listed here: a model that tall (a 747, a yacht with a bridge and a mast) is lit by it from inside or from a few feet off, which blows it out, so its lamp rides higher and weaker. */
+const LAMP: Record<string, { y: number; k: number }> = { "mutant:big-imagination-747": { y: 50, k: 0.18 }, "mutant:dragon-lady": { y: 52, k: 0.18 } };
 
 /**
  * The lights: the hemisphere fill and the sun by day (the sun lower, warmer and dimmer toward dusk), a faint cool moon, your headlight, and a fixed pool of
@@ -154,8 +154,8 @@ export function addLights(scene: THREE.Scene): Lights {
       for (let i = 0; i < pool.length; i++) {
         const s = pool[i];
         s.k = s.want ? Math.min(1, s.k + dt / 0.35) : Math.max(0, s.k - dt / 0.35);
-        s.light.intensity = s.I * s.k * night * (s.want?.flicker ? 1 + 0.2 * Math.sin(g.t * 17) * Math.sin(g.t * 7.3 + 1) : 1);   // the Man's fire flickers
-        if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, LAMP_Y[s.car.key ?? ""] ?? 18, p.y); }   // an art car's lamp rides with it, above it (over a 747's fin)
+        s.light.intensity = s.I * s.k * night * (s.car ? LAMP[s.car.key ?? ""]?.k ?? 1 : 1) * (s.want?.flicker ? 1 + 0.2 * Math.sin(g.t * 17) * Math.sin(g.t * 7.3 + 1) : 1);   // the Man's fire flickers
+        if (s.car) { const p = npcAt(s.car, g.t); s.light.position.set(p.x, LAMP[s.car.key ?? ""]?.y ?? 18, p.y); }   // an art car's lamp rides with it, above it
         // the unlit ground sees the same lamps (materials.ts groundLight): position and range, colour times candelas, and the falloff's power
         const l = s.light, I = l.intensity;
         groundLight.lampA.value[i].set(l.position.x, l.position.y, l.position.z, l.distance);
