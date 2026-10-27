@@ -13,6 +13,7 @@ import { buildStages, type StageMeshes } from "./stages";
 import { buildArt, type ArtMeshes } from "./art";
 import { buildAgave, type AgaveMeshes } from "./agave";
 import { buildCars, type CarMeshes } from "./cars";
+import { buildTargets, type TargetMeshes } from "./targets";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
@@ -46,6 +47,7 @@ export class ChaseRenderer implements Renderer {
   private art!: ArtMeshes;
   private agave!: AgaveMeshes;
   private cars!: CarMeshes;
+  private targets!: TargetMeshes;
   private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -72,6 +74,7 @@ export class ChaseRenderer implements Renderer {
     this.art = buildArt(this.scene, this.renderer);
     this.agave = buildAgave(this.scene);
     this.cars = buildCars(this.scene);
+    this.targets = buildTargets(this.scene);
     this.ride = buildRides(this.scene);
     addLights(this.scene);
   }
@@ -127,8 +130,8 @@ export class ChaseRenderer implements Renderer {
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
     this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
-    this.cars.update(g, this.camera.position, view.night);
-    updateRide(this.ride, g, view, this.cars.drivenId(g));
+    this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
+    updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     this.renderer.render(this.scene, this.camera);
     const t1 = performance.now();
     this.samples.push({ at: t1, dt: this.samples.length ? t1 - this.samples[this.samples.length - 1].at : 0, cpu: t1 - t0 });

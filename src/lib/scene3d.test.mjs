@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIRPORT, ARCS, ARC_R, CENTER_CAMP, CENTER_CAMP_R, CITY_FROM, CITY_TO, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, clockToAngle, fenceDepth, polar, surfaceAt, toPolar } from "./brc.ts";
 import { cityPlan } from "./playa.ts";
-import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
+import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const plans = cityPlan();
@@ -244,6 +244,9 @@ test("the plazas, rings, runways and Gate Road are where brc.ts has them, at the
   const mid = (r) => ({ x: (r.from.x + r.to.x) / 2, y: (r.from.y + r.to.y) / 2 });
   near(Math.hypot(mid(runways[0]).x - mid(runways[1]).x, mid(runways[0]).y - mid(runways[1]).y), 2 * AIRPORT.runwayOff, 1e-6);
   near((mid(runways[0]).x + mid(runways[1]).x) / 2, AIRPORT.at.x, 1e-6); near((mid(runways[0]).y + mid(runways[1]).y) / 2, AIRPORT.at.y, 1e-6);
+  // the apron the hangars stand on: 90 ft wide, from 1,800 ft before the airport's middle to 400 after, 285 ft off the runways' line (drawAirport)
+  const apron = strips.find((f) => f.width === 90);
+  near(apron.from.x, AIRPORT.local(-1800, -285).x); near(apron.from.y, AIRPORT.local(-1800, -285).y); near(apron.to.x, AIRPORT.local(400, -285).x); near(apron.to.y, AIRPORT.local(400, -285).y);
 });
 
 test("the shapes' heights: a pod is 7 ft, a tent 8 ft to its tip, a dome as tall as it is wide, a canopy and a shade on poles", () => {
@@ -259,5 +262,16 @@ test("the shapes' heights: a pod is 7 ft, a tent 8 ft to its tip, a dome as tall
   const [rv, rvRoof] = one("rv", 28, 10); near(rv.y + rv.sy / 2, H.rv); near(rvRoof.y - rvRoof.sy / 2, H.rv);
   // the structs of the whole city are where the sim has them: every prism sits within its block's circle (plus its own size)
   const circles = sectorBlocks(plans);
-  for (const p of campPrisms(plans).slice(0, 4000)) { const c = circles[p.sector].find((b) => b.ring === p.ring); assert.ok(Math.hypot(p.x - c.cx, p.z - c.cy) < c.br + 30, `${p.kind} in its block's circle`); }
+  for (const p of campPrisms(plans)) { const c = circles[p.sector].find((b) => b.ring === p.ring); assert.ok(Math.hypot(p.x - c.cx, p.z - c.cy) < c.br + 30, `${p.kind} in its block's circle`); }
+});
+
+test("the part of the fence inside the airport's wedge is what fenceGap says, and with the fence's pieces it is the whole pentagon", () => {
+  const gap = fenceGap(), kept = fenceSegments(), len = ({ a, b }) => Math.hypot(b.x - a.x, b.y - a.y);
+  assert.ok(gap.length >= 1);
+  for (const { a, b } of gap) for (let k = 0; k <= 10; k++) {
+    const p = { x: a.x + ((b.x - a.x) * k) / 10, y: a.y + ((b.y - a.y) * k) / 10 }, m = toPolar(p).min;
+    assert.ok(Math.abs(fenceDepth(p).depth) < 1e-6, "on the fence line"); assert.ok(m >= AIRPORT.gap.from - 1e-6 && m <= AIRPORT.gap.to + 1e-6, `${m} in the wedge`);
+  }
+  const perimeter = FENCE.reduce((t, c, i) => t + Math.hypot(FENCE[(i + 1) % 5].x - c.x, FENCE[(i + 1) % 5].y - c.y), 0);
+  near([...gap, ...kept].reduce((t, s) => t + len(s), 0), perimeter, 1e-6);
 });

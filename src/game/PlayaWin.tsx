@@ -1202,15 +1202,17 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     const m = 34, s = proj(tg.at);
     if (s) {
       if (yaw !== null) {
-        // the chase view draws no ring on the ground (the 3D bays and target ring come with phase 2), so the target is marked here: a pulsing
-        // pink ring sized by distance (as tall on the screen as a STOP_R pillar standing on it), with a beam rising from it to be found from afar
+        // the chase view's own ring lies on the ground (three/targets.ts); this adds a beam rising from the target to be found from afar, and, where the
+        // ground ring is too small to make out, a pulsing ring sized by distance (as tall on the screen as a STOP_R pillar standing on it)
         const top = proj(tg.at, STOP_R), pulse = 0.5 + 0.5 * Math.sin(t * 5);
         const rr = Math.min(Math.min(w, h) * 0.35, Math.max(9, top ? Math.abs(s.y - top.y) : 9)) * (0.85 + 0.15 * pulse);
         const beam = proj(tg.at, 600);
         if (beam) { ctx.strokeStyle = `rgba(255, 107, 154, ${0.35 + 0.25 * pulse})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(beam.x, beam.y); ctx.stroke(); }
-        ctx.strokeStyle = C.pink; ctx.lineWidth = 4; ctx.setLineDash([12, 8]);
-        ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = `rgba(255, 107, 154, ${0.15 + 0.15 * pulse})`; ctx.fill();
+        if (rr < 26) {
+          ctx.strokeStyle = C.pink; ctx.lineWidth = 4; ctx.setLineDash([12, 8]);
+          ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = `rgba(255, 107, 154, ${0.15 + 0.15 * pulse})`; ctx.fill();
+        }
       }
       const sx = s.x, sy = s.y;
       if (sx < m || sx > w - m || sy < m || sy > h - m) {

@@ -16,6 +16,8 @@ export type CarMeshes = {
   update(g: Game, cam: THREE.Vector3, night: number): void;
   /** The id of the art car you are driving (its roof drawing exists), else null: rides.ts then draws no ride of its own. */
   drivenId(g: Game): string | null;
+  /** How high the roof of the art car you are riding along on is (g.aboard), else 0: your ride stands on it. */
+  roofAt(g: Game): number;
 };
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
 
@@ -94,6 +96,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   return {
     group,
     drivenId,
+    roofAt: (g) => { if (!g.aboard) return 0; const c = cars.find((x) => x.m.key === g.aboard); return c ? c.kit.hullH + 1.65 : 0; },
     update(g, cam, night) {
       const own = drivenKey();
       cars.forEach((c, i) => {

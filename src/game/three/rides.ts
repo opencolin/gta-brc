@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import { vehicleOf, type Game, type VehicleId } from "@/lib/playa";
+import { AIRPORT } from "@/lib/brc";
+import type { Game, VehicleId } from "@/lib/playa";
 import { LAYER } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
-import { angelTexture, carRoof } from "./decals";
+import { angelTexture, carRoof, planeShadowTexture } from "./decals";
 import { mergedParts, shaped as P, type Part } from "./materials";
 
 /**
@@ -21,8 +22,11 @@ export type RideMeshes = {
   brakes: THREE.Mesh[];
   /** the plane's propeller, spun with the game clock */
   props: THREE.Mesh[];
-  /** the plane you bailed out of, flying on */
+  /** the plane you bailed out of, flying on, and the one waiting on the pad */
   plane2: THREE.Group;
+  padPlane: THREE.Group;
+  /** a plane's shadow: yours, the one you bailed out of, the one on the pad */
+  planeShadows: THREE.Mesh[];
   shadow: THREE.Mesh;
   angels: THREE.InstancedMesh;
 };
@@ -89,7 +93,9 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
     return g;
   };
   add("plane", makePlane());
-  const plane2 = makePlane(); group.add(plane2);
+  const plane2 = makePlane(), padPlane = makePlane(); group.add(plane2, padPlane);
+  const planeShadowMat = () => new THREE.MeshBasicMaterial({ map: planeShadowTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal });
+  const planeShadows = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), planeShadowMat()); m.position.y = 0.4; m.renderOrder = LAYER.decal; m.visible = false; group.add(m); return m; });
   // you under the chute: a striped canopy on lines over the rider hanging at the bottom
   { const slices = Array.from({ length: 8 }, (_, k): Part => P(new THREE.SphereGeometry(14, 3, 8, (k * Math.PI) / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? PINK : 0xfbf7ef, { y: 22, sy: 0.9 }));
     const lines = Array.from({ length: 8 }, (_, k): Part => { const a = (k * Math.PI) / 4, x = Math.cos(a) * 13, z = Math.sin(a) * 13, len = Math.hypot(x, z, 20), g = cyl(0.12, 0.12, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-x, -20, -z).normalize())); return { geo: g.translate(x / 2, 22 - 10, z / 2), color: 0x4a4f6e }; });
@@ -104,38 +110,55 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }), 64);
   angels.count = 0; angels.frustumCulled = false; angels.renderOrder = LAYER.decal; group.add(angels);
   scene.add(group);
-  return { group, models, brakes, props, plane2, shadow, angels };
+  return { group, models, brakes, props, plane2, padPlane, planeShadows, shadow, angels };
 }
 
 const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
 const dummy = new THREE.Object3D();
 
-/** `carId`: the art car you are driving, if cars.ts is drawing it (then there is no ride of its own to show). */
-export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: string | null): void {
-  const v = vehicleOf(g);
+/**
+ * `carId`: the art car you are driving, if cars.ts is drawing it (then there is no ride of its own to show); `lift`: how high the roof is
+ * of the art car you are riding along on (0 if none), which your ride then stands on, without a shadow of its own.
+ */
+export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: string | null, lift = 0): void {
   for (const m of Object.values(r.models)) m.visible = false;
   const which = g.angelT > 0 ? "angelmaker" : g.chute ? "chute" : carId ? null : (ID[g.vehicle] ?? "bike");
   const m = which ? r.models[which] : null;
   const flying = g.vehicle === "plane" || g.chute;
-  if (m) { m.visible = true; m.position.set(g.car.x, which === "chute" ? g.alt : flying ? g.alt : 0, g.car.y); m.rotation.y = yawOf(g.car.h); }
+  if (m) { m.visible = true; m.position.set(g.car.x, flying ? g.alt : lift, g.car.y); m.rotation.y = yawOf(g.car.h); }
   for (const b of r.brakes) b.visible = view.brake;
   for (const p of r.props) p.rotation.z = g.t * 42;
-  // the golden ticket's roof drawing redraws as it moves
+  // the golden ticket's roof drawing redraws as it moves, ten times a second like the other decals
   const roof = r.models.artcar.children.find((c) => c.userData.drawing);
-  if (roof && which === "artcar") (roof.userData.drawing as { paint(t: number, n: number): void }).paint(g.t, view.night);
+  if (roof && which === "artcar" && g.t - ((roof.userData.last as number | undefined) ?? -1) > 0.1) { (roof.userData.drawing as { paint(t: number, n: number): void }).paint(g.t, view.night); roof.userData.last = g.t; }
+  // a plane's shadow lies off to one side by its height (the sun is up and to the left, as the 2D has it) and fades as it rises
+  const planeShadow = (s: THREE.Mesh, x: number, y: number, h: number, alt: number) => {
+    s.visible = true; s.position.set(x + alt * 0.5, 0.4, y + alt * 0.4); s.rotation.y = yawOf(h); (s.material as THREE.MeshBasicMaterial).opacity = 1 / (1 + alt / 600);
+  };
   // the plane you bailed out of
   r.plane2.visible = !!g.plane;
-  if (g.plane) { r.plane2.position.set(g.plane.x, g.plane.alt, g.plane.y); r.plane2.rotation.y = yawOf(g.plane.h); }
-  // the shadow: under the ride, off to one side by its height (the sun is up and to the left, as the 2D has it), fading as it rises
-  const alt = g.chute || g.vehicle === "plane" ? g.alt : 0, show = !!m && which !== "angelmaker" && which !== null;
-  r.shadow.visible = show;
-  if (show) {
-    r.shadow.position.set(g.car.x + alt * 0.5, 0.4, g.car.y + alt * 0.4); r.shadow.rotation.y = yawOf(g.car.h);
-    r.shadow.scale.set(Math.max(4, v.wid * 0.55), 1, Math.max(6, v.len * 0.6));
-    (r.shadow.material as THREE.MeshBasicMaterial).opacity = 0.25 / (1 + alt / 600);
+  r.planeShadows[1].visible = false;
+  if (g.plane) { r.plane2.position.set(g.plane.x, g.plane.alt, g.plane.y); r.plane2.rotation.y = yawOf(g.plane.h); planeShadow(r.planeShadows[1], g.plane.x, g.plane.y, g.plane.h, g.plane.alt); }
+  // the plane waiting on the pad, whenever you are not in one (the sim keeps it there, E takes it)
+  r.padPlane.visible = g.vehicle !== "plane";
+  r.planeShadows[2].visible = false;
+  if (r.padPlane.visible) { r.padPlane.position.set(AIRPORT.pad.x, 0, AIRPORT.pad.y); r.padPlane.rotation.y = yawOf(AIRPORT.h); planeShadow(r.planeShadows[2], AIRPORT.pad.x, AIRPORT.pad.y, AIRPORT.h, 0); }
+  // your own shadow: the plane's, the chute's (an ellipse 28 x 22 ft, no heading) or a soft ellipse under the ride; none aboard an art car or lying in the dust
+  const alt = g.chute || g.vehicle === "plane" ? g.alt : 0, plane = g.vehicle === "plane" && !g.chute && g.angelT <= 0;
+  r.planeShadows[0].visible = false;
+  r.shadow.visible = false;
+  if (m && !g.aboard && which !== "angelmaker") {
+    if (plane) planeShadow(r.planeShadows[0], g.car.x, g.car.y, g.car.h, alt);
+    else {
+      const chute = which === "chute", wid = which === "found" ? 20 : which === "fish" ? 20 : 7, len = which === "found" || which === "fish" ? 36 : 16;
+      r.shadow.visible = true; r.shadow.position.set(g.car.x + alt * 0.5, 0.4, g.car.y + alt * 0.4);
+      r.shadow.rotation.y = chute ? 0 : yawOf(g.car.h);
+      r.shadow.scale.set(chute ? 14 : Math.max(4, wid * 0.55), 1, chute ? 11 : Math.max(6, len * 0.6));
+      (r.shadow.material as THREE.MeshBasicMaterial).opacity = (chute ? 0.2 : 0.25) / (1 + alt / 600);
+    }
   }
-  // the angels
-  const n = Math.min(64, g.angels.length);
-  for (let i = 0; i < n; i++) { dummy.position.set(g.angels[i].x, 0.35, g.angels[i].y); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); r.angels.setMatrixAt(i, dummy.matrix); }
+  // the angels (the last 64 left), centred where the sim has them (the drawing's middle is 5 ft south of the spot it was drawn from)
+  const n = Math.min(64, g.angels.length), from = g.angels.length - n;
+  for (let i = 0; i < n; i++) { const a = g.angels[from + i]; dummy.position.set(a.x, 0.35, a.y + 5); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); r.angels.setMatrixAt(i, dummy.matrix); }
   r.angels.count = n; r.angels.instanceMatrix.needsUpdate = true;
 }

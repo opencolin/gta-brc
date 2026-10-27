@@ -44,12 +44,71 @@ export function pieceDrawing(id: string, r: number): Drawing | null {
   return drawing(256, 256, 256 / side, (c, t, n) => draw(c, t, n, r), side, side);
 }
 
-/** The drawings' extent in feet (width, length) by art car: 40 × 66 unless said. */
-const BIG = new Set(["big-imagination-747", "dragonfly", "el-pulpo-mecanico", "funkadelephant", "hermes", "technogecko", "discow", "luna-the-artcrane"]);
+/**
+ * The drawings' extent in feet (width, length) by art car, measured once from the drawings themselves (artcars.ts, artplatforms.ts): each drawn on
+ * a large canvas by day and by night at five times, the box round its opaque pixels, doubled to the larger of |x| and |y| as PLAN-3D.md 2.1 says,
+ * plus 2 ft, up to even. Night effects count only up to 30% past the car's day size (a laser sweeping 140 ft is the night's work, not the car's).
+ * A roof and its hull are this big; any car with no entry is the usual 40 × 66.
+ */
+const ROOF: Record<string, [number, number]> = {
+  amphora: [34, 72],
+  axolotl: [48, 70],
+  baaahs: [42, 72],
+  "big-imagination-747": [68, 70],
+  "bipolar-express": [26, 64],
+  blockhaus: [34, 64],
+  "celestial-sideshow": [30, 86],
+  chelonix: [30, 78],
+  "church-of-the-open-mind": [30, 86],
+  damavand: [32, 66],
+  dancetronauts: [34, 68],
+  "disco-doge": [44, 80],
+  discow: [44, 110],
+  "dont-panic": [34, 64],
+  "dr-brainlove": [34, 64],
+  "dragon-lady": [42, 134],
+  dragonfly: [68, 70],
+  "el-pulpo-mecanico": [58, 80],
+  "eye-of-horus": [36, 64],
+  "favela-art-car": [34, 64],
+  funkadelephant: [50, 84],
+  "galactic-jungle": [38, 80],
+  "golden-gate-art-car": [34, 66],
+  "golden-ticket": [16, 24],
+  "heart-car": [32, 56],
+  "heavy-meta": [38, 86],
+  "hels-diner": [30, 86],
+  hermes: [52, 72],
+  jaguara: [38, 84],
+  kalliope: [36, 88],
+  "krusty-bunny": [32, 56],
+  kuker: [30, 72],
+  "lonely-submarine": [32, 78],
+  "lucy-s-cargo": [32, 66],
+  "luna-the-artcrane": [86, 128],
+  maxa: [38, 80],
+  "mayan-warrior": [48, 82],
+  "mighty-misfits": [38, 80],
+  nudibranch: [30, 70],
+  "playa-peace-project": [32, 56],
+  rexan: [32, 82],
+  "robot-heart": [36, 64],
+  "smile-high": [34, 64],
+  "sol-riser": [32, 66],
+  technogecko: [44, 84],
+  "the-scarab": [40, 70],
+  "the-slug": [28, 80],
+  thor: [38, 80],
+  "titanics-end": [36, 94],
+  tommy: [32, 56],
+  treehouse: [38, 80],
+  trion: [26, 64],
+  unimog: [38, 80],
+  "whomp-wagon": [36, 64]
+};
 export function roofSize(id: string): { w: number; l: number } {
-  if (id === "dragon-lady") return { w: 44, l: 136 };
-  if (id === "golden-ticket") return { w: 14, l: 22 };
-  return BIG.has(id) ? { w: 66, l: 80 } : { w: 40, l: 66 };
+  const [w, l] = ROOF[id] ?? [40, 66];
+  return { w, l };
 }
 const K = 3;   // px per foot
 
@@ -118,6 +177,15 @@ export function angelTexture(): THREE.CanvasTexture {
   x.fillStyle = "rgba(255, 250, 238, .75)";
   x.beginPath(); x.moveTo(-6, -4); x.quadraticCurveTo(-30, -14, -34, 10); x.quadraticCurveTo(-20, 8, -8, 4); x.lineTo(-12, 26); x.lineTo(0, 10); x.lineTo(12, 26); x.lineTo(8, 4); x.quadraticCurveTo(20, 8, 34, 10); x.quadraticCurveTo(30, -14, 6, -4); x.closePath(); x.fill();
   x.beginPath(); x.arc(0, -11, 6, 0, Math.PI * 2); x.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** The shadow a plane casts, as drawPlaneShadow paints it on the ground (a wing and a fuselage), on a 64² canvas covering 40 ft; nose up. */
+export function planeShadowTexture(): THREE.CanvasTexture {
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const x = c.getContext("2d")!; x.translate(32, 32); x.scale(1.6, 1.6);
+  x.fillStyle = "rgba(27, 31, 59, .22)"; x.beginPath(); x.ellipse(0, 0, 17, 5, 0, 0, Math.PI * 2); x.ellipse(0, 1, 3, 15, 0, 0, Math.PI * 2); x.fill();
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
 import { FENCE, GATE } from "@/lib/brc";
-import { LAYER, LAYER_Y, airportLayout, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
+import { LAYER, LAYER_Y, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
 import { basic, hex, instanced, lambert, mergedParts, placed, type Part } from "./materials";
 
@@ -129,6 +129,21 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
     group.add(m);
   }
 
+  // the baked city map still paints the fence's dashed line across the airport's open wedge (citymap.ts is top-down's too, so it stays): lay the playa's colour over it,
+  // 8 ft wide on the inside of the line (the outside half is under the shape beyond the fence)
+  {
+    const quads = fenceGap().map(({ a, b }) => {
+      const len = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+      let nx = -uy, ny = ux; if (nx * -a.x + ny * -a.y < 0) { nx = -nx; ny = -ny; }   // the way to the Man
+      const w = 8, shape = new THREE.Shape([new THREE.Vector2(a.x, a.y), new THREE.Vector2(b.x, b.y), new THREE.Vector2(b.x + nx * w, b.y + ny * w), new THREE.Vector2(a.x + nx * w, a.y + ny * w)]);
+      return new THREE.ShapeGeometry(shape);
+    });
+    if (quads.length) {
+      const m = new THREE.Mesh(mergeGeometries(quads)!, basic(hex(PALETTE.playa), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.outside }));
+      m.rotation.x = Math.PI / 2; m.position.y = LAYER_Y.outside + 0.005; m.renderOrder = LAYER.outside; group.add(m);
+    }
+  }
+
   // the fence: a line round the pentagon and a post every 300 ft, open where the airport's wedge is (the sim has no fence there)
   const FENCE_ORANGE = 0xf08a3c;
   group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(fenceSegments().flatMap(({ a, b }) => [new THREE.Vector3(a.x, 3, a.y), new THREE.Vector3(b.x, 3, b.y)])), new THREE.LineBasicMaterial({ color: FENCE_ORANGE })));
@@ -142,7 +157,7 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
     { geo: placed(new THREE.ConeGeometry(2.4, 14, 8).rotateZ(-Math.PI / 2), ap.windsock.x + 7, 29, ap.windsock.y), color: 0xff7a2f },
   ]));
 
-  // the Gate: a long shade on four poles with seven booths under it, a flag at each end, the Greeters' bell (one mesh), the pink ring to pull up in
+  // the Gate: a long shade on four poles with seven booths under it, a flag at each end, the Greeters' bell (one mesh); the pink ring to pull up in is targets.ts
   const gate = gateLayout(), g = GATE, BOOTH = [0xff9a8b, 0x8ec5fc, 0xffd27a, 0xe0c3fc];
   const gateParts: Part[] = [
     { geo: placed(new THREE.BoxGeometry(360, 1, 52), gate.shade.x, 12, gate.shade.y, gate.yaw), color: 0xe9e4d6 },
@@ -157,7 +172,6 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
     gateParts.push({ geo: placed(new THREE.PlaneGeometry(26, 12), px + 13 * Math.cos(g.a), 18, pz + 13 * Math.sin(g.a), gate.yaw), color: lx < 0 ? 0xff6b9a : 0xffd27a });
   }
   group.add(mergedParts(gateParts));
-  { const ring = mesh(new THREE.TorusGeometry(60, 1.2, 6, 72), basic(hex(PALETTE.pink)), gate.stop.x, 1.2, gate.stop.y); ring.rotation.x = Math.PI / 2; group.add(ring); }
 
   // the mountains ring the horizon and ride with the camera, so they never come nearer
   const ring = mountains(); group.add(ring);

@@ -38,7 +38,7 @@ export const LAYER_Y = { outside: 0.05, block: 0.1, street: 0.15, plaza: 0.2, ri
  * polygonOffsetFactor: the factor term scales with the ground's slope and at a distance pulls a flat forward by whole feet, over
  * anything low that has no offset of its own) and drawn in renderOrder `layer`. The camps' carpets are meshes, not flats; the bays (mark), their "P" and highlight and the art pieces' ground drawings sit on the layers above.
  */
-export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6, carpet: 7, bayP: 8, bayHi: 9, decal: 10 } as const;
+export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6, carpet: 7, bayP: 8, bayHi: 9, decal: 10, target: 11 } as const;
 const PLAZA = "#efe5cf", PAVE = "#efe7d4", APRON = "#e8dfc9";
 const CITY_FROM = 120, CITY_TO = 600;
 
@@ -210,8 +210,12 @@ export const bikeColor = (k: number) => hslHex((k * 83) % 360, 70, 55);
  * has no fence there (playa.ts lets rides and planes through). A side the wedge crosses is cut where the rays from the Man at the wedge's
  * two edges meet it, so a side is one piece, two, or none.
  */
-export function fenceSegments(): { a: Vec; b: Vec }[] {
-  const out: { a: Vec; b: Vec }[] = [];
+export function fenceSegments(): { a: Vec; b: Vec }[] { return fencePieces().kept; }
+/** The parts of the fence's sides inside the airport's wedge: where the fence is not, though the baked city map still has its dashed line there. */
+export function fenceGap(): { a: Vec; b: Vec }[] { return fencePieces().gap; }
+
+function fencePieces(): { kept: { a: Vec; b: Vec }[]; gap: { a: Vec; b: Vec }[] } {
+  const kept: { a: Vec; b: Vec }[] = [], gap: { a: Vec; b: Vec }[] = [];
   const cross = (u: Vec, v: Vec) => u.x * v.y - u.y * v.x;
   for (let i = 0; i < FENCE.length; i++) {
     const a = FENCE[i], b = FENCE[(i + 1) % FENCE.length], e = { x: b.x - a.x, y: b.y - a.y };
@@ -219,12 +223,13 @@ export function fenceSegments(): { a: Vec; b: Vec }[] {
     const at = (m: number) => { const d = polar(m, 1); return cross(a, d) / cross(d, e); };
     let ca = toPolar(a).min, cb = toPolar(b).min; if (cb <= ca) cb += 720;
     const lo = Math.max(ca, AIRPORT.gap.from), hi = Math.min(cb, AIRPORT.gap.to);
-    if (lo >= hi) { out.push({ a, b }); continue; }   // the wedge misses this side
+    if (lo >= hi) { kept.push({ a, b }); continue; }   // the wedge misses this side
     const lerp = (t: number): Vec => ({ x: a.x + e.x * t, y: a.y + e.y * t });
-    if (lo > ca) out.push({ a, b: lerp(at(lo)) });
-    if (hi < cb) out.push({ a: lerp(at(hi)), b });
+    if (lo > ca) kept.push({ a, b: lerp(at(lo)) });
+    if (hi < cb) kept.push({ a: lerp(at(hi)), b });
+    gap.push({ a: lo > ca ? lerp(at(lo)) : a, b: hi < cb ? lerp(at(hi)) : b });
   }
-  return out;
+  return { kept, gap };
 }
 
 /** A post every ~300 ft along the fence's pieces (the corners and the ends of a cut side included). */
