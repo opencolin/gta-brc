@@ -2,7 +2,9 @@ import * as THREE from "three";
 import { vehicleOf, type Game } from "@/lib/playa";
 import type { Vec } from "@/lib/brc";
 import { camAt, camAvoid, camGoal, camStep, camYaw, type CamState, type CamTarget } from "@/lib/chaseCam";
-import type { Renderer, ViewState } from "../view";
+import type { RenderPerf, Renderer, ViewState } from "../view";
+import { cityPlan } from "@/lib/playa";
+import { buildCamps, nightUniform, type CampMeshes } from "./camps";
 import { buildGround, type GroundMeshes } from "./ground";
 import { addLights, buildSky } from "./lights";
 import { clearMaterials } from "./materials";
@@ -30,8 +32,10 @@ export class ChaseRenderer implements Renderer {
   private camera = new THREE.PerspectiveCamera(60, 1, 1, 40000);
   private cam: CamState | null = null;
   private lastAt = 0;
+  private samples: { at: number; dt: number; cpu: number }[] = [];
   private ride!: RideMeshes;
   private ground!: GroundMeshes;
+  private camps!: CampMeshes;
   private sky!: { update: (cam: THREE.Vector3) => void };
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -52,6 +56,7 @@ export class ChaseRenderer implements Renderer {
   private build(): void {
     this.sky = buildSky(this.scene);
     this.ground = buildGround(this.scene, Math.min(8, this.renderer.capabilities.getMaxAnisotropy()));
+    this.camps = buildCamps(this.scene, cityPlan());
     this.ride = buildRides(this.scene);
     addLights(this.scene);
   }
@@ -93,6 +98,7 @@ export class ChaseRenderer implements Renderer {
 
   frame(g: Game, view: ViewState, dt: number): void {
     if (this.lost) return;
+    const t0 = performance.now();
     if (view.touchUi !== this.touch) { this.touch = view.touchUi; this.applySize(); }
     const target = camTargetOf(g);
     const goal = camAvoid(target, camGoal(target, view.orbit));
@@ -104,9 +110,19 @@ export class ChaseRenderer implements Renderer {
     this.camera.position.set(e.x, e.y, e.z);
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-    this.sky.update(this.camera.position); this.ground.update(this.camera.position);
+    nightUniform.value = view.night;
+    this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     updateRide(this.ride, g, view);
     this.renderer.render(this.scene, this.camera);
+    const t1 = performance.now();
+    this.samples.push({ at: t1, dt: this.samples.length ? t1 - this.samples[this.samples.length - 1].at : 0, cpu: t1 - t0 });
+    while (this.samples.length > 1 && t1 - this.samples[0].at > 2000) this.samples.shift();
+  }
+
+  perf(): RenderPerf {
+    const n = this.samples.length, r = this.renderer.info, s = this.camps.stats();
+    const ms = n > 1 ? this.samples.slice(1).reduce((a, x) => a + x.dt, 0) / (n - 1) : 0, cpuMs = n ? this.samples.reduce((a, x) => a + x.cpu, 0) / n : 0;
+    return { calls: r.render.calls, triangles: r.render.triangles, geometries: r.memory.geometries, textures: r.memory.textures, ms, fps: ms ? 1000 / ms : 0, cpuMs, extra: `${s.shown}/${s.meshes} camp meshes shown, ${s.prisms} pieces` };
   }
 
   project(p: Vec, up = 0): { x: number; y: number } | null {

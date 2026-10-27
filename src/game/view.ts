@@ -16,6 +16,9 @@ export type ViewState = {
   storm: number;           // stormLevel(g.storm)
 };
 
+/** What the renderer cost over the last couple of seconds, for the dev key (P). */
+export type RenderPerf = { calls: number; triangles: number; geometries: number; textures: number; /** average ms between frames, and the fps that is */ ms: number; fps: number; /** average ms frame() itself took on the CPU */ cpuMs: number; extra?: string };
+
 /** A second way of drawing the same Game: the top-down painter is `paint()` in PlayaWin, the chase camera is src/game/three/. */
 export interface Renderer {
   mount(canvas: HTMLCanvasElement): void;
@@ -26,6 +29,8 @@ export interface Renderer {
   project(p: Vec, up?: number): { x: number; y: number } | null;
   /** The camera's yaw in the game's heading convention, for the camera-relative stick. */
   yaw(): number;
+  /** Draw calls, triangles and frame times, for the dev key. */
+  perf?(): RenderPerf;
   dispose(): void;
 }
 

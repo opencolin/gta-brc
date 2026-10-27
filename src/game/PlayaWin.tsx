@@ -1684,6 +1684,11 @@ export default function PlayaWin() {
     else if (e.key === "n" || e.key === "N") { e.preventDefault(); toggleNight(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); toggleView(); }
+    // dev only (stripped from the production build): P prints the chase view's draw calls, triangles and frame times to the console
+    else if (import.meta.env.DEV && (e.key === "p" || e.key === "P")) {
+      const p = three.current?.perf?.();
+      if (p) { console.log("[chase view]", `${p.calls} draw calls, ${(p.triangles / 1000).toFixed(0)}k triangles, ${p.geometries} geometries, ${p.textures} textures, ${p.fps.toFixed(1)} fps (${p.ms.toFixed(1)} ms/frame, ${p.cpuMs.toFixed(1)} ms of it frame()), ${p.extra ?? ""}`); flash.current = { text: `${p.calls} calls · ${(p.triangles / 1000).toFixed(0)}k tris · ${p.fps.toFixed(0)} fps`, until: game.current.t + 3 }; }
+    }
     else if (e.key === "v" || e.key === "V") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
