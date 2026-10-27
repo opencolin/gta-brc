@@ -36,9 +36,9 @@ export const LAYER_Y = { outside: 0.05, block: 0.1, street: 0.15, plaza: 0.2, ri
  * The layers of everything flat on the ground, lowest first. The 0.05 ft steps between their heights z-fight beyond about 1,500 ft
  * once the eye is high, so each layer's material is pulled toward the camera by `layer` depth-buffer units (polygonOffsetUnits, never
  * polygonOffsetFactor: the factor term scales with the ground's slope and at a distance pulls a flat forward by whole feet, over
- * anything low that has no offset of its own) and drawn in renderOrder `layer`. The camps' carpets are meshes, not flats, on the top layer.
+ * anything low that has no offset of its own) and drawn in renderOrder `layer`. The camps' carpets are meshes, not flats; the bays (mark), their "P" and highlight and the art pieces' ground drawings sit on the layers above.
  */
-export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6, carpet: 7 } as const;
+export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark: 6, carpet: 7, bayP: 8, bayHi: 9, decal: 10 } as const;
 const PLAZA = "#efe5cf", PAVE = "#efe7d4", APRON = "#e8dfc9";
 const CITY_FROM = 120, CITY_TO = 600;
 

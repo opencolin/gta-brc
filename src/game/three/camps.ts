@@ -29,7 +29,7 @@ const CLASS: Record<PrismKind, Cls> = {
 const DETAIL_CLASSES = new Set<Cls>(["pole", "cloth", "wire", "bikes", "carpet", "lip", "canopy"]);
 
 /** A lit material that also glows at night: the instance's own colour times the night level is added to what it gives off. */
-function glowing(params: THREE.MeshLambertMaterialParameters, key: string, glow: number): THREE.MeshLambertMaterial {
+export function glowing(params: THREE.MeshLambertMaterialParameters, key: string, glow: number): THREE.MeshLambertMaterial {
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, ...params });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = nightUniform; shader.uniforms.uGlow = { value: glow };

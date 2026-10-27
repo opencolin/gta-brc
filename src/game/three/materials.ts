@@ -58,9 +58,9 @@ export const placed = (geo: THREE.BufferGeometry, x: number, y: number, z: numbe
 
 /**
  * A landmark's many one-off shapes in several colours as one mesh and so one draw call: each part's colour is baked in as a vertex
- * colour under one shared lit material. Two-sided (the flags and the like have no back).
+ * colour under one shared lit material (or the one given), two-sided (the flags and the like have no back).
  */
-export function mergedParts(parts: Part[]): THREE.Mesh {
+export function mergedParts(parts: Part[], material?: THREE.Material): THREE.Mesh {
   const c = new THREE.Color();
   for (const { geo, color } of parts) {
     c.setHex(color, THREE.SRGBColorSpace);
@@ -70,6 +70,7 @@ export function mergedParts(parts: Part[]): THREE.Mesh {
   }
   const merged = mergeGeometries(parts.map((p) => p.geo))!;
   parts.forEach((p) => p.geo.dispose());
+  if (material) return new THREE.Mesh(merged, material);
   let m = vertexLamberts.get(THREE.DoubleSide);
   if (!m) vertexLamberts.set(THREE.DoubleSide, (m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
   return new THREE.Mesh(merged, m);
