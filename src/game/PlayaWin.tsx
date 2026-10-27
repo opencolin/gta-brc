@@ -1611,7 +1611,9 @@ export default function PlayaWin() {
         const picked = nowRef.current, dtm = Math.min(0.5, (now - (hudAt || now)) / 1000 || 0.1);
         // a new place waits three seconds in earshot before it plays (asked 2026-10-24), unless you are parked at it or right beside it
         const want = stepSticky(sticky.current, near, false, dtm, (!!near && g.parking.at === near.key) || (g.vehicle === "plane" && near?.key === "agave"));
-        if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
+        // the ride you are on (the art car you drive or ride along on, the plane with Agave aboard) never takes over a set or video you picked yourself: only a place you ride up to does (asked 2026-10-27: videos kept switching back to the Dragon Lady's playlist at its wheel)
+        const own = g.vehicle === "found" ? drivenKey() : g.aboard ?? (g.vehicle === "plane" ? "agave" : null);
+        if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && near.key !== own && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
         const quiet = phaseRef.current !== "play" || !soundRef.current || !!nowRef.current?.playing;
         const target = quiet ? null : want;
         const was = mix.current;
