@@ -184,6 +184,9 @@ export function crowdSpots(sp: { key: string; kind: string; camp?: { piece?: unk
   return out;
 }
 
+/** How much of a thing `d` feet away there is when it shows within `show`: all of it inside 0.8·show, shrinking to nothing at show (so people grow in instead of popping). */
+export const fadeAt = (d: number, show: number) => (d >= show ? 0 : d <= 0.8 * show ? 1 : (show - d) / (0.2 * show));
+
 /* ── colours ─────────────────────────────────────────────────────────────── */
 
 /** hsl (degrees, percent, percent) as 0xRRGGBB in sRGB, the way CSS reads it. */
@@ -252,6 +255,12 @@ function fencePieces(): { kept: { a: Vec; b: Vec }[]; gap: { a: Vec; b: Vec }[] 
   }
   return { kept, gap };
 }
+
+/**
+ * The patch over the baked map's dashed fence line inside the airport's wedge (ground.ts): the map strokes the fence 36 ft wide (citymap.ts), half
+ * of it inside the line, so the patch reaches FENCE_PATCH ft inward (half the stroke and a margin), in the map's own playa colour.
+ */
+export const FENCE_PATCH = 24, MAP_PLAYA = 0xe8dcc2;
 
 /** A post every ~300 ft along the fence's pieces (the corners and the ends of a cut side included). */
 export function fencePosts(spacing = 300): Vec[] {

@@ -1172,6 +1172,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
  * into screen pixels, or null when it is behind the 3D camera; `yaw` is that camera's heading (null in top-down), which points the arrow
  * round behind you when the target is.
  */
+/** Whether the chase view's screen-space target ring is showing (paintOverlay's hysteresis). */
+let ringShown = true;
 function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec, up?: number) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
   const t = g.t, storm = stormLevel(g.storm);
   // the dust storm: a whiteout that closes in around the car
@@ -1203,12 +1205,16 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     if (s) {
       if (yaw !== null) {
         // the chase view's own ring lies on the ground (three/targets.ts); this adds a beam rising from the target to be found from afar, and, where the
-        // ground ring is too small to make out, a pulsing ring sized by distance (as tall on the screen as a STOP_R pillar standing on it)
+        // ground ring is under about 40 px across, a pulsing ring sized by distance (as tall on the screen as a STOP_R pillar standing on it)
         const top = proj(tg.at, STOP_R), pulse = 0.5 + 0.5 * Math.sin(t * 5);
         const rr = Math.min(Math.min(w, h) * 0.35, Math.max(9, top ? Math.abs(s.y - top.y) : 9)) * (0.85 + 0.15 * pulse);
         const beam = proj(tg.at, 600);
         if (beam) { ctx.strokeStyle = `rgba(255, 107, 154, ${0.35 + 0.25 * pulse})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(beam.x, beam.y); ctx.stroke(); }
-        if (rr < 26) {
+        // the ground ring's own size on the screen decides (not the pole's, and not the pulse): the smaller of its two spans; a little hysteresis so it does not blink at the edge
+        const span = (a: Vec, b: Vec) => { const p = proj(a), q = proj(b); return p && q ? Math.hypot(p.x - q.x, p.y - q.y) : Infinity; };
+        const ground = Math.min(span({ x: tg.at.x - STOP_R, y: tg.at.y }, { x: tg.at.x + STOP_R, y: tg.at.y }), span({ x: tg.at.x, y: tg.at.y - STOP_R }, { x: tg.at.x, y: tg.at.y + STOP_R }));
+        ringShown = ground < (ringShown ? 46 : 38);
+        if (ringShown) {
           ctx.strokeStyle = C.pink; ctx.lineWidth = 4; ctx.setLineDash([12, 8]);
           ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
           ctx.fillStyle = `rgba(255, 107, 154, ${0.15 + 0.15 * pulse})`; ctx.fill();

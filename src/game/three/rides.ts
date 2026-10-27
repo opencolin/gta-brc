@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { AIRPORT } from "@/lib/brc";
-import type { Game, VehicleId } from "@/lib/playa";
+import { VEHICLES, type Game, type VehicleId } from "@/lib/playa";
 import { LAYER } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
@@ -149,7 +149,7 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   if (m && !g.aboard && which !== "angelmaker") {
     if (plane) planeShadow(r.planeShadows[0], g.car.x, g.car.y, g.car.h, alt);
     else {
-      const chute = which === "chute", wid = which === "found" ? 20 : which === "fish" ? 20 : 7, len = which === "found" || which === "fish" ? 36 : 16;
+      const chute = which === "chute", v = VEHICLES[g.vehicle], wid = v.wid, len = v.len;
       r.shadow.visible = true; r.shadow.position.set(g.car.x + alt * 0.5, 0.4, g.car.y + alt * 0.4);
       r.shadow.rotation.y = chute ? 0 : yawOf(g.car.h);
       r.shadow.scale.set(chute ? 14 : Math.max(4, wid * 0.55), 1, chute ? 11 : Math.max(6, len * 0.6));

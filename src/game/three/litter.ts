@@ -41,7 +41,7 @@ export function buildLitter(scene: THREE.Scene): LitterMeshes {
         moop.setColorAt(i, c);
       }
       moop.count = n; moop.instanceMatrix.needsUpdate = true; if (moop.instanceColor) moop.instanceColor.needsUpdate = true;
-      const m2 = Math.min(g.dust.length, MAX_DUST);
+      const m2 = g.alt > 0 ? 0 : Math.min(g.dust.length, MAX_DUST);   // the sim spawns dust at any speed over 50, aloft too: none from a plane or a chute
       for (let i = 0; i < m2; i++) {
         const p = g.dust[i], life = Math.max(0, p.life);
         d.position.set(p.x, 1.5 + (1 - life) * 3, p.y); d.quaternion.copy(camera.quaternion); d.scale.setScalar(2 * p.size); d.updateMatrix(); dust.setMatrixAt(i, d.matrix);

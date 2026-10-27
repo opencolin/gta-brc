@@ -89,7 +89,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
     update(g, t) {
       const key = g.parking.at;
       if (key !== at) { at = key; const i = key == null ? undefined : index.get(key); if (i === undefined) hl.visible = false; else { hl.geometry = all[i].geo; hl.visible = true; } }
-      if (hl.visible) (hl.material as THREE.MeshBasicMaterial).color.setHSL(((t * 90) % 360) / 360, 1, 0.62);
+      if (hl.visible) (hl.material as THREE.MeshBasicMaterial).color.setHSL(((t * 90) % 360) / 360, 1, 0.62, THREE.SRGBColorSpace);
     },
   };
 }

@@ -1,10 +1,11 @@
 // node --experimental-strip-types --test src/lib/scene3d.test.mjs
 // The chase view's scene description (scene3d.ts): ground flats, camp prisms, culling circles, colours, fence, airport, Gate, skyline.
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIRPORT, ARCS, ARC_R, CENTER_CAMP, CENTER_CAMP_R, CITY_FROM, CITY_TO, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, clockToAngle, fenceDepth, polar, surfaceAt, toPolar } from "./brc.ts";
 import { AGAVE, SPOTS, cityPlan } from "./playa.ts";
-import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, campPrisms, crowdSpots, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
+import { BIKE_SPACING, H, RACK_SPACING, airportLayout, bikeColor, FENCE_PATCH, MAP_PLAYA, campPrisms, fadeAt, crowdSpots, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, hslHex, prismColor, sectorBlocks, skyline } from "./scene3d.ts";
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const plans = cityPlan();
@@ -295,4 +296,19 @@ test("the crowds: 34 at Agave within 21 ft of the dome's rim on the bay's side, 
   assert.ok(total > 2800 && total < 2900, `${total} people in all`);
   assert.equal(crowdSpots(SPOTS.find((s) => s.camp?.piece)).length, 8);
   assert.deepEqual(crowdSpots(agave), crowdSpots(agave), "the same people every time");
+});
+
+test("the patch over the baked fence line reaches past half the map's stroke and is the map's own playa colour", () => {
+  const map = readFileSync(new URL("../game/citymap.ts", import.meta.url), "utf8");
+  const stroke = /strokeStyle = P\.fence; x\.lineWidth = (\d+); x\.setLineDash\(\[(\d+), (\d+)\]\)/.exec(map);
+  assert.ok(stroke, "found the dashed fence stroke in citymap.ts");
+  assert.ok(FENCE_PATCH >= +stroke[1] / 2 + 4, `a ${FENCE_PATCH} ft patch covers the inside half of a ${stroke[1]} ft stroke with a margin`);
+  const playa = /playa: "#([0-9a-f]{6})"/.exec(map);
+  assert.equal(MAP_PLAYA, parseInt(playa[1], 16));
+});
+
+test("things fade in over the last fifth of their range: whole inside 80%, nothing at the range, a straight ramp between", () => {
+  assert.equal(fadeAt(0, 900), 1); assert.equal(fadeAt(720, 900), 1); assert.equal(fadeAt(900, 900), 0); assert.equal(fadeAt(2000, 900), 0);
+  near(fadeAt(810, 900), 0.5, 1e-12); near(fadeAt(630, 600) , 0, 1e-12); near(fadeAt(570, 600), 0.25, 1e-12);
+  for (let d = 0; d < 1000; d += 7) assert.ok(fadeAt(d, 900) >= fadeAt(d + 7, 900), "never grows with distance");
 });

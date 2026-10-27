@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { MUTANTS, drivenKey, npcAt, type Game } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import { ART_CARS } from "../artcars";
-import { carRoof, roofSize, type Drawing } from "./decals";
+import { carRoof, hullSize, roofSize, type Drawing } from "./decals";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 
 /**
@@ -36,11 +36,11 @@ function average(d: Drawing | null, fallback: number): number {
 }
 
 function kitOf(id: string, hue: number): Kit {
-  const { w, l } = roofSize(id), roof = carRoof(id);
+  const { w, l } = roofSize(id), roof = carRoof(id), hull = hullSize(id);
   const ticket = id === "golden-ticket", lady = id === "dragon-lady";
   return {
     id, w, l, roof,
-    hullW: ticket ? 10 : lady ? 40 : Math.max(10, w - 6), hullL: ticket ? 20 : lady ? 132 : l - 2, hullH: ticket ? 7 : lady ? 14 : 12,
+    hullW: ticket ? 10 : lady ? 40 : hull.w, hullL: ticket ? 20 : lady ? 132 : hull.l, hullH: ticket ? 7 : lady ? 14 : 12,
     color: ticket ? 0xe8b923 : average(roof, hslHex(hue, 55, 40)),
   };
 }

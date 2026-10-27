@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { drivenKey, npcAt, type Game, type Npc } from "@/lib/playa";
+import { fadeAt } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import { glowing } from "./camps";
 import { mergedParts, shaped as P, type Part } from "./materials";
@@ -12,7 +13,9 @@ import { mergedParts, shaped as P, type Part } from "./materials";
  * colour, its hue, with dark wheels, and glows a little at night. The art cars (kind "mutant") are cars.ts's.
  */
 export type PeopleMeshes = { group: THREE.Group; update(g: Game, cam: THREE.Vector3): void; /** ms the last update took, and how many people it drew */ stats(): { ms: number; shown: number } };
-const SHOW = 900;
+/** People show within SHOW feet of your ride (in three dimensions: from the camera's height), shrinking away over the last fifth of it. */
+export const SHOW = 900;
+
 const WHITE = 0xffffff, TYRE = 0x15161d;
 const cyl = (rt: number, rb: number, h: number, seg = 6) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -64,7 +67,7 @@ export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
   make();
   scene.add(group);
 
-  const d = new THREE.Object3D(), c = new THREE.Color(), R2 = SHOW * SHOW;
+  const d = new THREE.Object3D(), c = new THREE.Color();
   let ms = 0, shown = 0;
   return {
     group,
@@ -76,10 +79,10 @@ export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
       shown = 0;
       for (const { n: npc, i, kind } of items) {
         if (npc.key && npc.key === mine) continue;
-        const p = npcAt(npc, game.t), dx = p.x - cam.x, dz = p.y - cam.z;
-        if (dx * dx + dz * dz > R2) continue;
+        const p = npcAt(npc, game.t), dx = p.x - game.car.x, dz = p.y - game.car.y, f = fadeAt(Math.sqrt(dx * dx + dz * dz + cam.y * cam.y), SHOW);
+        if (f <= 0) continue;
         const k = kind as Kind, slot = n[k]++, m = meshes[k];
-        d.position.set(p.x, k === "walker" ? 0.3 * Math.abs(Math.sin(game.t * 6 + i)) : 0, p.y); d.rotation.set(0, yawOf(p.h), 0); d.updateMatrix();
+        d.position.set(p.x, k === "walker" ? 0.3 * Math.abs(Math.sin(game.t * 6 + i)) : 0, p.y); d.rotation.set(0, yawOf(p.h), 0); d.scale.setScalar(f); d.updateMatrix();
         m.setMatrixAt(slot, d.matrix);
         if (k !== "ambulance") m.setColorAt(slot, c.setHSL((npc.hue % 360) / 360, 0.7, 0.58, THREE.SRGBColorSpace)); else m.setColorAt(slot, c.setRGB(1, 1, 1));
         shown++;

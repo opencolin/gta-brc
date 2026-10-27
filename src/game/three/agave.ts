@@ -25,5 +25,5 @@ export function buildAgave(scene: THREE.Scene): AgaveMeshes {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(dome.r + 2, 1.5, 6, 72).rotateX(Math.PI / 2), ringMat); ring.position.set(dome.x, 0.8, dome.y);
   group.add(earth, luna, ring);
   scene.add(group);
-  return { group, update: (night, t) => { if (night > 0.3) ringMat.color.setHSL(((t * 90) % 360) / 360, 1, 0.65); else ringMat.color.set(PALETTE.pink); } };
+  return { group, update: (night, t) => { if (night > 0.3) ringMat.color.setHSL(((t * 90) % 360) / 360, 1, 0.65, THREE.SRGBColorSpace); else ringMat.color.set(PALETTE.pink); } };
 }

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
 import { FENCE, GATE } from "@/lib/brc";
-import { LAYER, LAYER_Y, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
+import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
 import { basic, hex, instanced, lambert, mergedParts, placed, type Part } from "./materials";
 
@@ -129,17 +129,17 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
     group.add(m);
   }
 
-  // the baked city map still paints the fence's dashed line across the airport's open wedge (citymap.ts is top-down's too, so it stays): lay the playa's colour over it,
-  // 8 ft wide on the inside of the line (the outside half is under the shape beyond the fence)
+  // the baked city map still paints the fence's dashed line across the airport's open wedge (citymap.ts is top-down's too, so it stays): lay the map's own playa colour over it,
+  // FENCE_PATCH ft wide on the inside of the line (the stroke is 36 ft wide; its outside half is under the shape beyond the fence)
   {
     const quads = fenceGap().map(({ a, b }) => {
       const len = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
       let nx = -uy, ny = ux; if (nx * -a.x + ny * -a.y < 0) { nx = -nx; ny = -ny; }   // the way to the Man
-      const w = 8, shape = new THREE.Shape([new THREE.Vector2(a.x, a.y), new THREE.Vector2(b.x, b.y), new THREE.Vector2(b.x + nx * w, b.y + ny * w), new THREE.Vector2(a.x + nx * w, a.y + ny * w)]);
+      const w = FENCE_PATCH, shape = new THREE.Shape([new THREE.Vector2(a.x, a.y), new THREE.Vector2(b.x, b.y), new THREE.Vector2(b.x + nx * w, b.y + ny * w), new THREE.Vector2(a.x + nx * w, a.y + ny * w)]);
       return new THREE.ShapeGeometry(shape);
     });
     if (quads.length) {
-      const m = new THREE.Mesh(mergeGeometries(quads)!, basic(hex(PALETTE.playa), { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.outside }));
+      const m = new THREE.Mesh(mergeGeometries(quads)!, basic(MAP_PLAYA, { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.outside }));
       m.rotation.x = Math.PI / 2; m.position.y = LAYER_Y.outside + 0.005; m.renderOrder = LAYER.outside; group.add(m);
     }
   }

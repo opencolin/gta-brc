@@ -32,7 +32,7 @@ export function buildTargets(scene: THREE.Scene): TargetMeshes {
         (fill.material as THREE.MeshBasicMaterial).opacity = 0.15 + 0.15 * pulse;
       }
       const here = atGate(g), c = (gate.material as THREE.MeshBasicMaterial).color;
-      if (here) c.setHSL(((g.t * 90) % 360) / 360, 1, 0.62); else c.set(0xff6b9a);
+      if (here) c.setHSL(((g.t * 90) % 360) / 360, 1, 0.62, THREE.SRGBColorSpace); else c.set(0xff6b9a);
     },
   };
 }
