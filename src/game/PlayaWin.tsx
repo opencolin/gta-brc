@@ -1450,6 +1450,34 @@ export default function PlayaWin() {
   const onPlaying = useCallback((on: boolean) => setNow((n) => (n && n.playing !== on ? { ...n, playing: on } : n)), []);
   const stopMusic = () => { setNow(null); setLounge(false); board.current?.focus({ preventScroll: true }); };
   const foldLounge = () => { setLounge(false); if (!nowRef.current?.playing) setNow(null); board.current?.focus({ preventScroll: true }); };
+  /**
+   * The music keys (asked 2026-10-27, on a keyboard only: a phone keeps its buttons). P plays the place you hear, or are parked at, from its first
+   * track, and while a picked set or video plays steps to the next one (wrapping round); Q steps back, and from the first track stops it so the
+   * road's own music comes back; 1 to 8 pick that place's first to eighth track (clips included: they open with sound, as the peek's tap does). The
+   * panel opens for what is picked. Returns whether the key was one of these (and so used).
+   */
+  const musicKey = (e: KeyboardEvent): boolean => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, digit = /^[1-8]$/.test(k) ? Number(k) - 1 : -1;
+    if (k !== "p" && k !== "q" && digit < 0) return false;
+    if (rides || (e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']")) return false;   // the garage has its own keys, and text is text
+    e.preventDefault();
+    const n = nowRef.current, playing = !!n?.playing, place = hud.hearKey || parked || n?.key || "";
+    const say = (t: Track) => { flash.current = { text: `♪ ${t.title}`, until: game.current.t + 2.2 }; };
+    const play = (key: string, t: Track) => { pick(key, t); setLounge(true); say(t); };
+    if (digit >= 0) { const t = soundOf(place).tracks[digit]; if (t) play(place, t); return true; }
+    if (k === "p") {
+      const key = playing ? n!.key : place, tracks = soundOf(key).tracks;
+      if (!tracks.length) return true;
+      const i = playing ? tracks.findIndex((t) => t.url === n!.url) : -1;
+      play(key, tracks[(i + 1) % tracks.length]);
+      return true;
+    }
+    if (playing) {   // Q
+      const tracks = soundOf(n!.key).tracks, i = tracks.findIndex((t) => t.url === n!.url);
+      if (i > 0) play(n!.key, tracks[i - 1]); else { stopMusic(); flash.current = { text: "♪ stopped", until: game.current.t + 1.5 }; }
+    }
+    return true;
+  };
 
   useBoardFocus(board);
   useEffect(() => { const mq = matchMedia("(pointer: coarse)"); const on = () => setCoarse(mq.matches); on(); mq.addEventListener("change", on); return () => mq.removeEventListener("change", on); }, []);
@@ -1721,12 +1749,13 @@ export default function PlayaWin() {
       return;
     }
     if (!down) return;
+    else if (musicKey(e)) { /* used */ }
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
     else if (e.key === "n" || e.key === "N") { e.preventDefault(); toggleNight(); }
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); toggleView(); }
-    // dev only (stripped from the production build): P prints the chase view's draw calls, triangles and frame times to the console
-    else if (import.meta.env.DEV && (e.key === "p" || e.key === "P")) {
+    // dev only (stripped from the production build): 9 prints the chase view's draw calls, triangles and frame times to the console (P is the music's)
+    else if (import.meta.env.DEV && e.key === "9") {
       const p = three.current?.perf?.();
       if (p) { console.log("[chase view]", `${p.calls} draw calls, ${(p.triangles / 1000).toFixed(0)}k triangles, ${p.geometries} geometries, ${p.textures} textures, ${p.fps.toFixed(1)} fps (${p.ms.toFixed(1)} ms/frame, ${p.cpuMs.toFixed(1)} ms of it frame()), ${p.extra ?? ""}`); flash.current = { text: `${p.calls} calls · ${(p.triangles / 1000).toFixed(0)}k tris · ${p.fps.toFixed(0)} fps`, until: game.current.t + 3 }; }
     }
@@ -1799,7 +1828,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down, R rides along on an art car, E drives it"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down, R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onBlur={() => { keys.current = { ...NO_INPUT }; }}>
         {/* the 3D canvas goes before the 2D one so the 2D canvas (clear in 3D, opaque in top-down) and then the HUD stack over it by DOM order: no z-index anywhere */}
@@ -1875,6 +1904,9 @@ export default function PlayaWin() {
             <div><dt>M</dt><dd>map</dd></div>
             <div><dt>N</dt><dd>night</dd></div>
             <div><dt>T</dt><dd>trip</dd></div>
+            <div><dt>P</dt><dd>play · next</dd></div>
+            <div><dt>Q</dt><dd>previous</dd></div>
+            <div><dt>1-8</dt><dd>tracks</dd></div>
           </dl>
         )}
         {touchUi && !keysUi && phase === "play" && (
@@ -1899,7 +1931,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
