@@ -53,6 +53,10 @@ export function instanced(geometry: THREE.BufferGeometry, material: THREE.Materi
 
 /** A shape already in place: a geometry (built-in shapes carry position, normal and uv) and its colour. */
 export type Part = { geo: THREE.BufferGeometry; color: number };
+/** Where and how a shape stands: scaled, then turned about x, y and z in that order, then moved. */
+export type Xf = { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; sx?: number; sy?: number; sz?: number };
+/** A shape in a colour, scaled, turned and moved as `o` says: one Part of a merged mesh. */
+export const shaped = (geo: THREE.BufferGeometry, color: number, o: Xf = {}): Part => ({ geo: geo.scale(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1).rotateX(o.rx ?? 0).rotateY(o.ry ?? 0).rotateZ(o.rz ?? 0).translate(o.x ?? 0, o.y ?? 0, o.z ?? 0), color });
 /** `geo` turned about Y by `yaw` and moved to (x, y, z): the placement a mesh's position and rotation.y would give. */
 export const placed = (geo: THREE.BufferGeometry, x: number, y: number, z: number, yaw = 0): THREE.BufferGeometry => geo.rotateY(yaw).translate(x, y, z);
 

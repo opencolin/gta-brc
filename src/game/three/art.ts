@@ -3,7 +3,7 @@ import { ART, type ArtPiece, type Game } from "@/lib/playa";
 import { LAYER, hslHex } from "@/lib/scene3d";
 import { glowing } from "./camps";
 import { pieceDrawing, type Drawing } from "./decals";
-import { mergedParts, type Part } from "./materials";
+import { mergedParts, shaped as P, type Part } from "./materials";
 
 /**
  * The art on the open playa (PLAN-3D.md 2.3): each of the 23 pieces is its top-down drawing laid on the ground (a decal that animates
@@ -14,9 +14,6 @@ import { mergedParts, type Part } from "./materials";
 export type ArtMeshes = { group: THREE.Group; update(cam: THREE.Vector3, g: Game, night: number): void };
 const SHOW = 4000, LIVE = 700;
 
-type Xf = { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; sx?: number; sy?: number; sz?: number };
-/** A shape scaled, turned (x, then y, then z) and moved: a Part for one mesh. */
-const P = (geo: THREE.BufferGeometry, color: number, o: Xf = {}): Part => ({ geo: geo.scale(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1).rotateX(o.rx ?? 0).rotateY(o.ry ?? 0).rotateZ(o.rz ?? 0).translate(o.x ?? 0, o.y ?? 0, o.z ?? 0), color });
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 const cyl = (rt: number, rb: number, h: number, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const ball = (r: number, w = 12, h = 8) => new THREE.SphereGeometry(r, w, h);

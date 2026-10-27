@@ -110,3 +110,14 @@ export function moonTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+
+/** A dust angel left in the playa, as drawDustAngel paints it (about 68 × 44 ft, its centre at the middle of the canvas): a faint white mark. */
+export function angelTexture(): THREE.CanvasTexture {
+  const W = 136, H = 88, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d")!; x.translate(W / 2, 34); x.scale(2, 2);
+  x.fillStyle = "rgba(255, 250, 238, .75)";
+  x.beginPath(); x.moveTo(-6, -4); x.quadraticCurveTo(-30, -14, -34, 10); x.quadraticCurveTo(-20, 8, -8, 4); x.lineTo(-12, 26); x.lineTo(0, 10); x.lineTo(12, 26); x.lineTo(8, 4); x.quadraticCurveTo(20, 8, 34, 10); x.quadraticCurveTo(30, -14, 6, -4); x.closePath(); x.fill();
+  x.beginPath(); x.arc(0, -11, 6, 0, Math.PI * 2); x.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
