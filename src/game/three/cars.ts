@@ -52,7 +52,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const group = new THREE.Group();
   const cars = MUTANTS.map((m) => {
     const id = m.key!.slice(m.key!.indexOf(":") + 1);
-    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, shown: true, ticket: null as Ticket | null };
+    return { m, id, kit: kitOf(id, m.hue), roofMesh: null as THREE.Mesh | null, last: -1, nf: false, shown: true, ticket: null as Ticket | null };
   });
   const roofMat = (d: Drawing) => new THREE.MeshBasicMaterial({ map: d.tex, alphaTest: 0.04, side: THREE.DoubleSide });
   const roofOf = (k: Kit): THREE.Mesh | null => {
@@ -127,7 +127,9 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
         const r = c.roofMesh;
         if (r) {
           r.visible = dist < SHOW_ROOF; r.position.set(p!.x, k.hullH + 1.65, p!.y); r.rotation.y = yaw;
-          if (r.visible && k.roof && (c.id === "dragon-lady" || dist < LIVE_ROOF) && g.t - c.last > 0.1) { k.roof.paint(g.t, night); c.last = g.t; }
+          // a roof redraws at 10 Hz while it is near; farther off it is redrawn once whenever the night comes or goes
+          const live = c.id === "dragon-lady" || dist < LIVE_ROOF, nf = night > 0.3;
+          if (r.visible && k.roof && (live ? g.t - c.last > 0.1 : c.nf !== nf)) { k.roof.paint(g.t, night); c.last = g.t; c.nf = nf; }
         }
       });
       for (const m of [hulls, skirts, wheels]) m.instanceMatrix.needsUpdate = true;

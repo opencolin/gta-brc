@@ -6,8 +6,8 @@ import type { RenderPerf, Renderer, ViewState } from "../view";
 import { cityPlan } from "@/lib/playa";
 import { buildCamps, nightUniform, type CampMeshes } from "./camps";
 import { buildGround, type GroundMeshes } from "./ground";
-import { addLights, buildSky } from "./lights";
-import { clearMaterials } from "./materials";
+import { addLights, buildSky, type Lights } from "./lights";
+import { clearMaterials, tintGround } from "./materials";
 import { buildPlaces, type PlaceMeshes } from "./places";
 import { buildStages, type StageMeshes } from "./stages";
 import { buildArt, type ArtMeshes } from "./art";
@@ -54,7 +54,8 @@ export class ChaseRenderer implements Renderer {
   private people: PeopleMeshes | null = null;   // built at the first frame: it needs the game's NPC list
   private crowds!: CrowdMeshes;
   private litter!: LitterMeshes;
-  private sky!: { update: (cam: THREE.Vector3) => void };
+  private sky!: { update: (cam: THREE.Vector3, night: number, storm: number) => void };
+  private lights!: Lights;
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
   private tmp = new THREE.Vector3();
@@ -85,7 +86,7 @@ export class ChaseRenderer implements Renderer {
     this.litter = buildLitter(this.scene);
     this.people = null;
     this.ride = buildRides(this.scene);
-    addLights(this.scene);
+    this.lights = addLights(this.scene);
   }
 
   /** Free what the scene holds on the GPU and empty it (the builders are deterministic, so build() can fill it again). */
@@ -138,7 +139,7 @@ export class ChaseRenderer implements Renderer {
     this.camera.lookAt(l.x, l.y, l.z);
     if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
-    this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
+    this.sky.update(this.camera.position, view.night, view.storm); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);
     this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera);

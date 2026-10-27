@@ -166,7 +166,7 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
       decal.position.y = 0.5; decal.renderOrder = LAYER.decal; g.add(decal);
     }
     group.add(g);
-    return { a, g, drawing, last: -1, animate: null as ((t: number, night: number) => void) | null };
+    return { a, g, drawing, last: -1, nf: false, animate: null as ((t: number, night: number) => void) | null };
   });
   // the Orb: a mirror ball on four legs, metal that reflects the sky
   const orb = pieces.find((p) => p.a.id === "the-orb");
@@ -184,8 +184,11 @@ export function buildArt(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Art
       for (const p of pieces) {
         const d = Math.hypot(p.a.x - cam.x, p.a.y - cam.z);
         p.g.visible = d < SHOW;
-        // redraw an animated decal at 10 Hz while it is near; farther off it keeps the picture it was last drawn with, so at night a far piece still shows its day one until it comes within LIVE (phase 4: repaint once when night changes)
-        if (p.drawing && d < LIVE && g.t - p.last > 0.1) { p.drawing.paint(g.t, night); p.last = g.t; }
+        // an animated decal redraws at 10 Hz while it is near; farther off it keeps its picture, redrawn once whenever the night comes or goes (the drawings light up with it)
+        if (p.drawing && p.g.visible) {
+          const nf = night > 0.3;
+          if (d < LIVE ? g.t - p.last > 0.1 : p.nf !== nf) { p.drawing.paint(g.t, night); p.last = g.t; p.nf = nf; }
+        }
         if (p.animate && p.g.visible) p.animate(g.t, night);
       }
     },

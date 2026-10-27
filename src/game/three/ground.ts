@@ -4,7 +4,7 @@ import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
 import { FENCE, GATE } from "@/lib/brc";
 import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
-import { basic, hex, instanced, lambert, mergedParts, placed, type Part } from "./materials";
+import { basic, hex, instanced, lambert, mergedParts, placed, registerGround, type Part } from "./materials";
 
 export type GroundMeshes = { group: THREE.Group; /** keeps what rides with the camera (the mountains) on it */ update: (cam: THREE.Vector3) => void };
 
@@ -82,7 +82,7 @@ function mountains(): THREE.Mesh {
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = THREE.RepeatWrapping;
   const m = new THREE.Mesh(
     new THREE.CylinderGeometry(RING_R, RING_R, RING_H, 128, 1, true),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.BackSide, fog: false, depthWrite: false }),
+    registerGround(new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.BackSide, fog: false, depthWrite: false })),
   );
   m.position.y = RING_H / 2; m.renderOrder = 10; m.frustumCulled = false;
   return m;
@@ -99,7 +99,7 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   // a textured material is built here, not through basic(): its cache key would stringify the texture (a PNG of the whole canvas)
   const textured = (img: HTMLCanvasElement, aniso: number, opts: THREE.MeshBasicMaterialParameters = {}) => {
     const t = new THREE.CanvasTexture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso;
-    return new THREE.MeshBasicMaterial({ color: 0xffffff, map: t, ...opts });
+    return registerGround(new THREE.MeshBasicMaterial({ color: 0xffffff, map: t, ...opts }));
   };
 
   // the desert past the map: flat dust to the edge of the world, the surrounding desert's painted crust and tracks on it, drawn first and writing no depth so the map over it never z-fights at a distance

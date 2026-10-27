@@ -8,6 +8,8 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 const lamberts = new Map<number, THREE.MeshLambertMaterial>();
 const basics = new Map<string, THREE.MeshBasicMaterial>();
 const vertexLamberts = new Map<THREE.Side, THREE.MeshLambertMaterial>();
+/** The unlit ground (flats, the painted maps, the far desert, the mountains): dimmed with the night by tintGround, since no light falls on them. */
+const grounds = new Set<THREE.MeshBasicMaterial>();
 
 /** A lit matte material (camps, rides, landmarks). */
 export function lambert(hex: number): THREE.MeshLambertMaterial {
@@ -23,12 +25,12 @@ export type BasicOpts = Pick<THREE.MeshBasicMaterialParameters, "side" | "depthW
 export function basic(hex: number, opts: BasicOpts = {}): THREE.MeshBasicMaterial {
   const key = hex + JSON.stringify(opts);
   let m = basics.get(key);
-  if (!m) basics.set(key, (m = new THREE.MeshBasicMaterial({ color: hex, ...opts })));
+  if (!m) { basics.set(key, (m = new THREE.MeshBasicMaterial({ color: hex, ...opts }))); registerGround(m); }
   return m;
 }
 
 /** Forget the cached materials (the scene that held them has been disposed). */
-export function clearMaterials(): void { lamberts.clear(); basics.clear(); vertexLamberts.clear(); }
+export function clearMaterials(): void { lamberts.clear(); basics.clear(); vertexLamberts.clear(); grounds.clear(); }
 
 /** "#rrggbb" as 0xRRGGBB. */
 export const hex = (css: string) => parseInt(css.slice(1), 16);
@@ -78,4 +80,15 @@ export function mergedParts(parts: Part[], material?: THREE.Material): THREE.Mes
   let m = vertexLamberts.get(THREE.DoubleSide);
   if (!m) vertexLamberts.set(THREE.DoubleSide, (m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
   return new THREE.Mesh(merged, m);
+}
+
+/** Count a basic material as unlit ground: its colour is dimmed by tintGround. Everything made with `basic()` already is. */
+export function registerGround(m: THREE.MeshBasicMaterial): THREE.MeshBasicMaterial { m.userData.base = m.color.clone(); grounds.add(m); return m; }
+/** What the night multiplies an unlit colour by: a dark navy, about what the top-down painter's 78% overlay of #0a0c24 leaves of the beige playa. */
+const NIGHT_MUL = new THREE.Color(0x2a2c4a);
+const mul = new THREE.Color();
+/** Dim the unlit ground for this night level (0 day, 1 night). */
+export function tintGround(night: number): void {
+  mul.set(0xffffff).lerp(NIGHT_MUL, night);
+  for (const m of grounds) m.color.copy(m.userData.base as THREE.Color).multiply(mul);
 }
