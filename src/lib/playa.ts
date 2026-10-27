@@ -1216,14 +1216,16 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   stepPack(g, dt);
   // the art car you drive is you: no bumping into yourself
   const others = riding || g.ghost || airborne ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
-  const touching = others.filter((n) => { const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < NPC_R[n.kind] + v.wid / 2 + 5; }).length;
+  // a close call is not a bump (asked 2026-10-27): you touch someone only inside seven tenths of their circle, with no margin, and only a firm knock counts
+  const reach = (n: Npc) => NPC_R[n.kind] * 0.7 + v.wid / 2 + 1;
+  const touching = others.filter((n) => { const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < reach(n); }).length;
   for (const n of others) {
     const p = npcAt(n, g.t);
-    const dx = g.car.x - p.x, dy = g.car.y - p.y, d = Math.hypot(dx, dy), min = NPC_R[n.kind] + v.wid / 2 + 5;
+    const dx = g.car.x - p.x, dy = g.car.y - p.y, d = Math.hypot(dx, dy), min = reach(n);
     if (d < min && g.slip <= 0) {
       const push = d > 1e-6 ? { depth: min - d, nx: dx / d, ny: dy / d } : { depth: min, nx: 0, ny: 1 };
       const hit = bounce(g.car, push, v.restitution);
-      if (g.hitCool <= 0 && hit > 15) {
+      if (g.hitCool <= 0 && hit > 22) {
         g.hitCool = 1.5;
         g.mission.gifts = Math.max(0, g.mission.gifts - 1);
         g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : n.kind === "bike" || n.kind === "ebike" ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
