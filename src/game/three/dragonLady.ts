@@ -9,7 +9,7 @@ import { mergedParts, shaped as P, type Part } from "./materials";
  * carRoof, repainted as it is now) laid at deck level, so the teak, the hot tub's water and the furniture are drawn; on it stand the main cabin and, above it, the bridge
  * (raked windscreens, dark side windows), a mast arch with the radar and antennas, a helipad at the bow with a little helicopter on it, the hot tub's rim, loungers on the aft
  * sun deck, rails on posts all round, and the rainbow flag flying from a staff at the stern. At night the windows, the hull's portholes and a chase of rainbow LEDs along
- * the rails glow, unlit. Three draw calls: the yacht (one vertex-coloured mesh), the glass and lights (one mesh whose vertex colours paint() sets), and the deck drawing.
+ * the rails glow, unlit. Two draw calls: the yacht (one vertex-coloured mesh), and the deck drawing with the glass and lights (one mesh whose vertex colours paint() sets).
  */
 export type Yacht = { group: THREE.Group; paint(t: number, night: number): void; /** how high the main deck is, which a ride on it stands on */ roof: number };
 
@@ -143,18 +143,26 @@ export function dragonLady(): Yacht {
   }
   g(slope(28.6, [-27, 13.5], [-25.5, 16.5], 0.12, 0.8), "win"); g(slope(21, [-19, 19], [-17.5, 21.5], 0.12, 0.8), "win");
   for (let x = -15; x <= 15; x += 3) g(b(0.55, 0.55, 0.55, x, DECK + 3.4, L / 2 - 0.5), "bead", L / 2);
-  const glassGeo = mergeGeometries(glass)!;
-  const colour = glassGeo.getAttribute("color") as THREE.BufferAttribute;
-  group.add(new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  const tmp = new THREE.Color(), fill = (first: number, n: number, c: THREE.Color) => { for (let v = first; v < first + n; v++) colour.setXYZ(v, c.r, c.g, c.b); };
-
-  // ── the deck: the existing top-down illustration, laid at deck level, repainted as it is now
+  // ── the deck: the existing top-down illustration, laid at deck level, repainted as it is now; the glass and lights share its mesh (one draw call fewer): their vertices all point
+  // at a white patch stamped on the canvas under the main cabin (nothing shows there), so the texture is white and the vertex colour is the colour
   const roof = carRoof("dragon-lady", 8);   // 8 px a foot, not 3: you look at it from a few feet up
-  if (roof) { const m = new THREE.Mesh(new THREE.PlaneGeometry(roof.w, roof.l).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: roof.tex, alphaTest: 0.04, side: THREE.DoubleSide })); m.position.y = DECK + 0.08; group.add(m); }
+  const cv = roof?.tex.image as HTMLCanvasElement | undefined, patch = cv ? { x: cv.width / 2, y: cv.height / 2 + -12 * 8 } : { x: 0, y: 0 };
+  const cw = cv?.width ?? 2, ch = cv?.height ?? 2;
+  for (const q of glass) { const n = q.getAttribute("position").count; q.setAttribute("uv", new THREE.BufferAttribute(Float32Array.from({ length: n * 2 }, (_, i) => (i % 2 ? 1 - patch.y / ch : patch.x / cw)), 2)); }
+  if (roof) {
+    const deck = new THREE.PlaneGeometry(roof.w, roof.l).rotateX(-Math.PI / 2).translate(0, DECK + 0.08, 0);
+    deck.deleteAttribute("normal"); deck.setAttribute("color", new THREE.BufferAttribute(new Float32Array(deck.getAttribute("position").count * 3).fill(1), 3));
+    glass.unshift(deck.toNonIndexed());
+  }
+  const glassGeo = mergeGeometries(glass)!;
+  const colour = glassGeo.getAttribute("color") as THREE.BufferAttribute, deckVerts = roof ? 6 : 0;
+  group.add(new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: roof?.tex ?? null, vertexColors: true, alphaTest: 0.04, side: THREE.DoubleSide })));
+  const tmp = new THREE.Color(), fill = (first: number, n: number, c: THREE.Color) => { for (let v = first + deckVerts; v < first + deckVerts + n; v++) colour.setXYZ(v, c.r, c.g, c.b); };
+  const stamp = () => { if (!cv) return; const x = cv.getContext("2d")!; x.fillStyle = "#fff"; x.fillRect(patch.x - 4, patch.y - 4, 8, 8); };
 
   let lastNight = -1;
   const paint = (t: number, night: number) => {
-    roof?.paint(t, night);
+    roof?.paint(t, night); stamp();   // the drawing clears its canvas: the white patch the glass samples goes back on
     const lit = night > 0.3 ? 1 : 0;
     if (lit !== lastNight) { lastNight = lit; tmp.setHex(lit ? 0xffd98a : 0x1c2740, THREE.SRGBColorSpace); if (lit) tmp.multiplyScalar(1.5); for (let i = 0; i < windows.length; i += 2) fill(windows[i], windows[i + 1], tmp); }
     for (const bd of beads) {

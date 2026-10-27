@@ -6,9 +6,9 @@ import { mergedParts, shaped as P, type Part } from "./materials";
  * Big Imagination (asked 2026-10-27): a Boeing 747 on a trailer, to the shape of its top-down drawing (artcars.ts jumbo): a lathe fuselage with a rounded nose, the
  * upper-deck hump behind the cockpit, a tail that tapers to a point, swept wings 62 ft across with four engine nacelles slung under them (the Golden Ticket's pod
  * profile with dark intakes), swept tailplanes and a tall fin, white on top with a navy belly and cheat line, standing on a flatbed on truck wheels. In its own
- * frame forward is -Z and right is +X; the car's centre is the drawing's. Three draw calls: the airframe, the trailer and the wheels in one mesh; the livery
- * band (the cabin windows, dark by day and warm at night, the navy cheat line and a run of LEDs along it), one canvas repainted ten times a second (paint());
- * and the lights, three small spheres whose colours blink (the wingtips, the spine's beacon). The roof drawing is not drawn on it.
+ * frame forward is -Z and right is +X; the car's centre is the drawing's. Two draw calls: the airframe, the trailer and the wheels in one mesh; the livery
+ * band (the cabin windows, dark by day and warm at night, the navy cheat line and a run of LEDs along it), one canvas repainted ten times a second (paint()),
+ * which also carries the lights, three small spheres whose colours blink (the wingtips, the spine's beacon). The roof drawing is not drawn on it.
  */
 export type Jumbo = { group: THREE.Group; paint(t: number, night: number): void; /** the height of the top of the fuselage, which a ride on it stands on */ roof: number };
 
@@ -38,7 +38,7 @@ function band(side: number, z0: number, z1: number, a0: number, a1: number): THR
   const nz = 30, na = 6, pos: number[] = [], uv: number[] = [], idx: number[] = [];
   for (let i = 0; i <= nz; i++) for (let j = 0; j <= na; j++) {
     const z = z0 + ((z1 - z0) * i) / nz, a = a0 + ((a1 - a0) * j) / na, r = radius(z) + 0.04;
-    pos.push(side * r * Math.cos(a), HUB + r * Math.sin(a), z); uv.push(i / nz, j / na);
+    pos.push(side * r * Math.cos(a), HUB + r * Math.sin(a), z); uv.push(i / nz, PADV + (1 - PADV) * (j / na));
   }
   for (let i = 0; i < nz; i++) for (let j = 0; j < na; j++) {
     const a = i * (na + 1) + j, b = a + 1, c = a + na + 1, d = c + 1;
@@ -49,10 +49,12 @@ function band(side: number, z0: number, z1: number, a0: number, a1: number): THR
   return g;
 }
 
-/** The band's canvas: 1024 x 128 for 43 ft by 2.8 ft. Windows up the top, a navy stripe along the bottom with the LEDs running along it; everything else transparent. */
-const BW = 1024, BH = 128, BZ0 = -29, BZ1 = 14, BA0 = -0.12, BA1 = 0.52;
+/** The band's canvas: 1024 x 128 for 43 ft by 2.8 ft (and the 8 rows of white under it). Windows up the top, a navy stripe along the bottom with the LEDs running along it; everything else transparent. */
+/** The canvas is BH rows of band and PAD rows of opaque white below them: the lights' vertices all point at a texel in that strip, so they draw in the band's own mesh (one call). */
+const BW = 1024, BH = 128, PAD = 8, CH = BH + PAD, BZ0 = -29, BZ1 = 14, BA0 = -0.12, BA1 = 0.52, PADV = PAD / CH;
 function paintBand(ctx: CanvasRenderingContext2D, t: number, night: number) {
-  ctx.clearRect(0, 0, BW, BH);
+  ctx.clearRect(0, 0, BW, CH);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, BH, BW, PAD);   // the strip the lights' vertices sample: opaque white, so the vertex colour is the colour
   const px = BW / (BZ1 - BZ0), lit = night > 0.3;
   // the cheat line: navy, a shade lighter by night so it is not the darkest thing on the plane
   ctx.fillStyle = lit ? "#2a3f8a" : "#1d2f6f"; ctx.fillRect(0, BH * 0.64, BW, BH * 0.36);
@@ -113,20 +115,27 @@ export function bigImagination(): Jumbo {
   const trailer = mergedParts([...parts, ...wheels].map((p) => (p.geo.index ? { ...p, geo: p.geo.toNonIndexed() } : p)));   // the extruded plates have no index: all or none
   group.add(trailer);
 
-  // ── the livery band: both sides of the fuselage, the same canvas
-  const c = document.createElement("canvas"); c.width = BW; c.height = BH;
+  // ── the livery band: both sides of the fuselage, the same canvas; and the lights: wingtips (red left, green right) and the spine's beacon, three spheres whose vertex colours are
+  // repainted. They share the band's mesh (one draw call fewer): their vertices all point at the white strip under the band, so the texture is white there and the vertex colour shows.
+  const c = document.createElement("canvas"); c.width = BW; c.height = CH;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const ctx = c.getContext("2d")!;
-  const bandMat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-  group.add(new THREE.Mesh(mergeGeometries([band(1, BZ0, BZ1, BA0, BA1), band(-1, BZ0, BZ1, BA0, BA1)])!, bandMat));
-
-  // ── the lights: wingtips (red left, green right), the spine's beacon; three spheres in one mesh with their colours repainted
-  const lampGeos = [[-31, HUB - 1.6, 20.4], [31, HUB - 1.6, 20.4], [0, HUB + 5.0, 12]].map(([x, y, z]) => new THREE.SphereGeometry(0.55, 8, 6).translate(x, y, z));
-  const lamps = mergeGeometries(lampGeos.map((g) => { const n = g.getAttribute("position").count; g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3).fill(0.2), 3)); return g; }))!;
-  const lampMesh = new THREE.Mesh(lamps, new THREE.MeshBasicMaterial({ vertexColors: true }));
-  group.add(lampMesh);
-  const per = lamps.getAttribute("position").count / 3, lampCol = lamps.getAttribute("color") as THREE.BufferAttribute, tmp = new THREE.Color();
-  const setLamp = (i: number, hex: number, k: number) => { tmp.setHex(hex, THREE.SRGBColorSpace).multiplyScalar(k); for (let v = i * per; v < (i + 1) * per; v++) lampCol.setXYZ(v, tmp.r, tmp.g, tmp.b); };
+  const bands = mergeGeometries([band(1, BZ0, BZ1, BA0, BA1), band(-1, BZ0, BZ1, BA0, BA1)])!;
+  bands.deleteAttribute("normal");
+  bands.setAttribute("color", new THREE.BufferAttribute(new Float32Array(bands.getAttribute("position").count * 3).fill(1), 3));
+  const lampGeos = [[-31, HUB - 1.6, 20.4], [31, HUB - 1.6, 20.4], [0, HUB + 5.0, 12]].map(([x, y, z]) => {
+    const g = new THREE.SphereGeometry(0.55, 8, 6).translate(x, y, z), n = g.getAttribute("position").count;
+    g.deleteAttribute("normal"); g.deleteAttribute("uv");
+    g.setAttribute("uv", new THREE.BufferAttribute(Float32Array.from({ length: n * 2 }, (_, i) => (i % 2 ? 1 - (BH + PAD / 2) / CH : 0.5)), 2));
+    g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3).fill(0.2), 3));
+    return g;
+  });
+  const lamps = mergeGeometries(lampGeos)!, lampAt = bands.getAttribute("position").count;
+  const bandMat = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  const livery = mergeGeometries([bands, lamps])!;
+  group.add(new THREE.Mesh(livery, bandMat));
+  const per = lamps.getAttribute("position").count / 3, lampCol = livery.getAttribute("color") as THREE.BufferAttribute, tmp = new THREE.Color();
+  const setLamp = (i: number, hex: number, k: number) => { tmp.setHex(hex, THREE.SRGBColorSpace).multiplyScalar(k); for (let v = lampAt + i * per; v < lampAt + (i + 1) * per; v++) lampCol.setXYZ(v, tmp.r, tmp.g, tmp.b); };
 
   const paint = (t: number, night: number) => {
     paintBand(ctx, t, night); tex.needsUpdate = true;
