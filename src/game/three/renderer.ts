@@ -128,7 +128,7 @@ export class ChaseRenderer implements Renderer {
     nightUniform.value = view.night; this.places.update(view.night); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
     this.sky.update(this.camera.position); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night);
-    updateRide(this.ride, g, view);
+    updateRide(this.ride, g, view, this.cars.drivenId(g));
     this.renderer.render(this.scene, this.camera);
     const t1 = performance.now();
     this.samples.push({ at: t1, dt: this.samples.length ? t1 - this.samples[this.samples.length - 1].at : 0, cpu: t1 - t0 });

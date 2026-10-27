@@ -1,32 +1,141 @@
 import * as THREE from "three";
-import { vehicleOf, type Game } from "@/lib/playa";
-import { PALETTE, yawOf } from "@/lib/view3d";
+import { vehicleOf, type Game, type VehicleId } from "@/lib/playa";
+import { LAYER } from "@/lib/scene3d";
+import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
-
-export type RideMeshes = { group: THREE.Group; body: THREE.Mesh; nose: THREE.Mesh };
+import { angelTexture, carRoof } from "./decals";
+import { mergedParts, shaped as P, type Part } from "./materials";
 
 /**
- * Your ride for the first version: a pink box the size of whatever you are on, with a navy mark on its nose so you can see
- * which way it faces. In its own frame forward is -Z and right is +X (the drawings' nose is at -y), so it takes the ride's
- * `wid` along X and `len` along Z, and the game heading h turns it by rotation.y = -h (view3d.ts).
+ * Your ride (PLAN-3D.md 2.6), one small model per vehicle, each one merged mesh or two: in its own frame forward is -Z and right is +X
+ * (the drawings' nose is at -y), and the game heading h turns it by rotation.y = -h (view3d.ts). Only the one you are on shows: the bike,
+ * the e-bike, the unicycle, the tuk-tuk (a bike with a covered trailer), the Golden Ticket, the cuttlefish, the Agave dome car (a "found" ride with no
+ * art car to wear), the plane, you under the chute, you lying down making a dust angel. An art car you drive is cars.ts's. Under it all
+ * go a soft shadow, and the dust angels left behind are flat decals.
  */
-export function buildRides(scene: THREE.Scene): RideMeshes {
-  const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: PALETTE.pink }));
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: PALETTE.navy }));
-  group.add(body, nose);
-  scene.add(group);
-  return { group, body, nose };
+export type RideMeshes = {
+  group: THREE.Group;
+  /** one per ride you can be on, shown one at a time */
+  models: Record<string, THREE.Group>;
+  /** a ride's brake light, lit when you brake */
+  brakes: THREE.Mesh[];
+  /** the plane's propeller, spun with the game clock */
+  props: THREE.Mesh[];
+  /** the plane you bailed out of, flying on */
+  plane2: THREE.Group;
+  shadow: THREE.Mesh;
+  angels: THREE.InstancedMesh;
+};
+
+const NAVY = 0x1b1f3b, TYRE = 0x15161d, SKIN = 0xf2c6a0, STRAW = 0xd9b46a, PINK = 0xff6b9a;
+const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+const cyl = (rt: number, rb: number, h: number, seg = 12) => new THREE.CylinderGeometry(rt, rb, h, seg);
+const ball = (r: number, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
+const wheel = (r: number, w: number, x: number, y: number, z: number): Part => P(cyl(r, r, w), TYRE, { x, y, z, rz: Math.PI / 2 });
+const deg = (d: number) => (d * Math.PI) / 180;
+
+/** A rider on a seat at (0, y, z), leaning forward by `lean` degrees, with a straw hat. */
+const rider = (y: number, z: number, lean: number, shirt = 0xffd27a): Part[] => [
+  P(new THREE.CapsuleGeometry(1.4, 4, 3, 8), shirt, { x: 0, y, z, rx: deg(-lean) }),
+  P(ball(1.3), SKIN, { y: y + 3.6, z: z - Math.sin(deg(lean)) * 2.4 }),
+  P(cyl(2.4, 2.4, 0.3), STRAW, { y: y + 4.6, z: z - Math.sin(deg(lean)) * 2.4 }), P(cyl(1.1, 1.4, 0.9), STRAW, { y: y + 5.1, z: z - Math.sin(deg(lean)) * 2.4 }),
+];
+/** A bicycle: two wheels, a frame, bars and a saddle, the rider on it (shifted by dz along the ride). */
+function bike(frame: number, r: number, tyre: number, dz = 0): Part[] {
+  return [
+    wheel(r, tyre, 0, r, -6 + dz), wheel(r, tyre, 0, r, 6 + dz),
+    P(box(0.8, 3, 11), frame, { y: 3.8, z: dz }), P(box(5, 0.4, 0.4), 0x2a2a33, { y: 6.2, z: -5 + dz }), P(box(1.4, 0.5, 2.5), 0x2a2a33, { y: 5.6, z: 2.5 + dz }),
+    ...rider(8.2, 1.2 + dz, 20),
+  ];
 }
 
-const HEIGHT = 6;
+function model(parts: Part[]): THREE.Group { const g = new THREE.Group(); g.add(mergedParts(parts)); g.visible = false; return g; }
+const brakeLight = (z: number, y: number, w = 1.6): THREE.Mesh => { const m = new THREE.Mesh(box(w, 0.9, 0.4), new THREE.MeshBasicMaterial({ color: 0xff2d55 })); m.position.set(0, y, z); m.visible = false; return m; };
 
-export function updateRide(r: RideMeshes, g: Game, _view: ViewState): void {
+export function buildRides(scene: THREE.Scene): RideMeshes {
+  const group = new THREE.Group(), models: Record<string, THREE.Group> = {}, brakes: THREE.Mesh[] = [], props: THREE.Mesh[] = [];
+  const add = (id: string, g: THREE.Group) => { models[id] = g; group.add(g); };
+  const withBrake = (g: THREE.Group, z: number, y: number) => { const b = brakeLight(z, y); g.add(b); brakes.push(b); return g; };
+
+  add("bike", withBrake(model(bike(PINK, 2.4, 0.8)), 8.4, 5));
+  add("ebike", withBrake(model([...bike(0x2f8fd0, 3, 1.6), P(box(1.4, 2, 3), NAVY, { y: 4.8, z: 3.5 })]), 8.4, 5));
+  add("unicycle", model([wheel(2.6, 0.8, 0, 2.6, 0), P(cyl(0.4, 0.4, 4), PINK, { y: 5, z: 0.4 }), P(box(1.6, 0.5, 2.4), 0x2a2a33, { y: 7, z: 0.6 }), ...rider(10.2, 0.6, 0).slice(0, 4)]));
+  add("tuktuk", withBrake(model([
+    ...bike(0xf2c14e, 2.4, 0.8, -4),
+    P(box(7, 2.4, 7), 0xf2c14e, { y: 2.2, z: 4.5 }), P(cyl(3.6, 3.6, 7), 0x2f9e5a, { y: 4.2, z: 4.5, rx: Math.PI / 2, sy: 1 }), wheel(2, 0.8, -3.6, 2, 5), wheel(2, 0.8, 3.6, 2, 5),
+  ]), 8.2, 4));
+  // the Golden Ticket: a gold body on three wheels, its drawing on top
+  { const g = model([P(box(10, 6, 20), 0xe8b923, { y: 5.2 }), P(box(8.4, 1, 18), 0xc9960c, { y: 8.6 }), wheel(2, 1, 0, 2, -8), wheel(2, 1, -4.6, 2, 6), wheel(2, 1, 4.6, 2, 6)]);
+    const roof = carRoof("golden-ticket"); if (roof) { const m = new THREE.Mesh(new THREE.PlaneGeometry(roof.w * 0.9, roof.l * 0.9).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: roof.tex, alphaTest: 0.04 })); m.position.y = 9.2; m.userData.drawing = roof; g.add(m); }
+    add("artcar", withBrake(g, 10.4, 3)); }
+  // the cuttlefish: a soft ellipsoid mantle with a fin round it, two eyes, a bunch of arms in front
+  add("fish", model([
+    P(ball(1, 16, 10), 0x3fb6a8, { sx: 9, sy: 3.5, sz: 15, y: 4.5 }), P(ball(1, 16, 6), 0xf2a65a, { sx: 10.2, sy: 0.7, sz: 16.2, y: 3.9 }),
+    P(ball(1.4), 0xfbf7ef, { x: -4, y: 7, z: -10 }), P(ball(1.4), 0xfbf7ef, { x: 4, y: 7, z: -10 }), P(ball(0.7), NAVY, { x: -4, y: 7.4, z: -11.2 }), P(ball(0.7), NAVY, { x: 4, y: 7.4, z: -11.2 }),
+    ...[-3, -1, 1, 3].map((x) => P(new THREE.ConeGeometry(0.9, 9, 6), 0x2f9488, { x, y: 4, z: -19, rx: -Math.PI / 2 })),
+  ]));
+  // the Agave dome car (a "found" ride with no art car): a pink deck with a white dome
+  add("found", model([P(box(20, 4, 36), PINK, { y: 3 }), P(box(14, 1, 3), NAVY, { y: 5.5, z: -15 }), P(cyl(0.8, 0.8, 4), NAVY, { y: 3, z: -11, rz: Math.PI / 2, sx: 1 }), P(new THREE.SphereGeometry(8, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xf4efe6, { y: 5, z: 2 }), ...[-1, 1].flatMap((s) => [-12, 12].map((z): Part => P(cyl(3.4, 3.4, 3), TYRE, { x: s * 10, y: 3.4, z, rz: Math.PI / 2 })))]));
+  // the plane: a white fuselage with a red stripe, a high wing, a tailplane and fin, a prop that spins
+  const planeParts = (): Part[] => [
+    P(cyl(1.4, 2.2, 30), 0xf4f4f6, { y: 6, rx: Math.PI / 2 }), P(box(2.4, 1, 6), 0x26304a, { y: 8.2, z: -5 }), P(box(34, 0.6, 6), 0xf4f4f6, { y: 9, z: -3 }),
+    P(box(4, 0.7, 6), 0xd62828, { y: 9.05, z: -3, x: -15 }), P(box(4, 0.7, 6), 0xd62828, { y: 9.05, z: -3, x: 15 }), P(box(13, 0.5, 3), 0xf4f4f6, { y: 6.5, z: 13 }), P(box(0.6, 6, 5), 0xd62828, { y: 9, z: 12.5 }),
+    P(cyl(0.2, 0.2, 7), 0x8a90a8, { y: 3.6, z: -3, x: -4 }), P(cyl(0.2, 0.2, 7), 0x8a90a8, { y: 3.6, z: -3, x: 4 }),
+    ...[-1, 1].map((s): Part => P(cyl(1.4, 1.4, 0.8), TYRE, { x: s * 4, y: 1.4, z: -3, rz: Math.PI / 2 })), P(cyl(1, 1, 0.8), TYRE, { y: 1, z: 13, rz: Math.PI / 2 }),
+  ];
+  const makePlane = (): THREE.Group => {
+    const g = model(planeParts());
+    const prop = new THREE.Mesh(box(10, 0.5, 0.4), new THREE.MeshBasicMaterial({ color: 0x3c4050, transparent: true, opacity: 0.7 })); prop.position.set(0, 6, -15.4); g.add(prop); props.push(prop);
+    return g;
+  };
+  add("plane", makePlane());
+  const plane2 = makePlane(); group.add(plane2);
+  // you under the chute: a striped canopy on lines over the rider hanging at the bottom
+  { const slices = Array.from({ length: 8 }, (_, k): Part => P(new THREE.SphereGeometry(14, 3, 8, (k * Math.PI) / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? PINK : 0xfbf7ef, { y: 22, sy: 0.9 }));
+    const lines = Array.from({ length: 8 }, (_, k): Part => { const a = (k * Math.PI) / 4, x = Math.cos(a) * 13, z = Math.sin(a) * 13, len = Math.hypot(x, z, 20), g = cyl(0.12, 0.12, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-x, -20, -z).normalize())); return { geo: g.translate(x / 2, 22 - 10, z / 2), color: 0x4a4f6e }; });
+    add("chute", model([...slices, ...lines, P(new THREE.CapsuleGeometry(1.1, 3, 3, 8), 0xff6b9a, { y: 3.4 }), P(ball(1.2), SKIN, { y: 6.2 }), P(cyl(2.2, 2.2, 0.3), STRAW, { y: 7.1 })])); }
+  // you lying in the dust making an angel
+  add("angelmaker", model([P(box(3, 1, 5), PINK, { y: 0.6 }), P(ball(1.6), SKIN, { y: 0.9, z: -4.2 }), P(box(14, 0.6, 1), SKIN, { y: 0.7, z: -2 }), P(box(1, 0.6, 9), SKIN, { y: 0.7, z: 6, rz: deg(0) }), P(box(8, 0.6, 1), SKIN, { y: 0.7, z: 5.5, rz: 0 })]));
+
+  // a shadow under the ride: a soft dark ellipse on the ground
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.25, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }));
+  shadow.position.y = 0.4; shadow.renderOrder = LAYER.decal; group.add(shadow);
+  // the dust angels left in the playa: flat decals, up to 64 of them
+  const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }), 64);
+  angels.count = 0; angels.frustumCulled = false; angels.renderOrder = LAYER.decal; group.add(angels);
+  scene.add(group);
+  return { group, models, brakes, props, plane2, shadow, angels };
+}
+
+const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
+const dummy = new THREE.Object3D();
+
+/** `carId`: the art car you are driving, if cars.ts is drawing it (then there is no ride of its own to show). */
+export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: string | null): void {
   const v = vehicleOf(g);
-  r.body.scale.set(v.wid, HEIGHT, v.len);
-  r.body.position.y = HEIGHT / 2;
-  r.nose.scale.set(v.wid * 0.7, 1, 3);
-  r.nose.position.set(0, HEIGHT + 0.5, -v.len / 2 + 2.5);
-  r.group.position.set(g.car.x, g.alt, g.car.y);
-  r.group.rotation.y = yawOf(g.car.h);
+  for (const m of Object.values(r.models)) m.visible = false;
+  const which = g.angelT > 0 ? "angelmaker" : g.chute ? "chute" : carId ? null : (ID[g.vehicle] ?? "bike");
+  const m = which ? r.models[which] : null;
+  const flying = g.vehicle === "plane" || g.chute;
+  if (m) { m.visible = true; m.position.set(g.car.x, which === "chute" ? g.alt : flying ? g.alt : 0, g.car.y); m.rotation.y = yawOf(g.car.h); }
+  for (const b of r.brakes) b.visible = view.brake;
+  for (const p of r.props) p.rotation.z = g.t * 42;
+  // the golden ticket's roof drawing redraws as it moves
+  const roof = r.models.artcar.children.find((c) => c.userData.drawing);
+  if (roof && which === "artcar") (roof.userData.drawing as { paint(t: number, n: number): void }).paint(g.t, view.night);
+  // the plane you bailed out of
+  r.plane2.visible = !!g.plane;
+  if (g.plane) { r.plane2.position.set(g.plane.x, g.plane.alt, g.plane.y); r.plane2.rotation.y = yawOf(g.plane.h); }
+  // the shadow: under the ride, off to one side by its height (the sun is up and to the left, as the 2D has it), fading as it rises
+  const alt = g.chute || g.vehicle === "plane" ? g.alt : 0, show = !!m && which !== "angelmaker" && which !== null;
+  r.shadow.visible = show;
+  if (show) {
+    r.shadow.position.set(g.car.x + alt * 0.5, 0.4, g.car.y + alt * 0.4); r.shadow.rotation.y = yawOf(g.car.h);
+    r.shadow.scale.set(Math.max(4, v.wid * 0.55), 1, Math.max(6, v.len * 0.6));
+    (r.shadow.material as THREE.MeshBasicMaterial).opacity = 0.25 / (1 + alt / 600);
+  }
+  // the angels
+  const n = Math.min(64, g.angels.length);
+  for (let i = 0; i < n; i++) { dummy.position.set(g.angels[i].x, 0.35, g.angels[i].y); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); r.angels.setMatrixAt(i, dummy.matrix); }
+  r.angels.count = n; r.angels.instanceMatrix.needsUpdate = true;
 }
