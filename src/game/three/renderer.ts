@@ -18,6 +18,7 @@ import { Fx } from "./fx";
 import { buildPeople, type PeopleMeshes } from "./people";
 import { buildCrowds, type CrowdMeshes } from "./crowds";
 import { buildLitter, type LitterMeshes } from "./litter";
+import { buildTrails, type TrailMeshes } from "./trails";
 import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
@@ -55,6 +56,7 @@ export class ChaseRenderer implements Renderer {
   private people: PeopleMeshes | null = null;   // built at the first frame: it needs the game's NPC list
   private crowds!: CrowdMeshes;
   private litter!: LitterMeshes;
+  private trails!: TrailMeshes;
   private sky!: { update: (cam: THREE.Vector3, night: number, storm: number) => void };
   private lights!: Lights;
   private fx: Fx | null = null;   // made the first time the trip or the night's bloom needs it
@@ -86,7 +88,7 @@ export class ChaseRenderer implements Renderer {
     this.cars = buildCars(this.scene);
     this.targets = buildTargets(this.scene);
     this.crowds = buildCrowds(this.scene);
-    this.litter = buildLitter(this.scene);
+    this.litter = buildLitter(this.scene); this.trails = buildTrails(this.scene);
     this.people = null;
     this.ride = buildRides(this.scene);
     this.lights = addLights(this.scene);
@@ -147,7 +149,7 @@ export class ChaseRenderer implements Renderer {
     this.sky.update(this.camera.position, view.night, view.storm); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);
     this.people ??= buildPeople(this.scene, g);
-    this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera);
+    this.people.update(g, this.camera.position); this.crowds.update(g, this.camera.position); this.litter.update(g, this.camera); this.trails.update(g, view.trip);
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     // the composer draws it while the trip's trails or the night's bloom are on, the renderer straight otherwise; the info is for the whole frame, whichever passes made it
     this.renderer.info.reset();
