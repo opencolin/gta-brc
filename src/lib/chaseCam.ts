@@ -50,7 +50,8 @@ export function camGoal(t: CamTarget, orbit = 0): CamGoal {
 /** The camera's forward heading in the game's convention, for the stick. */
 export const camYaw = (s: CamState) => Math.atan2(s.look.x - s.eye.x, -(s.look.z - s.eye.z));
 
-const withYaw = (g: CamGoal): CamState => {
+/** A camera sitting exactly on a goal, with no easing: the first frame, and a jump too far to ease across. */
+export const camAt = (g: CamGoal): CamState => {
   const s: CamState = { eye: { ...g.eye }, look: { ...g.look }, yaw: 0, fov: g.fov };
   s.yaw = camYaw(s);
   return s;
@@ -89,5 +90,5 @@ export function camAvoid<G extends { eye: Vec3; look: Vec3 }>(target: CamTarget,
   return goal;
 }
 
-/** A camera that starts where it wants to be (the first frame, and after a jump too far to ease across). */
-export const newCam = (t: CamTarget): CamState => withYaw(camAvoid(t, camGoal(t)));
+/** A camera that starts where it wants to be for this target. */
+export const newCam = (t: CamTarget): CamState => camAt(camAvoid(t, camGoal(t)));
