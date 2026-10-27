@@ -9,6 +9,8 @@ import { buildRides, updateRide, type RideMeshes } from "./rides";
 
 /** A jump in where the camera wants to be bigger than this (feet) is a teleport, not a drive: start there instead of sweeping across the map. */
 const SNAP = 1500;
+/** frame() is not called while top-down is showing, so a gap longer than this (seconds) since the last frame means the camera's state is stale: start behind the ride again instead of easing across what it drove meanwhile. */
+const STALE = 0.25;
 const SKY = "#cfe3f5";
 
 /** What the camera needs from the game. */
@@ -27,6 +29,7 @@ export class ChaseRenderer implements Renderer {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(60, 1, 1, 40000);
   private cam: CamState | null = null;
+  private lastAt = 0;
   private ride!: RideMeshes;
   private w = 1; private h = 1; private dpr = 1; private touch = false;
   private lost = false;
@@ -90,7 +93,9 @@ export class ChaseRenderer implements Renderer {
     if (view.touchUi !== this.touch) { this.touch = view.touchUi; this.applySize(); }
     const target = camTargetOf(g);
     const goal = camAvoid(target, camGoal(target, view.orbit));
-    const jumped = !this.cam || Math.hypot(goal.eye.x - this.cam.eye.x, goal.eye.z - this.cam.eye.z) > SNAP;
+    const now = performance.now(), stale = now - this.lastAt > STALE * 1000;
+    this.lastAt = now;
+    const jumped = !this.cam || stale || Math.hypot(goal.eye.x - this.cam.eye.x, goal.eye.z - this.cam.eye.z) > SNAP;
     this.cam = jumped ? camAt(goal) : camStep(this.cam!, goal, Math.min(dt, 0.1));
     const { eye: e, look: l, fov } = this.cam;
     this.camera.position.set(e.x, e.y, e.z);

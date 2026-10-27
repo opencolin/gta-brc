@@ -17,7 +17,7 @@ import {
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
-  AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
+  AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
   atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, POLO_JOB, vehicleOf, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
@@ -934,6 +934,8 @@ function speckle(ctx: CanvasRenderingContext2D): CanvasPattern | null {
 
 /** The last frame, at half size, for the trip's trails (asked 2026-10-26): drawn faintly under the next one. */
 let echo: HTMLCanvasElement | null = null;
+/** paint() keeps the echo fresh and lets go of it when the trip ends; while the chase view is drawing instead it never runs, so the loop calls this to keep a stale trail from showing on the first top-down frame after a switch. */
+const releaseEcho = () => { if (echo) echo.width = 0; };
 function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam: Cam, input: Input, font: string, trip = 0) {
   const t = g.t, night = nightLevel(g.dayT), z = cam.z;
   const vw = w / z, vh = h / z;
@@ -1170,11 +1172,11 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
  * into screen pixels, or null when it is behind the 3D camera; `yaw` is that camera's heading (null in top-down), which points the arrow
  * round behind you when the target is.
  */
-function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
+function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec, up?: number) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
   const t = g.t, storm = stormLevel(g.storm);
   // the dust storm: a whiteout that closes in around the car
   if (storm > 0) {
-    const at = proj(g.car) ?? { x: w / 2, y: h / 2 };
+    const at = proj(g.car, g.alt) ?? { x: w / 2, y: h / 2 }; // the ride itself, which in the plane or under the chute is well above the ground point under it
     const cx = at.x, cy = at.y;
     const clear = 70 + (1 - storm) * Math.max(w, h);
     const gr = ctx.createRadialGradient(cx, cy, clear * 0.25, cx, cy, clear);
@@ -1199,6 +1201,17 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     };
     const m = 34, s = proj(tg.at);
     if (s) {
+      if (yaw !== null) {
+        // the chase view draws no ring on the ground (the 3D bays and target ring come with phase 2), so the target is marked here: a pulsing
+        // pink ring sized by distance (as tall on the screen as a STOP_R pillar standing on it), with a beam rising from it to be found from afar
+        const top = proj(tg.at, STOP_R), pulse = 0.5 + 0.5 * Math.sin(t * 5);
+        const rr = Math.min(Math.min(w, h) * 0.35, Math.max(9, top ? Math.abs(s.y - top.y) : 9)) * (0.85 + 0.15 * pulse);
+        const beam = proj(tg.at, 600);
+        if (beam) { ctx.strokeStyle = `rgba(255, 107, 154, ${0.35 + 0.25 * pulse})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(beam.x, beam.y); ctx.stroke(); }
+        ctx.strokeStyle = C.pink; ctx.lineWidth = 4; ctx.setLineDash([12, 8]);
+        ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = `rgba(255, 107, 154, ${0.15 + 0.15 * pulse})`; ctx.fill();
+      }
       const sx = s.x, sy = s.y;
       if (sx < m || sx > w - m || sy < m || sy > h - m) {
         const a = Math.atan2(sy - h / 2, sx - w / 2);
@@ -1212,7 +1225,7 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     }
   }
 }
-const dprOf =(ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
+const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
 type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
@@ -1411,6 +1424,7 @@ export default function PlayaWin() {
     const ctx = cv.getContext("2d");
     if (!ctx) return;
     let w = 0, h = 0, dpr = 1, raf = 0, last = performance.now(), hudAt = 0, clock = 0;
+    let glW = 0, glH = 0, glDpr = 0; // the size the 3D renderer was last given (it is brought up to date by the first chase frame after a change)
     const font = getComputedStyle(stage).fontFamily || "system-ui, sans-serif";
     const g0 = game.current;
     const cam: Cam = { x: g0.car.x, y: g0.car.y, z: 1 };
@@ -1419,7 +1433,6 @@ export default function PlayaWin() {
       w = stage.clientWidth; h = stage.clientHeight;
       cv.width = Math.max(1, Math.round(w * dpr)); cv.height = Math.max(1, Math.round(h * dpr));
       (cv as HTMLCanvasElement & { _dpr?: number })._dpr = dpr;
-      three.current?.resize(w, h, dpr); // the WebGL canvas is sized by the renderer (its drawing buffer), CSS makes it fill the stage
       const m = mini.current;
       if (m) { m.width = m.clientWidth * dpr; m.height = m.clientHeight * dpr; miniBase = null; }
     };
@@ -1438,7 +1451,7 @@ export default function PlayaWin() {
         try {
           const { ChaseRenderer } = await import("./three/renderer");
           if (!alive) return null;
-          const r = new ChaseRenderer(); r.mount(glCanvas.current!); r.resize(w, h, dpr);
+          const r = new ChaseRenderer(); r.mount(glCanvas.current!);
           three.current = r;
           if (flash.current.text === "loading the 3D view") flash.current = { text: "chase camera. C for top-down", until: game.current.t + 2.5 };
           return r;
@@ -1520,10 +1533,13 @@ export default function PlayaWin() {
       // the chase camera paints in WebGL when it has loaded (until then, and in top-down, paint() draws the world)
       const r = viewRef.current === "chase" ? three.current : null;
       if (r && w && h) {
+        // the WebGL canvas is sized by the renderer (its drawing buffer; CSS makes it fill the stage), and only while it is the one being drawn
+        if (glW !== w || glH !== h || glDpr !== dpr) { r.resize(w, h, dpr); glW = w; glH = h; glDpr = dpr; }
         r.frame(g, { w, h, dpr, trip: tripLevel.current, orbit: orbitRef.current, touchUi: touchUiRef.current, brake: inp.brake || inp.handbrake, night: nightLevel(g.dayT), storm: stormLevel(g.storm) }, dt);
         // the 2D canvas sits over the 3D one: clear it, then draw the screen-space things paint() ends with (the storm, the arrow to the pager's target)
         const d = dprOf(ctx); ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, w, h);
-        paintOverlay(ctx, w, h, g, (p) => r.project(p), missionTarget(g.mission, g.t), r.yaw());
+        releaseEcho();
+        paintOverlay(ctx, w, h, g, (p, up) => r.project(p, up), missionTarget(g.mission, g.t), r.yaw());
       } else if (w && h) paint(ctx, w, h, g, cam, inp, font, tripLevel.current);
       // the clip in passing floats just above its place on the playa, kept inside the screen
       const pk = peekEl.current, at = pk?.dataset.key ? placeAt(pk.dataset.key, g.t) : null;
@@ -1699,9 +1715,14 @@ export default function PlayaWin() {
     const len = Math.hypot(dx, dy), k = Math.min(1, len / R);
     if (len > R) { dx *= R / len; dy *= R / len; }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    // in the chase view "up" means the way the camera looks, so the stick's heading is turned by the camera's yaw (the camera follows the ride, so it is the ride's heading unless the camera has been orbited)
-    const yaw = viewRef.current === "chase" && three.current ? three.current.yaw() : 0;
-    touch.current = { ...touch.current, stick: len < 2 ? null : { a: wrapAngle(Math.atan2(dx, -dy) + yaw), k } };
+    // in the chase view "up" means the way the camera looks, so the stick's heading is turned by the camera's yaw (the ride's heading unless the camera has been orbited)
+    let a = Math.atan2(dx, -dy);
+    const cam3 = viewRef.current === "chase" ? three.current : null;
+    if (cam3) {
+      // pulling back is judged on the screen, not against the ride: within STICK_BACK's worth of straight down it hands the sim "straight behind the ride" so it brakes and reverses, wherever the camera is
+      a = Math.abs(wrapAngle(a - Math.PI)) < Math.PI - STICK_BACK ? wrapAngle(game.current.car.h + Math.PI) : wrapAngle(a + cam3.yaw());
+    }
+    touch.current = { ...touch.current, stick: len < 2 ? null : { a, k } };
   };
   const stickDown = (e: ReactPointerEvent) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); if (phaseRef.current === "title") go(); stickMove(e); };
   const stickUp = (e: ReactPointerEvent) => { e.preventDefault(); if (knobEl.current) knobEl.current.style.transform = ""; touch.current = { ...touch.current, stick: null }; };
@@ -1732,7 +1753,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down, R rides along on an art car, E drives it"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, R rides along on an art car, E drives it"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onBlur={() => { keys.current = { ...NO_INPUT }; }}>
         {/* the 3D canvas goes before the 2D one so the 2D canvas (clear in 3D, opaque in top-down) and then the HUD stack over it by DOM order: no z-index anywhere */}
@@ -1781,7 +1802,7 @@ export default function PlayaWin() {
             <button type="button" className="pl-btn pl-icon pl-trip" onClick={toggleTrip} aria-pressed={trip} aria-label={trip ? "trip: come down (T)" : "trip: visuals (T)"} title={trip ? "come down" : "trip"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0M12 7a5 5 0 1 1-5 5M12 3a9 9 0 1 1-9 9" /></svg>
             </button>
-            {gl2 && (
+            {view === "chase" && ( // only while in the chase view, the way back to top-down for a phone player who came by ?view=chase (C and ?view=chase still work everywhere; the button and help line come when phase 2 draws the bays)
               <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="7" width="13" height="10" rx="2" /><path d="M15.5 10.5 21 7.5v9l-5.5-3" /></svg>
               </button>
@@ -1819,7 +1840,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
