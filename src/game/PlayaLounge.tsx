@@ -197,7 +197,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
               <b className="pl-lg-name">{s.name}</b>
             </div>
             <button type="button" className="pl-lg-btn pl-lg-widen" onClick={() => setWide((w) => !w)} aria-pressed={wide} aria-label={wide ? "make the panel smaller" : "make the panel fill the screen"} title={wide ? "smaller" : "bigger"}>{wide ? "⤡" : "⤢"}</button>
-            <button type="button" className="pl-lg-btn" onClick={onCollapse} aria-label="fold the panel to a bar">–</button>
+            <button type="button" className="pl-lg-btn pl-lg-fold" onClick={onCollapse} aria-label="fold the panel to a bar">–</button>
           </div>
           <p className="pl-lg-blurb">{s.blurb}{s.site && <> · <a className="pl-lg-site" href={s.site} target="_blank" rel="noopener noreferrer">the artist's page ↗</a></>}</p>
           {vehicle === "found" && key.startsWith("mutant:") && (
@@ -270,8 +270,9 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           )}
         </div>
       )}
-      {/* a phone (asked 2026-10-23): a down arrow under the player, centred, folds the panel to its bar; the × in the head is gone, the bar's × stops the music */}
-      {open && <button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button>}
+      {/* a phone (asked 2026-10-27): the panel's own buttons are one bar pinned at its bottom, above Safari's toolbar (the safe-area inset), where the thumb is: the down arrow folds the
+          panel to its bar, and the head's – (and the widen button) are gone there; the sets scroll above it. A desktop has no dock: the head's buttons are the buttons. */}
+      {open && <div className="pl-lg-dock"><button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button></div>}
     </section>
   );
 }
