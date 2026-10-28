@@ -288,6 +288,9 @@
 .pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-body { flex: 1 1 auto; min-height: 0; padding: 14px 14px 8px; }
 .pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-head { position: sticky; top: -14px; z-index: 1; margin: -14px -14px 0; padding: 14px 14px 8px; background: rgba(27, 31, 59, .98); }
 .pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-player { margin: 0 10px; border-radius: 10px; overflow: hidden; }
+/* a phone (asked 2026-10-27): from the bottom up the dock, the player, and above it the sets, which take whatever height is left and scroll on their own; the title, the blurb and the hop buttons stay at the top and the player and the dock never move
+   (the list keeps 96 px at the least, and the body scrolls instead if what is above it is taller than that leaves) */
+.pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-list, .pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-stack { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 /* the full-screen panel's video keeps its 16:9, its height from the screen's width */
 /* (never taller than the screen leaves room for with the dock under it: on a phone on its side the 16:9 of the width would be 464 px of 390) */
 .pl[data-phone] .pl-lounge:not([data-mini]) .pl-lg-player.pl-lg-video { flex: 0 0 auto; height: min(calc((100vw - 20px) * 9 / 16), calc(100vh - 190px)); height: min(calc((100vw - 20px) * 9 / 16), calc(100dvh - 190px)); aspect-ratio: auto; }
