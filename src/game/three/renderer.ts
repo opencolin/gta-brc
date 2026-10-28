@@ -7,7 +7,8 @@ import { cityPlan } from "@/lib/playa";
 import { buildCamps, nightUniform, type CampMeshes } from "./camps";
 import { buildGround, type GroundMeshes } from "./ground";
 import { addLights, buildSky, type Lights } from "./lights";
-import { blend, clearMaterials, tintGround } from "./materials";
+import { blend, clearMaterials, configureGround, tintGround } from "./materials";
+import { quality } from "./quality";
 import { buildPlaces, type PlaceMeshes } from "./places";
 import { buildStages, type StageMeshes } from "./stages";
 import { buildArt, type ArtMeshes } from "./art";
@@ -36,6 +37,8 @@ const camTargetOf = (g: Game): CamTarget => {
  * The chase-camera renderer: the same Game, seen from behind your ride in three.js. It owns the scene, the camera and the
  * WebGL canvas; the game is never written to. Everything here is loaded lazily (PlayaWin's dynamic import), so top-down never pays for it.
  */
+/** The most a phone's pixel ratio may be. */
+const TOUCH_DPR = 1.5;
 export class ChaseRenderer implements Renderer {
   private renderer!: THREE.WebGLRenderer;
   private canvas!: HTMLCanvasElement;
@@ -61,13 +64,17 @@ export class ChaseRenderer implements Renderer {
   private lights!: Lights;
   private fx: Fx | null = null;   // the trip's and the night's passes: made and compiled at the first frame, their buffers only while they are on
   private w = 1; private h = 1; private dpr = 1; private touch = false;
+  /** A phone's pixel ratio gives way when frames run long (the plan's dynamic resolution): the most it may be now, and what counts toward changing it. */
+  private cap = TOUCH_DPR; private slow = 0; private fast = 0; private hold = 0; private holdFor = 10;
   private lost = false;
   private tmp = new THREE.Vector3();
   private onLost = (e: Event) => { e.preventDefault(); this.lost = true; };
   private onRestored = () => this.rebuild();
 
-  mount(canvas: HTMLCanvasElement): void {
+  /** `touch`: a phone or a tablet, which the view is built lighter for (quality.ts): decided here, before anything is built. */
+  mount(canvas: HTMLCanvasElement, touch = false): void {
     this.canvas = canvas;
+    this.touch = touch; quality.touch = touch; configureGround(touch ? 4 : 10, !touch);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.renderer.info.autoReset = false;   // frame() resets it: a composer renders several times a frame
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -91,7 +98,7 @@ export class ChaseRenderer implements Renderer {
     this.litter = buildLitter(this.scene); this.trails = buildTrails(this.scene);
     this.people = null;
     this.ride = buildRides(this.scene);
-    this.lights = addLights(this.scene);
+    this.lights = addLights(this.scene, this.touch);
   }
 
   /**
@@ -127,8 +134,8 @@ export class ChaseRenderer implements Renderer {
   }
 
   private applySize(): void {
-    this.renderer.setPixelRatio(Math.min(this.dpr, this.touch ? 1.5 : 2));
-    this.fx?.setSize(this.w, this.h, Math.min(this.dpr, this.touch ? 1.5 : 2));
+    this.renderer.setPixelRatio(this.ratio());
+    this.fx?.setSize(this.w, this.h, this.ratio());
     this.renderer.setSize(this.w, this.h, false);   // the canvas is sized by CSS (100% of the stage); this sets its drawing buffer
     this.camera.aspect = this.w / this.h;
     this.camera.updateProjectionMatrix();
@@ -139,8 +146,23 @@ export class ChaseRenderer implements Renderer {
     this.applySize();
   }
 
+  /** The pixel ratio the canvas and the passes draw at: the screen's, up to 2 (a phone: up to the cap, 1.5 and lower while frames run long). */
+  private ratio(): number { return Math.min(this.dpr, this.touch ? this.cap : 2); }
+  /**
+   * Dynamic resolution on a phone: 30 frames in a row over 20 ms take a quarter off the pixel ratio (not below 1); 120 in a row under 18 ms (a 60 Hz screen
+   * never does better than 16.7) put it back, but not for `holdFor` seconds after a cut, which doubles each time (to 2 minutes) so it does not hunt.
+   */
+  private adapt(dt: number): void {
+    if (!this.touch || dt <= 0 || dt > 0.25) return;
+    const ms = dt * 1000; this.hold = Math.max(0, this.hold - dt);
+    if (ms > 20) { this.slow++; this.fast = 0; } else if (ms < 18) { this.fast++; this.slow = 0; } else this.slow = this.fast = 0;
+    if (this.slow >= 30 && this.cap > 1) { this.cap = Math.max(1, this.cap - 0.25); this.slow = 0; this.hold = this.holdFor; this.holdFor = Math.min(120, this.holdFor * 2); this.applySize(); }
+    else if (this.fast >= 120 && this.cap < TOUCH_DPR && this.hold <= 0) { this.cap = Math.min(TOUCH_DPR, this.cap + 0.25); this.fast = 0; this.applySize(); }
+  }
+
   frame(g: Game, view: ViewState, dt: number): void {
     if (this.lost) return;
+    this.adapt(dt);
     const t0 = performance.now();
     if (view.touchUi !== this.touch) { this.touch = view.touchUi; this.applySize(); }
     const target = camTargetOf(g);
@@ -162,7 +184,7 @@ export class ChaseRenderer implements Renderer {
     blend.linear = wantFx;   // which of the two blends the translucent shadows are drawn for
     updateRide(this.ride, g, view, this.cars.drivenId(g), this.cars.roofAt(g));
     // the composer draws it while the trip's trails or the night's bloom are on, the renderer straight otherwise; the info is for the whole frame, whichever passes made it
-    const pr = Math.min(this.dpr, this.touch ? 1.5 : 2);
+    const pr = this.ratio();
     // the passes (and the scene's shaders for a target rather than the screen) are compiled once, on the first frame while "loading the 3D view" is up, not at the first dusk or trip
     if (!this.fx) { this.fx = new Fx(this.renderer, this.scene, this.camera, this.w, this.h, pr); this.fx.warm(); }
     this.renderer.info.reset();

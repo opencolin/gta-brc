@@ -1,3 +1,4 @@
+import { quality } from "./quality";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
@@ -123,6 +124,14 @@ function buildLabels(group: THREE.Group, maxAnisotropy: number): void {
   m.position.y = LAYER_Y.mark; m.renderOrder = LAYER.mark; group.add(m);
 }
 
+/** The canvas drawn smaller onto one of `size` pixels square (null stays null). */
+function shrink(src: HTMLCanvasElement | null, size: number): HTMLCanvasElement | null {
+  if (!src || src.width <= size) return src;
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const x = c.getContext("2d"); if (!x) return src;
+  x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, size, size);
+  return c;
+}
 export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes {
   const group = new THREE.Group();
   const cy = (MAP_BOX.top + MAP_BOX.bottom) / 2;
@@ -135,7 +144,8 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   // the desert past the map: flat dust to the edge of the world, the surrounding desert's painted crust and tracks on it, drawn first and writing no depth so the map over it never z-fights at a distance
   const far = mesh(new THREE.PlaneGeometry(120000, 120000), basic(hex(PALETTE.outside), { depthWrite: false }), 0, -0.7, 0); far.rotation.x = -Math.PI / 2; far.renderOrder = -3;
   group.add(far);
-  const around = surroundImage();
+  // a phone gets the surrounding desert's painting at 1024 pixels, not 1536 (a 12.6 MB texture is a 5.6 MB one)
+  const around = quality.touch ? shrink(surroundImage(), 1024) : surroundImage();
   if (around) {
     const big = Math.max(2 * MAP_BOX.half, MAP_BOX.bottom - MAP_BOX.top) * AROUND;
     const m = mesh(new THREE.PlaneGeometry(big, big), textured(around, Math.min(4, maxAnisotropy), { depthWrite: false }), 0, -0.5, cy); m.rotation.x = -Math.PI / 2; m.renderOrder = -2;

@@ -90,7 +90,8 @@ const LAMPS: Lamp[] = (() => {
 })();
 
 export type Lights = { update(g: Game, view: ViewState, cam: THREE.Vector3, dt: number): void };
-const NEAR_LAMPS = 8, CAR_LAMPS = 2, RESORT = 0.5;
+/** The pool: 8 lamps near and 2 on the nearest art cars (a phone: 3 and 1, and no headlight), re-chosen twice a second. */
+const RESORT = 0.5;
 /** An art car's lamp rides 18 ft up at full strength (2,400 cd) unless it is listed here: a model that tall (a 747, a yacht with a bridge and a mast) is lit by it from inside or from a few feet off, which blows it out, so its lamp rides higher and weaker. */
 const LAMP: Record<string, { y: number; k: number }> = { "mutant:big-imagination-747": { y: 50, k: 0.18 }, "mutant:dragon-lady": { y: 52, k: 0.18 } };
 
@@ -99,12 +100,14 @@ const LAMP: Record<string, { y: number; k: number }> = { "mutant:big-imagination
  * point lights moved among the places that glow: the 8 nearest of the Man, the Temple, Agave's dome, Center Camp, the stages and the art (re-chosen twice
  * a second and faded in, so the shaders never change), and 2 on the nearest art cars. Every light always exists (a light that came and went would recompile every material); by day their intensity is 0.
  */
-export function addLights(scene: THREE.Scene): Lights {
+export function addLights(scene: THREE.Scene, touch = false): Lights {
+  const NEAR_LAMPS = touch ? 3 : 8, CAR_LAMPS = touch ? 1 : 2;
   const hemi = new THREE.HemisphereLight("#cfe3f5", "#e6d3ae", 0.45 * Math.PI);
   const sun = new THREE.DirectionalLight("#fff4e0", 0.6 * Math.PI);
-  const moon = new THREE.DirectionalLight("#8aa6ff", 0), head = new THREE.SpotLight("#fff3b0", 0, 260, 0.45, 0.5, 2);
+  const moon = new THREE.DirectionalLight("#8aa6ff", 0), head = touch ? null : new THREE.SpotLight("#fff3b0", 0, 260, 0.45, 0.5, 2);
   moon.position.set(-0.3, 1, 0.4);
-  scene.add(hemi, sun, moon, head, head.target);
+  scene.add(hemi, sun, moon);
+  if (head) scene.add(head, head.target);
   const pool = Array.from({ length: NEAR_LAMPS + CAR_LAMPS }, () => { const l = new THREE.PointLight(0xffffff, 0, 100, 1.4); scene.add(l); return { light: l, I: 0, k: 0, want: null as Lamp | null, car: null as (typeof MUTANTS)[number] | null }; });
   let since = RESORT, ride = new THREE.Vector3();
   const near: { lamp: Lamp; d: number }[] = [], hv = new THREE.Vector3();
@@ -125,10 +128,12 @@ export function addLights(scene: THREE.Scene): Lights {
       hemi.intensity = lerp(0.45 * Math.PI, 0.5 * Math.PI, night) * (1 - 0.3 * storm);
       moon.intensity = 0.16 * Math.PI * night;
       // your headlight, at the nose, 200 ft ahead
-      const v = vehicleOf(g), fx = Math.sin(g.car.h), fz = -Math.cos(g.car.h), y = (g.vehicle === "plane" || g.chute ? g.alt : 0) + 4;
-      head.position.set(g.car.x + fx * (v.len / 2), y, g.car.y + fz * (v.len / 2));
-      head.target.position.set(g.car.x + fx * 200, g.alt > 0 ? 0 : 0, g.car.y + fz * 200);
-      head.intensity = 3500 * night * (g.alt > 0 ? 0 : 1);
+      if (head) {
+        const v = vehicleOf(g), fx = Math.sin(g.car.h), fz = -Math.cos(g.car.h), y = (g.vehicle === "plane" || g.chute ? g.alt : 0) + 4;
+        head.position.set(g.car.x + fx * (v.len / 2), y, g.car.y + fz * (v.len / 2));
+        head.target.position.set(g.car.x + fx * 200, g.alt > 0 ? 0 : 0, g.car.y + fz * 200);
+        head.intensity = 3500 * night * (g.alt > 0 ? 0 : 1);
+      }
       ride.set(g.car.x, 0, g.car.y);
 
       // the lamps near you, re-chosen twice a second: the 8 nearest by distance to the ride
@@ -161,10 +166,12 @@ export function addLights(scene: THREE.Scene): Lights {
         groundLight.lampA.value[i].set(l.position.x, l.position.y, l.position.z, l.distance);
         groundLight.lampB.value[i].set(l.color.r * I, l.color.g * I, l.color.b * I, l.decay);
       }
-      const hi = head.intensity, hd = hv.copy(head.target.position).sub(head.position).normalize();
-      groundLight.headA.value.set(head.position.x, head.position.y, head.position.z, head.distance);
-      groundLight.headB.value.set(hd.x, hd.y, hd.z, Math.cos(head.angle));
-      groundLight.headC.value.set(head.color.r * hi, head.color.g * hi, head.color.b * hi, Math.cos(head.angle * (1 - head.penumbra)));
+      if (head) {
+        const hi = head.intensity, hd = hv.copy(head.target.position).sub(head.position).normalize();
+        groundLight.headA.value.set(head.position.x, head.position.y, head.position.z, head.distance);
+        groundLight.headB.value.set(hd.x, hd.y, hd.z, Math.cos(head.angle));
+        groundLight.headC.value.set(head.color.r * hi, head.color.g * hi, head.color.b * hi, Math.cos(head.angle * (1 - head.penumbra)));
+      }
     },
   };
 }

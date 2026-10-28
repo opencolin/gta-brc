@@ -1544,7 +1544,7 @@ export default function PlayaWin() {
         try {
           const { ChaseRenderer } = await import("./three/renderer");
           if (!alive) return null;
-          const r = new ChaseRenderer(); r.mount(glCanvas.current!);
+          const r = new ChaseRenderer(); r.mount(glCanvas.current!, touchUiRef.current);
           three.current = r;
           if (flash.current.text === "loading the 3D view") flash.current = { text: "chase camera. C for top-down", until: game.current.t + 2.5 };
           return r;

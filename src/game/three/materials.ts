@@ -89,8 +89,8 @@ export function mergedParts(parts: Part[], material?: THREE.Material): THREE.Mes
 export const blend = { linear: false };
 export const shade = (a: number) => (blend.linear ? 1 - Math.pow(1 - a, 2.2) : a);
 
-/** How many lamps the ground sees at once: the renderer's pool of point lights (lights.ts). */
-export const GROUND_LAMPS = 10;
+/** How many lamps the ground sees at once: the renderer's pool of point lights (lights.ts), 10 (4 on a phone, with no headlight: configureGround, before anything compiles). */
+let GROUND_LAMPS = 10, GROUND_HEAD = true;
 /**
  * What the unlit ground shares each frame (one set of uniforms for every ground material): the night's multiply, and the lamps that light it. The
  * ground is drawn in the 2D painter's own colours, so by night it is those colours times a dark navy (`mul`), lifted by the pool's point lights
@@ -106,12 +106,16 @@ export const groundLight = {
   headB: { value: new THREE.Vector4() },   // direction x, y, z, cos of the cone's angle
   headC: { value: new THREE.Vector4() },   // colour x candelas, cos of the penumbra's inner edge
 };
-const GROUND_PARS = `uniform vec3 uGMul;
+/** Set how many lamps the ground loops over and whether it has the headlight's cone (a phone: 4 and no): before the first ground material compiles, and the lamp arrays are remade at the new length. */
+export function configureGround(lamps: number, head: boolean): void {
+  GROUND_LAMPS = lamps; GROUND_HEAD = head;
+  groundLight.lampA.value = Array.from({ length: lamps }, () => new THREE.Vector4()); groundLight.lampB.value = Array.from({ length: lamps }, () => new THREE.Vector4());
+}
+const groundPars = () => `uniform vec3 uGMul;
 uniform float uGOn;
 uniform vec4 uGA[${GROUND_LAMPS}];
 uniform vec4 uGB[${GROUND_LAMPS}];
-uniform vec4 uHA, uHB, uHC;
-varying vec3 vGPos;
+${GROUND_HEAD ? "uniform vec4 uHA, uHB, uHC;\n" : ""}varying vec3 vGPos;
 float groundWindow(float r, float range) { float q = r / range; q *= q; return clamp(1.0 - q * q, 0.0, 1.0); }
 vec3 groundLamps() {
   vec3 s = vec3(0.0);
@@ -121,25 +125,26 @@ vec3 groundLamps() {
     float w = groundWindow(r, uGA[i].w);
     s += uGB[i].rgb * (pow(r, -uGB[i].w) * w * w * (d.y / r) / PI);
   }
-  vec3 h = uHA.xyz - vGPos; float hr = length(h);
+${GROUND_HEAD ? `  vec3 h = uHA.xyz - vGPos; float hr = length(h);
   if (hr < uHA.w && uHC.x + uHC.y + uHC.z > 0.0) {
     float cone = smoothstep(uHB.w, uHC.w, dot(-h / hr, uHB.xyz)), w = groundWindow(hr, uHA.w);
     s += uHC.rgb * (cone * pow(hr, -2.0) * w * w * (h.y / hr) / PI);
   }
-  return s;
+` : ""}  return s;
 }
 `;
 /** The one patch every ground material gets: its colour times (the night's multiply plus the lamps' light), the colour itself left as drawn. */
 function litGround(shader: { uniforms: Record<string, THREE.IUniform>; vertexShader: string; fragmentShader: string }): void {
   const u = shader.uniforms;
-  u.uGMul = groundLight.mul; u.uGOn = groundLight.on; u.uGA = groundLight.lampA; u.uGB = groundLight.lampB; u.uHA = groundLight.headA; u.uHB = groundLight.headB; u.uHC = groundLight.headC;
+  u.uGMul = groundLight.mul; u.uGOn = groundLight.on; u.uGA = groundLight.lampA; u.uGB = groundLight.lampB;
+  if (GROUND_HEAD) { u.uHA = groundLight.headA; u.uHB = groundLight.headB; u.uHC = groundLight.headC; }
   shader.vertexShader = "varying vec3 vGPos;\n" + shader.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
   vec4 gp = vec4(transformed, 1.0);
   #ifdef USE_INSTANCING
     gp = instanceMatrix * gp;
   #endif
   vGPos = (modelMatrix * gp).xyz;`);
-  shader.fragmentShader = shader.fragmentShader.replace("#include <common>", "#include <common>\n" + GROUND_PARS).replace("#include <opaque_fragment>", `outgoingLight = diffuseColor.rgb * (uGMul + (uGOn > 0.5 ? groundLamps() : vec3(0.0)));
+  shader.fragmentShader = shader.fragmentShader.replace("#include <common>", "#include <common>\n" + groundPars()).replace("#include <opaque_fragment>", `outgoingLight = diffuseColor.rgb * (uGMul + (uGOn > 0.5 ? groundLamps() : vec3(0.0)));
   #include <opaque_fragment>`);
 }
 

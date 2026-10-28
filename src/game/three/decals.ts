@@ -1,3 +1,4 @@
+import { quality } from "./quality";
 import * as THREE from "three";
 import { ART_PIECES } from "../artpieces";
 import { ART_CARS, drawGoldenTicket } from "../artcars";
@@ -41,7 +42,8 @@ export function pieceDrawing(id: string, r: number): Drawing | null {
   const draw = ART_PIECES[id];
   if (!draw) return null;
   const side = 2 * PIECE_REACH * r;
-  return drawing(256, 256, 256 / side, (c, t, n) => draw(c, t, n, r), side, side);
+  const px = quality.touch ? 128 : 256;   // a phone: a quarter of the memory
+  return drawing(px, px, px / side, (c, t, n) => draw(c, t, n, r), side, side);
 }
 
 /**
@@ -183,6 +185,7 @@ const K = 3;   // px per foot
 export function carRoof(id: string, px = K): Drawing | null {
   const { w, l } = roofSize(id);
   const draw: Draw | undefined = id === "golden-ticket" ? (c, t, n) => drawGoldenTicket(c, t, n) : ART_CARS[id];
+  if (quality.touch) px *= 2 / 3;   // a phone: 2 pixels a foot where it is 3 (and the yacht's deck 5.3 where it is 8)
   return draw ? drawing(w * px, l * px, px, draw, w, l) : null;
 }
 

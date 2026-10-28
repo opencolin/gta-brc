@@ -21,7 +21,8 @@ export type RenderPerf = { calls: number; triangles: number; geometries: number;
 
 /** A second way of drawing the same Game: the top-down painter is `paint()` in PlayaWin, the chase camera is src/game/three/. */
 export interface Renderer {
-  mount(canvas: HTMLCanvasElement): void;
+  /** `touch`: a phone or tablet, which gets the lighter build (three/quality.ts). */
+  mount(canvas: HTMLCanvasElement, touch?: boolean): void;
   resize(w: number, h: number, dpr: number): void;
   /** Draw one frame of this game state. Never mutates g. */
   frame(g: Game, view: ViewState, dt: number): void;
