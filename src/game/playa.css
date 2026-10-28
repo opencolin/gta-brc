@@ -144,10 +144,10 @@
   .pl[data-phone] .pl-tools { position: fixed; left: var(--lx); right: auto; top: auto; bottom: calc(var(--lb) + 204px); flex-direction: column; flex-wrap: nowrap; align-items: flex-start; justify-content: flex-end; max-width: 150px; gap: 6px; z-index: 7; }
   .pl[data-phone] .pl-tools .pl-btn { min-height: 44px; }
   .pl[data-phone] .pl-tools .pl-icon { position: fixed; width: 48px; height: 48px; min-height: 48px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
-  .pl[data-phone] .pl-tools .pl-icon.pl-snd { left: var(--lx); bottom: calc(var(--lb) + 38px); }
+  .pl[data-phone] .pl-tools .pl-icon.pl-snd { left: calc(var(--lx) + 38px); bottom: var(--lb); } /* sound at the foot of the diamond (asked 2026-10-27) */
   .pl[data-phone] .pl-tools .pl-icon.pl-day { left: calc(var(--lx) + 76px); bottom: calc(var(--lb) + 38px); }
   .pl[data-phone] .pl-tools .pl-icon.pl-cam { left: calc(var(--lx) + 38px); bottom: calc(var(--lb) + 76px); }
-  .pl[data-phone] .pl-tools .pl-icon.pl-trip { left: calc(var(--lx) + 38px); bottom: var(--lb); }
+  .pl[data-phone] .pl-tools .pl-icon.pl-trip { left: var(--lx); bottom: calc(var(--lb) + 38px); }
   .pl[data-phone][data-map] .pl-mini { visibility: hidden; }
 }
 
