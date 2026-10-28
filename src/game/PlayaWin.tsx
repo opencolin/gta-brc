@@ -1923,7 +1923,7 @@ export default function PlayaWin() {
               </svg>
             </button>
             <button type="button" className="pl-btn pl-icon pl-trip" onClick={toggleTrip} aria-pressed={trip} aria-label={trip ? "trip: come down (T)" : "trip: visuals (T)"} title={trip ? "come down" : "trip"}>
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0M12 7a5 5 0 1 1-5 5M12 3a9 9 0 1 1-9 9" /></svg>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 8 0 0 1 18 0z" /><path d="M10 12v6.5a2 2 0 0 0 4 0V12" /><circle cx="8.5" cy="8.5" r="1" fill="currentColor" stroke="none" /><circle cx="14.5" cy="7" r="1.2" fill="currentColor" stroke="none" /><circle cx="16.5" cy="10" r=".8" fill="currentColor" stroke="none" /></svg>
             </button>
             {gl2 && ( // the chase view needs WebGL 2: without it there is nothing to switch to (C and ?view=chase say so)
               <button type="button" className="pl-btn pl-icon pl-cam" onClick={toggleView} aria-pressed={view === "chase"} aria-busy={threeLoading} aria-label={view === "chase" ? "camera: top-down view (C)" : "camera: chase view (C)"} title={view === "chase" ? "top-down view" : "chase view"}>
