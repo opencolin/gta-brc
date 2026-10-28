@@ -2,15 +2,17 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { SPOTS, type Game, type Spot } from "@/lib/playa";
 import { LAYER, hslHex } from "@/lib/scene3d";
+import { PYRAMID } from "@/lib/pyramidStage";
 import { PALETTE, cang } from "@/lib/view3d";
 import { glowing } from "./camps";
 import { pTexture } from "./decals";
 import { basic } from "./materials";
+import { buildPyramid, type PyramidMeshes } from "./pyramidStage";
 
 /**
  * The places you can stop at, from SPOTS (172): each one's parking bay as a flat pink-tinted shape with its "P", and its stage by kind
  * (PLAN-3D.md 2.2): a camp's round navy stage with its coloured deck and two speaker stacks facing the bay, the fence's little pyramid,
- * a standing stone for an art place without a piece of its own. Pieces with their own drawing are in art.ts, Agave's domes in agave.ts.
+ * a standing stone for an art place without a piece of its own, and PlayAlchemist's Pyramid stage (pyramidStage.ts) where its drum would be. Pieces with their own drawing are in art.ts, Agave's domes in agave.ts.
  * Bays are merged into two meshes and the stage parts are one instanced mesh per shape (each whole city wide, a few thousand triangles).
  */
 export type StageMeshes = { group: THREE.Group; update(g: Game, t: number): void };
@@ -59,7 +61,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   hl.rotation.x = Math.PI / 2; hl.position.y = 0.45; hl.renderOrder = LAYER.bayHi; hl.visible = false; group.add(hl);
 
   // ── stages: one instanced mesh per shape
-  const camps = spots.filter((s) => s.kind === "camp"), stones = spots.filter((s) => s.kind === "art"), fences = spots.filter((s) => s.kind === "fence");
+  const camps = spots.filter((s) => s.kind === "camp" && s.key !== PYRAMID.key), stones = spots.filter((s) => s.kind === "art"), fences = spots.filter((s) => s.kind === "fence");
   const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number, set: (i: number, d: THREE.Object3D, c: THREE.Color) => void) => {
     const m = new THREE.InstancedMesh(geo, mat, n), c = new THREE.Color();
     for (let i = 0; i < n; i++) { d.position.set(0, 0, 0); d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); set(i, d, c); d.updateMatrix(); m.setMatrixAt(i, d.matrix); m.setColorAt(i, c); }
@@ -81,12 +83,17 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   // the fence's pyramid
   inst(new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), white, fences.length, (i, o, c) => { const s = fences[i]; o.position.set(s.stage.x, 15, s.stage.y); o.scale.set(s.stage.r, 30, s.stage.r); c.setHex(0x2a2440, THREE.SRGBColorSpace); });
 
+  // PlayAlchemist's Pyramid stage stands in place of its drum, deck and speakers (the sim's solid circle there is unchanged)
+  const py = SPOTS.find((s) => s.key === PYRAMID.key);
+  const pyramid: PyramidMeshes | null = py ? buildPyramid(group, py.stage, FACING(py)) : null;
+
   scene.add(group);
   const index = new Map(SPOTS.map((s, i) => [s.key, i]));
   let at: string | null = null;
   return {
     group,
     update(g, t) {
+      pyramid?.update(g, t);
       const key = g.parking.at;
       if (key !== at) { at = key; const i = key == null ? undefined : index.get(key); if (i === undefined) hl.visible = false; else { hl.geometry = all[i].geo; hl.visible = true; } }
       if (hl.visible) (hl.material as THREE.MeshBasicMaterial).color.setHSL(((t * 90) % 360) / 360, 1, 0.62, THREE.SRGBColorSpace);

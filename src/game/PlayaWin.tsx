@@ -7,6 +7,7 @@ import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, sou
 import { ART_CARS, drawGoldenTicket } from "./artcars";
 import { ART_PIECES } from "./artpieces";
 import { RidePicker } from "./RidePicker";
+import { LED_DAY, PYRAMID, ledPhase, ledRgb } from "@/lib/pyramidStage";
 import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
 import { hasWebGL2, readViewMode, VIEW_KEY, writeViewMode, type Renderer, type ViewMode } from "./view";
 import { wrapAngle } from "@/lib/view3d";
@@ -662,10 +663,40 @@ function drawBay(ctx: CanvasRenderingContext2D, sp: Spot, z: number, font: strin
   ctx.fillText("P", 0, 0);
   ctx.restore();
 }
+/**
+ * PlayAlchemist's Pyramid stage from above (asked 2026-10-27; src/lib/pyramidStage.ts): the square base, its four triangular faces meeting at the apex (the bay's face the
+ * palest, the back the darkest), the booth's deck in front, the edges and the diagonals lit: pale by day, warm to violet at night. Local frame: +y toward the bay.
+ */
+function drawPyramidStage(ctx: CanvasRenderingContext2D, t: number, night: number) {
+  const a = PYRAMID.half, lit = night > 0.3;
+  const led = (s: number) => { if (!lit) return `rgb(${LED_DAY[0]}, ${LED_DAY[1]}, ${LED_DAY[2]})`; const [r, g, b] = ledRgb(ledPhase(s, t)); return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`; };
+  // the deck in front of the bay face, and the booth on it
+  ctx.fillStyle = "#2a2440"; ctx.fillRect(-PYRAMID.apronHalf, a - 4, 2 * PYRAMID.apronHalf, PYRAMID.apron - a + 4);
+  ctx.fillStyle = lit ? "#ffb36b" : "#c9b8e8"; ctx.fillRect(-PYRAMID.openHalf, a - 4, 2 * PYRAMID.openHalf, 2);   // the opening, glowing at night
+  ctx.fillStyle = "#14122a"; ctx.fillRect(-4, a + 0.5, 8, 2.6); ctx.fillStyle = lit ? "#8fe9ff" : "#4a4570"; ctx.fillRect(-3.6, a + 0.7, 7.2, 0.8);   // the table and its lit top
+  ctx.fillStyle = "#14122a"; ctx.beginPath(); ctx.arc(0, a - 1.5, 1.4, 0, Math.PI * 2); ctx.fill();   // the DJ
+  // the four faces
+  const face = (x0: number, y0: number, x1: number, y1: number, fill: string) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill(); };
+  face(-a, a, a, a, lit ? "#9a86d8" : "#ece6ff");     // toward the bay
+  face(-a, -a, -a, a, lit ? "#4d4478" : "#cfc7ea");   // left
+  face(a, a, a, -a, lit ? "#3f3668" : "#c2b9de");     // right
+  face(a, -a, -a, -a, lit ? "#2e2750" : "#a89fc8");   // the back
+  ctx.strokeStyle = C.navy; ctx.lineWidth = 1; ctx.strokeRect(-a, -a, 2 * a, 2 * a);
+  // the lit edges: the base, then the four diagonals to the apex
+  ctx.lineWidth = 2.4; ctx.lineCap = "round";
+  const edge = (x0: number, y0: number, x1: number, y1: number, s: number) => { ctx.strokeStyle = led(s); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+  edge(-a, -a, a, -a, 70); edge(-a, -a, -a, a, 40); edge(a, -a, a, a, 130); edge(-a, a, -PYRAMID.openHalf, a, 100); edge(PYRAMID.openHalf, a, a, a, 105);
+  edge(-a, -a, 0, 0, 0); edge(a, -a, 0, 0, 9); edge(a, a, 0, 0, 18); edge(-a, a, 0, 0, 27);
+  ctx.lineCap = "butt";
+  ctx.fillStyle = lit ? "#ffffff" : "#f4f1ea"; ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();   // the apex
+}
+
 function drawStage(ctx: CanvasRenderingContext2D, sp: Spot, t: number, night: number) {
   const r = sp.stage.r;
   ctx.save(); ctx.translate(sp.stage.x, sp.stage.y); ctx.rotate(Math.atan2(sp.mid.y - sp.stage.y, sp.mid.x - sp.stage.x) - Math.PI / 2); // facing the bay
-  if (sp.kind === "art") {
+  if (sp.key === PYRAMID.key) {
+    drawPyramidStage(ctx, t, night);
+  } else if (sp.kind === "art") {
     // an art piece with its own music: a glowing standing stone in its colour, its light pulsing at night
     ctx.fillStyle = hsl(sp.hue, 75, night > 0.3 ? 62 : 55); ctx.strokeStyle = C.navy; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r * 0.7, 0); ctx.lineTo(0, r); ctx.lineTo(-r * 0.7, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
