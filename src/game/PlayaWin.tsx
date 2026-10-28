@@ -1346,8 +1346,6 @@ export default function PlayaWin() {
   const phaseRef = useRef<Phase>("title");
   const [phase, setPhaseState] = useState<Phase>("title");
   const [map, setMap] = useState(false);
-  // with the big map open you drive through everything: a way out of a corner, and a straight line to where you point
-  useEffect(() => { game.current.ghost = map; }, [map]);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
   const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false });
@@ -1761,6 +1759,8 @@ export default function PlayaWin() {
   const toggleNight = () => { const g = game.current; g.dayT = flipDay(g.dayT); };
   // the trip (asked 2026-10-26): trails, a colour wash and a sway, eased in and out over a few seconds; T or the ✶ button
   const [trip, setTrip] = useState(false); const tripRef = useRef(false); tripRef.current = trip; const tripLevel = useRef(0);
+  // nothing stops you while the big map is open or the trip is on (asked 2026-10-27: tripping, you pass through the people, the art cars, the camps and the fence, with no bump, no slow-down warning and no gift lost): either one is enough, so turning one off leaves the other's say
+  useEffect(() => { game.current.ghost = map || trip; }, [map, trip]);
   const toggleTrip = () => { setTrip((v) => { flash.current = { text: v ? "coming down" : "far out. T brings you down", until: game.current.t + 2.5 }; return !v; }); board.current?.focus({ preventScroll: true }); };
   // the view: C or the camera button swaps the chase camera and the top-down view. Only the drawing changes: the same game goes on, with the same music
   const toggleView = () => {

@@ -561,6 +561,25 @@ test("with the big map open (ghost) nothing stops you: camps, art cars and bikes
   assert.ok(free > blocked, `camps stop a real rider sooner: ${blocked.toFixed(0)} < ${free.toFixed(0)}`);
 });
 
+test("a ghost (the big map open, or the trip on) has no bumps, no slow-down warning and loses no gift to a person or a wall", () => {
+  const run = (ghost) => {
+    const g = newGame(3, "bike");
+    g.ghost = ghost; g.mission.gifts = 3;
+    // on top of a walker, then into the fence at full speed
+    const n = g.npcs.find((x) => x.kind === "walker"), p = npcAt(n, g.t);
+    g.car = newCar(p, 0);
+    const events = []; let warned = false;
+    for (let i = 0; i < 30; i++) { events.push(...stepGame(g, { ...NO_INPUT, gas: true }, DT)); if (g.warn > 0) warned = true; }
+    g.car = newCar(polar(120, FENCE_R * 0.98), clockToAngle(120)); g.car.vx = Math.sin(clockToAngle(120)) * 100; g.car.vy = -Math.cos(clockToAngle(120)) * 100;
+    for (let i = 0; i < 90; i++) events.push(...stepGame(g, { ...NO_INPUT, gas: true }, DT));
+    return { bumps: g.bumps, gifts: g.mission.gifts, warned, bumpEvents: events.filter((e) => e === "bump" || e === "slow").length, out: Math.hypot(g.car.x, g.car.y) };
+  };
+  const ghost = run(true), real = run(false);
+  assert.equal(ghost.bumps, 0); assert.equal(ghost.gifts, 3); assert.equal(ghost.warned, false); assert.equal(ghost.bumpEvents, 0);
+  assert.ok(real.warned || real.gifts < 3 || real.bumps > 0, "a real rider is bumped, warned or loses a gift");
+  assert.ok(ghost.out > real.out + 40, `the ghost goes through the fence, the real rider is stopped at it: ${ghost.out.toFixed(0)} ft out against ${real.out.toFixed(0)}`);
+});
+
 test("the fence is open toward the airport and solid everywhere else past it", () => {
   assert.equal(solidAt(polar(252, FENCE_R * 1.05)), null, "the way to the airport");
   assert.ok(solidAt(polar(120, FENCE_R * 1.05)), "past the fence at 2:00");
