@@ -1061,8 +1061,9 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) drawStage(ctx, sp, t, night); // a piece is its own stage (drawArt)
   for (const sp of spots) drawCrowd(ctx, sp, t, night);
   // the next ride, parked at the side of Agave's bay: stop in the bay to hop on
-  if (spots.some((sp) => sp.kind === "agave")) {
-    const other: VehicleId = g.vehicle === "artcar" ? "bike" : "artcar";
+  // (2026-10-28: only a bike now: the Golden Ticket itself is the art car parked along Agave's curb, and drawing a second one here put two on the map)
+  if (spots.some((sp) => sp.kind === "agave") && g.vehicle === "artcar") {
+    const other: VehicleId = "bike";
     const q = polar(AGAVE.bay.min + ((AGAVE.bay.half - 14) / AGAVE.bay.r1) * (720 / (Math.PI * 2)), (AGAVE.bay.r0 + AGAVE.bay.r1) / 2 + 8);
     ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(clockToAngle(AGAVE.bay.min) + Math.PI); drawRide(ctx, other, t, night, false); ctx.restore();
   }
