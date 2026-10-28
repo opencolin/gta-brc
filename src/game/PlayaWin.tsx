@@ -1689,7 +1689,7 @@ export default function PlayaWin() {
         setAboard(!!g.aboard);
         setVehicleState(g.vehicle);
         const seen = nearest(g.car, clipSources(g.t));
-        setPeek(seen && loudness(seen.d) > 20 ? seen.key : null);
+        setPeek(seen && loudness(seen.d) > 20 && g.alt <= 0 && g.vehicle !== "plane" ? seen.key : null); // no passing videos from the air: they flash by too fast to watch (asked 2026-10-27)
         const soon = quiet ? null : pendingSticky(sticky.current); // the place in earshot that is about to play
         setHud({
           address: addressOf(g.car), mph: mph(spd), pager: pagerLine(m),
