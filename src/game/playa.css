@@ -116,6 +116,8 @@
 .pl[data-phone] .pl-tools .pl-act { min-height: 44px; padding: 3px 12px; }
 .pl[data-phone] .pl-tools .pl-act.pl-found { border-color: var(--pl-gold, #ffd27a); }
 .pl[data-phone] .pl-tools .pl-ride-name { display: none; }
+/* no now-playing chip on a phone (asked 2026-10-27): the where-box already names what is playing, with its skip and stop buttons */
+.pl[data-phone] .pl-tools .pl-chip { display: none; }
 .pl[data-phone] .pl-tools .pl-btn:not(.pl-icon):not(.pl-act):not(:first-child) { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
 /* no brake button: the stick pulled back brakes and reverses (asked 2026-10-23); the drift alone sits bottom left */
 .pl .pl-hb { left: 12px; bottom: 28px; width: 84px; height: 68px; font-size: var(--t-control); }
