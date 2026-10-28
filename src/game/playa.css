@@ -124,7 +124,8 @@
   .pl[data-phone] .pl-stick { right: 14px; bottom: 28px; width: 150px; height: 150px; }
   .pl[data-phone] .pl-knob { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   /* the drift button above the mini player (asked 2026-10-23: they swapped), --pl-player-h being the player's height */
-  .pl[data-phone] .pl-hb { left: 12px; bottom: calc(40px + var(--pl-player-h, 0px)); width: 92px; height: 64px; }
+  /* (asked 2026-10-27) the drift button stands on the four round ones, which stand on the player: see the diamond below */
+  .pl[data-phone] .pl-hb { left: var(--lx); bottom: calc(var(--lb) + 132px); width: 92px; height: 64px; }
   /* the mini player sits above the steering thumbs, its play button by your left thumb (asked 2026-10-23: a phone
      never autoplays, so the button has to be in reach); the minimap tucks under the top block on the right */
   .pl[data-phone] .pl-lounge[data-mini], .pl[data-phone] .pl-amb > .pl-amb-on {
@@ -133,9 +134,18 @@
   }
   .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; right: 6px; top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); left: auto; bottom: auto; width: 112px; height: 108px; z-index: 1; }
-  /* the ride, sound, camera and day/night buttons (and hop off, ride, drive, take the plane) are a compact rail just left of the stick (asked 2026-10-27): its right edge the stick's 150px, 14px from the right, and 8px; it stands on the player's top when the player is up (the player is 198px from the left: the rail's 100px reach the left of it), the same 6px clear of the stick's foot when not */
+  /* the buttons, portrait (asked 2026-10-27, from Collin): all on the left, the middle of the screen and the stick clear. From the bottom up: the music's mini player when it is up, then the four
+     round buttons (sound, the trip, the camera, day or night) in a diamond like a controller's face buttons, then the drift button, then a column of the text buttons (ride, hop off, ride along,
+     drive, take the plane, the ♪ chip) growing upward. --lb is where the stack starts (8 px over the player when it is up, else 36 px over the screen's foot and the safe-area inset), --lx its left edge. */
+  .pl[data-phone] { --lb: max(calc(var(--pl-player-h, 0px) + 36px), calc(36px + env(safe-area-inset-bottom, 0px))); --lx: max(12px, env(safe-area-inset-left, 0px)); }
   .pl[data-phone] .pl-side { position: static; }
-  .pl[data-phone] .pl-tools { position: fixed; right: 172px; left: auto; top: auto; bottom: calc(var(--pl-player-h, 0px) + 34px); z-index: 7; }
+  .pl[data-phone] .pl-tools { position: fixed; left: var(--lx); right: auto; top: auto; bottom: calc(var(--lb) + 204px); flex-direction: column; flex-wrap: nowrap; align-items: flex-start; justify-content: flex-end; max-width: 150px; gap: 6px; z-index: 7; }
+  .pl[data-phone] .pl-tools .pl-btn { min-height: 44px; }
+  .pl[data-phone] .pl-tools .pl-icon { position: fixed; width: 48px; height: 48px; min-height: 48px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+  .pl[data-phone] .pl-tools .pl-icon.pl-snd { left: var(--lx); bottom: calc(var(--lb) + 38px); }
+  .pl[data-phone] .pl-tools .pl-icon.pl-day { left: calc(var(--lx) + 76px); bottom: calc(var(--lb) + 38px); }
+  .pl[data-phone] .pl-tools .pl-icon.pl-cam { left: calc(var(--lx) + 38px); bottom: calc(var(--lb) + 76px); }
+  .pl[data-phone] .pl-tools .pl-icon.pl-trip { left: calc(var(--lx) + 38px); bottom: var(--lb); }
   .pl[data-phone][data-map] .pl-mini { visibility: hidden; }
 }
 
