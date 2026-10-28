@@ -1,6 +1,6 @@
 "use client";
 import "./playa.css";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useIsMobile } from "@/lib/mobile";
 import { useBoardFocus } from "./useBoardFocus";
 import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
@@ -1365,6 +1365,9 @@ export default function PlayaWin() {
   const [gl2] = useState(hasWebGL2);
   const glCanvas = useRef<HTMLCanvasElement>(null);
   const orbitRef = useRef(0); // radians the camera has been turned round the ride (phase 5)
+  // turning the chase view (asked 2026-10-27): a finger dragging on the view (the second finger, while the other is on the stick) or the right mouse button, `,` and `.` held; it eases back behind the ride when let go
+  const orbitDrag = useRef<{ id: number; x: number } | null>(null);
+  const orbitKeys = useRef({ l: false, r: false });
   const three = useRef<Renderer | null>(null);
   const ensureThreeRef = useRef<(() => Promise<Renderer | null>) | null>(null);
   const [threeLoading, setThreeLoading] = useState(false);
@@ -1620,6 +1623,13 @@ export default function PlayaWin() {
         const transform = tl > 0 ? `rotate(${(1.6 * tl * Math.sin(tt * 0.37)).toFixed(2)}deg) scale(${(1 + 0.05 * tl + 0.025 * tl * Math.sin(tt * 1.1)).toFixed(3)})` : "";
         cv.style.filter = filter; cv.style.transform = transform;
         const gl = glCanvas.current; if (gl) { gl.style.filter = filter; gl.style.transform = transform; } } // the same wash and sway on the 3D canvas
+      // the view's turn (phase 5): held keys lean it 0.6 rad either way, a drag sets it directly, and let go it eases back behind the ride (and stays there in top-down)
+      if (viewRef.current !== "chase") { orbitRef.current = 0; orbitDrag.current = null; }
+      else if (!orbitDrag.current) {
+        const kt = (orbitKeys.current.r ? 0.6 : 0) - (orbitKeys.current.l ? 0.6 : 0);
+        orbitRef.current += (kt - orbitRef.current) * (1 - Math.exp(-dt / (kt ? 0.25 : 0.6)));
+        if (!kt && Math.abs(orbitRef.current) < 1e-3) orbitRef.current = 0;
+      }
       // the chase camera paints in WebGL when it has loaded (until then, and in top-down, paint() draws the world)
       const r = viewRef.current === "chase" ? three.current : null;
       if (r && w && h) {
@@ -1772,6 +1782,7 @@ export default function PlayaWin() {
       if (down && phaseRef.current === "title") go();
       return;
     }
+    if (e.key === "," || e.key === ".") { e.preventDefault(); orbitKeys.current = { ...orbitKeys.current, [e.key === "," ? "l" : "r"]: down }; return; }   // turn the chase view while held
     if (!down) return;
     else if (musicKey(e)) { /* used */ }
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
@@ -1792,6 +1803,17 @@ export default function PlayaWin() {
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
   };
+  // turning the chase view by dragging (phase 5): on the view itself, not on a button, the stick or a panel (e.target is the stage or one of its two canvases); a mouse with its right button, a finger with the other one on the stick or alone
+  const onView = (e: ReactPointerEvent | ReactMouseEvent) => viewRef.current === "chase" && (e.target === e.currentTarget || (e.target as HTMLElement).classList?.contains("pl-canvas"));
+  const viewDown = (e: ReactPointerEvent) => {
+    if (!onView(e) || !(e.pointerType === "touch" || (e.pointerType === "mouse" && e.button === 2))) return;
+    orbitDrag.current = { id: e.pointerId, x: e.clientX }; (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); e.preventDefault();
+  };
+  const viewMove = (e: ReactPointerEvent) => {
+    const d = orbitDrag.current; if (!d || d.id !== e.pointerId) return;
+    orbitRef.current = wrapAngle(orbitRef.current + (e.clientX - d.x) * 0.006); d.x = e.clientX;
+  };
+  const viewUp = (e: ReactPointerEvent) => { if (orbitDrag.current?.id === e.pointerId) orbitDrag.current = null; };
   const pad = (k: keyof Input, label: string, glyph: string, cls: string) => {
     const set = (v: boolean) => (e: ReactPointerEvent) => {
       e.preventDefault();
@@ -1852,9 +1874,10 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down, R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
-        onBlur={() => { keys.current = { ...NO_INPUT }; }}>
+        onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
+        onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
         {/* the 3D canvas goes before the 2D one so the 2D canvas (clear in 3D, opaque in top-down) and then the HUD stack over it by DOM order: no z-index anywhere */}
         <canvas ref={glCanvas} className="pl-canvas pl-canvas-3d" aria-hidden="true" hidden={view !== "chase"} />
         <canvas ref={canvas} className="pl-canvas" aria-hidden="true" />
@@ -1925,6 +1948,7 @@ export default function PlayaWin() {
             <div><dt>R</dt><dd>ride along · bail out · the garage</dd></div>
             <div><dt>V</dt><dd>garage</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
+            <div><dt>, .</dt><dd>turn the view</dd></div>
             <div><dt>M</dt><dd>map</dd></div>
             <div><dt>N</dt><dd>night</dd></div>
             <div><dt>T</dt><dd>trip</dd></div>
@@ -1954,8 +1978,8 @@ export default function PlayaWin() {
             ) : <div className="pl-title pl-title-s">paused</div>}
             <ul className="pl-help">
               {touchUi
-                ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
