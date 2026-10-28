@@ -1912,7 +1912,7 @@ export default function PlayaWin() {
           </button>
           <div className="pl-tools">
             <span className="pl-ride">
-              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog">ride: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name} ▾</button>
+              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog" aria-label={`ride: ${vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}`}>ride<span className="pl-ride-name">: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}</span> ▾</button>
             </span>
             {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}

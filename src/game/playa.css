@@ -111,10 +111,12 @@
 .pl .pl-stick:active .pl-knob { background: var(--pl-pink); }
 /* hop off / ride / drive next to the drift button on a phone (asked 2026-10-23); on a desktop they stay by the ride picker */
 .pl .pl-acts { display: none; }
-.pl[data-phone] .pl-side .pl-act { display: none; }
-.pl[data-phone] .pl-acts { position: absolute; display: flex; gap: 8px; left: 112px; bottom: calc(40px + var(--pl-player-h, 0px)); pointer-events: none; }
-.pl[data-phone] .pl-acts .pl-pad { position: static; height: 64px; padding: 0 14px; font-size: var(--t-control); white-space: nowrap; }
-.pl[data-phone] .pl-acts .pl-pad.pl-found { border-color: var(--pl-gold, #ffd27a); }
+/* on a phone (asked 2026-10-27) only the drift button is on the left: hop off, ride, drive and take the plane are in the tools, which sit in a rail just left of the stick (below) */
+.pl[data-phone] .pl-acts { display: none; }
+.pl[data-phone] .pl-tools .pl-act { min-height: 44px; padding: 3px 12px; }
+.pl[data-phone] .pl-tools .pl-act.pl-found { border-color: var(--pl-gold, #ffd27a); }
+.pl[data-phone] .pl-tools .pl-ride-name { display: none; }
+.pl[data-phone] .pl-tools .pl-btn:not(.pl-icon):not(.pl-act):not(:first-child) { max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
 /* no brake button: the stick pulled back brakes and reverses (asked 2026-10-23); the drift alone sits bottom left */
 .pl .pl-hb { left: 12px; bottom: 28px; width: 84px; height: 68px; font-size: var(--t-control); }
 /* portrait (asked 2026-10-22): bigger thumbs, the steering pair side by side with room between, gas and brake taller */
@@ -131,9 +133,9 @@
   }
   .pl[data-phone] .pl-where { max-width: calc(40vw - 10px); }
   .pl[data-phone] .pl-mini { position: fixed; right: 6px; top: calc(var(--pl-pager-h, 40px) + 12px + env(safe-area-inset-top, 0px)); left: auto; bottom: auto; width: 112px; height: 108px; z-index: 1; }
-  /* the ride, sound and day/night buttons sit under the minimap */
+  /* the ride, sound, camera and day/night buttons (and hop off, ride, drive, take the plane) are a compact rail just left of the stick (asked 2026-10-27): its right edge the stick's 150px, 14px from the right, and 8px; it stands on the player's top when the player is up (the player is 198px from the left: the rail's 100px reach the left of it), the same 6px clear of the stick's foot when not */
   .pl[data-phone] .pl-side { position: static; }
-  .pl[data-phone] .pl-tools { position: absolute; right: 0; top: calc(max(var(--pl-pager-h, 40px) + 126px, var(--pl-top-h, 160px)) + 6px); z-index: 5; }
+  .pl[data-phone] .pl-tools { position: fixed; right: 172px; left: auto; top: auto; bottom: calc(var(--pl-player-h, 0px) + 34px); z-index: 7; }
   .pl[data-phone][data-map] .pl-mini { visibility: hidden; }
 }
 
@@ -144,7 +146,7 @@
 .pl[data-phone] .pl-mini { width: 110px; height: 106px; }
 /* a wide desk gets a map you can read (asked 2026-10-22) */
 @media (min-width: 900px) { .pl:not([data-phone]) .pl-mini { width: 240px; height: 230px; } }
-.pl[data-phone] .pl-tools { max-width: 120px; }
+.pl[data-phone] .pl-tools { max-width: 100px; gap: 6px; justify-content: flex-end; align-content: flex-end; }
 
 /* what you can hear from the road, under the speed */
 .pl .pl-hear { display: flex; align-items: center; gap: 4px; font-size: var(--t-caption); line-height: var(--lh-ui); color: var(--pl-gold); }
@@ -319,11 +321,10 @@
   }
   .pl[data-phone] .pl-stick { right: 12px; bottom: 16px; width: 120px; height: 120px; }
   .pl[data-phone] .pl-knob { width: 52px; height: 52px; margin: -26px 0 0 -26px; }
-  /* and the buttons go under the where-and-points box on the left: the right side is the minimap and the thumbs;
-     the drift button moves beside the brake, out from under the minimap */
+  /* the drift button beside the player, out from under the minimap; the buttons are the rail just left of the stick (asked 2026-10-27: they were under the where-and-points box on the left, where the player covered them), clear of the minimap above the stick and of the player and the drift button on the left */
   .pl[data-phone] .pl-hb { left: calc(min(100vw - 260px, 320px) + 20px); bottom: 28px; width: 84px; height: 68px; }
   .pl[data-phone] .pl-side { position: static; }
-  .pl[data-phone] .pl-tools { position: absolute; left: 0; right: auto; top: calc(var(--pl-top-h, 160px) + 6px); justify-content: flex-start; z-index: 5; }
+  .pl[data-phone] .pl-tools { position: fixed; right: 140px; left: auto; top: auto; bottom: 22px; z-index: 7; }
 }
 
 /* with the big map up the mini player sits bottom left on every screen (asked 2026-10-22), clear of the map's buttons on the right */
