@@ -187,6 +187,11 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   };
   const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onCollapse(); } };
 
+  // a phone's dock (asked 2026-10-27): the panel's own actions, short, one each side of the fold arrow: hop off or ride along on the left, drive on the right (the buttons in the body are those a desktop keeps)
+  const atWheel = vehicle === "found" && key.startsWith("mutant:"), beside = vehicle !== "found" && !!parked?.startsWith("mutant:") && parked === key;
+  const dockLeft = atWheel ? { label: "hop off", go: onRideAlong, pressed: undefined } : beside ? { label: aboard ? "hop off" : "ride along", go: onRideAlong, pressed: aboard } : null;
+  const dockRight = beside && onDrive ? { label: "drive", go: onDrive } : null;
+
   return (
     <section className={`pl-lounge${now && s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lounge-clip" : ""}${wide ? " pl-lounge-wide" : ""}`} data-mini={open ? undefined : ""} aria-label={open ? `${parked === key ? here : "playing from"} ${s.name}` : "now playing"} onKeyDown={esc}>
       {open ? (
@@ -202,14 +207,14 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           <p className="pl-lg-blurb">{s.blurb}{s.site && <> · <a className="pl-lg-site" href={s.site} target="_blank" rel="noopener noreferrer">the artist's page ↗</a></>}</p>
           {vehicle === "found" && key.startsWith("mutant:") && (
             <div className="pl-lg-hop">
-              <button type="button" className="pl-lg-btn pl-lg-ride" onClick={onRideAlong}>hop off</button>
+              <button type="button" className="pl-lg-btn pl-lg-ride pl-lg-act" onClick={onRideAlong}>hop off</button>
               <span>at the wheel: hop off leaves it parked here and puts you on the bike</span>
             </div>
           )}
           {vehicle !== "found" && parked?.startsWith("mutant:") && parked === key && (
             <div className="pl-lg-hop">
-              <button type="button" className="pl-lg-btn pl-lg-ride" aria-pressed={aboard} onClick={onRideAlong}>{aboard ? "hop off" : `ride along on ${s.name}`}</button>
-              {onDrive && <button type="button" className="pl-lg-btn pl-lg-ride pl-lg-drive" onClick={onDrive}>drive it</button>}
+              <button type="button" className="pl-lg-btn pl-lg-ride pl-lg-act" aria-pressed={aboard} onClick={onRideAlong}>{aboard ? "hop off" : `ride along on ${s.name}`}</button>
+              {onDrive && <button type="button" className="pl-lg-btn pl-lg-ride pl-lg-drive pl-lg-act" onClick={onDrive}>drive it</button>}
               <span>{aboard ? "riding along: any arrow key hops you off" : "it drives, you listen"}</span>
             </div>
           )}
@@ -272,7 +277,11 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
       )}
       {/* a phone (asked 2026-10-27): the panel's own buttons are one bar pinned at its bottom, above Safari's toolbar (the safe-area inset), where the thumb is: the down arrow folds the
           panel to its bar, and the head's – (and the widen button) are gone there; the sets scroll above it. A desktop has no dock: the head's buttons are the buttons. */}
-      {open && <div className="pl-lg-dock"><button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button></div>}
+      {open && <div className="pl-lg-dock">
+        {dockLeft && <button type="button" className="pl-lg-btn pl-lg-dock-act pl-lg-dock-l" aria-pressed={dockLeft.pressed} onClick={dockLeft.go}>{dockLeft.label}</button>}
+        <button type="button" className="pl-lg-btn pl-lg-down" onClick={onCollapse} aria-label="fold the panel to a bar">▼</button>
+        {dockRight && <button type="button" className="pl-lg-btn pl-lg-dock-act pl-lg-dock-r" onClick={dockRight.go}>{dockRight.label}</button>}
+      </div>}
     </section>
   );
 }
