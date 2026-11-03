@@ -434,12 +434,15 @@ export function collide(c: Car, v: Vehicle = CAR): number {
 /* ── the others on the road ─────────────────────────────────────────────── */
 
 type NpcBase = {
-  kind: "bike" | "ebike" | "walker" | "artcar" | "mutant" | "ambulance"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
+  kind: "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "artcar" | "mutant" | "ambulance" | "rv"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
   /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line, `rank` its place in the pack */
   lead?: Npc; lag?: number; side?: number; rank?: number;
 };
-export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" });
-export const NPC_R = { bike: 7, ebike: 7, walker: 5, artcar: 24, mutant: 32, ambulance: 14 } as const;
+/** `line`: from `from` to `to` and round again from `from` (the Exodus queue), `phase` feet along it */
+export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" }) | (NpcBase & { path: "line"; from: Vec; to: Vec });
+export const NPC_R = { bike: 7, ebike: 7, tuktuk: 10, unicycle: 5, walker: 5, artcar: 24, mutant: 32, ambulance: 14, rv: 14 } as const;
+/** Someone on a bike of some sort, for the warnings. */
+export const onBike = (n: Npc) => n.kind === "bike" || n.kind === "ebike" || n.kind === "tuktuk" || n.kind === "unicycle";
 /** Room a biker riding with an art car keeps from it: wide enough to ride between them. */
 export const FOLLOW_GAP = 30;
 
@@ -566,6 +569,10 @@ export function npcAt(n: Npc, t: number): { x: number; y: number; h: number } {
     if (n.lead.key) { const pk = parkedCars.get(n.lead.key); if (pk) return packSlot(pk, n.rank ?? 0); } // behind a parked car, in rows
     return followSpot(n, t);
   }
+  if (n.path === "line") {
+    const dx = n.to.x - n.from.x, dy = n.to.y - n.from.y, len = Math.hypot(dx, dy), s = (((n.phase + t * n.speed) % len) + len) % len;
+    return { x: n.from.x + (dx / len) * s, y: n.from.y + (dy / len) * s, h: Math.atan2(dx, -dy) };
+  }
   const perMin = (n.r * Math.PI * 2) / 720; // feet per clock minute at this radius
   let min: number, dir: number;
   if (n.path === "loop") {
@@ -604,6 +611,40 @@ export const MUTANTS: readonly Npc[] = SOUND_CAMPS.filter((c) => c.kind === "mut
   return { ...base, ...route, phase: (i * 37 + lap * (route.to - route.from)) % (route.to - route.from) };
 });
 export const mutantOf = (key: string) => MUTANTS.find((m) => m.key === key);
+
+/**
+ * Tuk-tuks, unicycles and more fat-tyre e-bikes on the streets and the open playa (asked 2026-11-02). They draw from a generator of their
+ * own, so the seed's game draws the same numbers for everything else as before.
+ */
+function moreRides(): Npc[] {
+  const rand = seeded(20261102), out: Npc[] = [];
+  const street = (kind: Npc["kind"], v0: number, dv: number, hue: () => number): Npc => {
+    const ring = Math.floor(rand() * ARC_R.length);
+    return { kind, path: "arc", r: ARC_R[ring] + (rand() - 0.5) * arcWidth(ring) * 0.6, from: 120, to: 600, speed: (rand() < 0.5 ? -1 : 1) * (v0 + rand() * dv), phase: rand() * 480, hue: hue() };
+  };
+  const playa = (kind: Npc["kind"], v0: number, dv: number, hue: () => number): Npc => ({ kind, path: "loop", r: (300 + rand() * 1600) * CITY_SCALE, speed: (rand() < 0.5 ? -1 : 1) * (v0 + rand() * dv), phase: rand() * 720, hue: hue() });
+  const any = () => Math.floor(rand() * 360), blue = () => 200 + Math.floor(rand() * 60);
+  for (let i = 0; i < 18; i++) out.push(street("tuktuk", 12, 8, any));
+  for (let i = 0; i < 8; i++) out.push(playa("tuktuk", 12, 8, any));
+  for (let i = 0; i < 22; i++) out.push(street("unicycle", 7, 6, any));
+  for (let i = 0; i < 8; i++) out.push(playa("unicycle", 7, 6, any));
+  for (let i = 0; i < 28; i++) out.push(street("ebike", 28, 20, blue));
+  for (let i = 0; i < 12; i++) out.push(playa("ebike", 30, 20, blue));
+  return out;
+}
+/**
+ * Exodus (asked 2026-11-02): a long line of RVs leaving the burn, nose to tail in two lanes from the city's last street out
+ * Gate Road (4:30) and through the Gate between its booths, crawling at about 4 mph; each comes round to the city end again.
+ */
+export const EXODUS_GAP = 70, EXODUS_LANE = 25;
+export const EXODUS: readonly Npc[] = (() => {
+  const { lat, road } = GATE, len = Math.hypot(road.to.x - road.from.x, road.to.y - road.from.y), n = Math.floor(len / EXODUS_GAP), out: Npc[] = [];
+  for (const s of [-1, 1]) {
+    const from = { x: road.from.x + lat.x * s * EXODUS_LANE, y: road.from.y + lat.y * s * EXODUS_LANE }, to = { x: road.to.x + lat.x * s * EXODUS_LANE, y: road.to.y + lat.y * s * EXODUS_LANE };
+    for (let i = 0; i < n; i++) out.push({ kind: "rv", path: "line", from, to, r: 0, speed: 6, phase: i * EXODUS_GAP + (s > 0 ? EXODUS_GAP / 2 : 0), hue: (i * 47 + (s > 0 ? 180 : 0)) % 360, name: "an RV in Exodus" });
+  }
+  return out;
+})();
 
 /** People on foot keep to the side of the street (asked 2026-10-26): this far in from the camps' edge, and a band this wide. */
 export const KERB = 3, KERB_BAND = 4;
@@ -696,6 +737,7 @@ export function makeNpcs(rand: () => number): Npc[] {
       out.push({ kind: "bike", path: "loop", r: lead.r, speed: lead.speed, phase: 0, hue: Math.floor(rand() * 360), lead, lag: 1.2 + j * 0.55 + rand() * 0.5, side: (rand() - 0.5) * 90, rank: j });
     }
   }
+  out.push(...moreRides(), ...EXODUS);
   return out;
 }
 
@@ -1234,11 +1276,11 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
       if (g.hitCool <= 0 && hit > 22) {
         g.hitCool = 1.5;
         g.mission.gifts = Math.max(0, g.mission.gifts - 1);
-        g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : n.kind === "bike" || n.kind === "ebike" ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
+        g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : onBike(n) ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
         ev.push("hit");
       }
     } else if (d >= min && d < 130 && spd > 45 && g.warn <= 0) {
-      g.warn = 2; g.warnText = n.kind === "walker" ? "slow down: people walking. 5 mph" : n.kind === "bike" || n.kind === "ebike" ? "slow down: bikes. 5 mph" : `slow down: ${n.name ?? "art car"}. 5 mph`;
+      g.warn = 2; g.warnText = n.kind === "walker" ? "slow down: people walking. 5 mph" : onBike(n) ? "slow down: bikes. 5 mph" : `slow down: ${n.name ?? "art car"}. 5 mph`;
       ev.push("slow");
     }
   }

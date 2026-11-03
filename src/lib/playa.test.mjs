@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
-  newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan,
+  newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
   newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
@@ -166,9 +166,37 @@ test("NPCs stay on their streets and never go NaN", () => {
       assert.ok(Math.hypot(p.x - q.x, p.y - q.y) <= Math.abs(n.side) + 1e-6 || Math.abs(Math.hypot(p.x - now.x, p.y - now.y) - clear) < 1e-6, "rides beside the car's track");
       continue;
     }
+    if (n.path === "line") continue; // the Exodus queue: its own test
     assert.ok(Math.abs(Math.hypot(p.x, p.y) - n.r) < 1e-6, "on its circle");
     if (n.path === "arc") assert.notEqual(solidAt(p)?.depth > 5, true, "a bike on an arc rides the street");
   }
+});
+
+test("tuk-tuks, unicycles and fat-tyre e-bikes ride the streets too, without changing what the seed gives everyone else", () => {
+  const npcs = makeNpcs(seeded(3)), count = (k) => npcs.filter((n) => n.kind === k && !n.lead).length;
+  assert.ok(count("tuktuk") >= 20 && count("unicycle") >= 20 && count("ebike") >= 70);
+  for (const n of npcs.filter((n) => n.kind === "unicycle")) assert.ok(Math.abs(n.speed) < Math.min(...npcs.filter((b) => b.kind === "ebike").map((b) => Math.abs(b.speed))), "a unicycle is slower than any e-bike");
+  // the new rides come after everyone else and from a generator of their own: the rest of the list is as it was
+  const first = npcs.findIndex((n) => n.kind === "tuktuk");
+  assert.ok(npcs.slice(first).every((n) => n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "ebike" || n.kind === "rv"));
+  assert.deepEqual(makeNpcs(seeded(3)).slice(0, first).map((n) => n.hue), npcs.slice(0, first).map((n) => n.hue));
+});
+
+test("Exodus: RVs nose to tail in two lanes out Gate Road, between the Gate's booths, never on top of each other", () => {
+  assert.ok(EXODUS.length >= 200, "a long line");
+  const ax = { x: GATE.road.to.x - GATE.road.from.x, y: GATE.road.to.y - GATE.road.from.y }, len = Math.hypot(ax.x, ax.y);
+  for (const t of [0, 13.7, 600, 5000]) {
+    const ps = EXODUS.map((n) => npcAt(n, t));
+    for (const p of ps) {
+      const along = ((p.x - GATE.road.from.x) * ax.x + (p.y - GATE.road.from.y) * ax.y) / len, across = (p.x - GATE.road.from.x) * GATE.lat.x + (p.y - GATE.road.from.y) * GATE.lat.y;
+      assert.ok(along >= -1e-6 && along <= len + 1e-6, "on Gate Road");
+      assert.ok(Math.abs(Math.abs(across) - EXODUS_LANE) < 1e-6, "in a lane");
+      assert.ok(Math.abs(across) + 4.5 < GATE.width / 2 && Math.abs(across) - 4.5 > 14 && Math.abs(across) + 4.5 < 50 - 14, "inside the road and clear of the booths");
+      assert.ok(Math.abs(Math.sin(p.h - Math.atan2(ax.x, -ax.y))) < 1e-9 && Math.cos(p.h - Math.atan2(ax.x, -ax.y)) > 0, "heading out");
+    }
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) assert.ok(Math.hypot(ps[i].x - ps[j].x, ps[i].y - ps[j].y) >= Math.min(EXODUS_GAP, 2 * EXODUS_LANE) - 1e-6 || Math.hypot(ps[i].x - ps[j].x, ps[i].y - ps[j].y) > len - EXODUS_GAP, "nose to tail, not on top of each other");
+  }
+  assert.ok(EXODUS.every((n) => n.speed > 0 && n.speed < 10), "crawling");
 });
 
 test("more people: walkers on the street edges, and bikers riding behind the art cars", () => {

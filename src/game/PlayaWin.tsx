@@ -1137,7 +1137,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const n of g.npcs) { if (n.key && n.key === mine) continue; const p = npcAt(n, t); if (seen(p.x, p.y, 40)) npcs.push({ n, p }); }
   for (const { n, p } of npcs) {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.h);
-    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
+    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
     ctx.restore();
   }
   for (const { n, p } of npcs) if (n.kind === "mutant" && n.name) {
