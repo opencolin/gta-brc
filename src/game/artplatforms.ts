@@ -11,6 +11,10 @@ const NAVY = "#1b1f3b";
 const rr = (c: Ctx, x: number, y: number, w: number, h: number, r: number | number[]) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
 const disc = (c: Ctx, x: number, y: number, r: number) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); };
 const tyres = (c: Ctx, hw: number, ys: number[], w = 4, h = 8) => { c.fillStyle = "#15161d"; for (const y of ys) for (const s of [-1, 1]) { rr(c, s * hw - w / 2, y - h / 2, w, h, 1.5); c.fill(); } };
+/** The base vehicle an art car is built on, its colours (the factory's own arguments, in order) and the drawing that dresses it (its deck, tank, load...): three/platforms.ts builds each base in 3D and lays the dressing on its top. */
+export type Base = "bus" | "tanker" | "wagon" | "4x4" | "train" | "tram" | "boat";
+export type Platform = { base: Base; colors: string[]; dress: Draw };
+const platform = (base: Base, colors: string[], dress: Draw, draw: Draw): Draw & { platform: Platform } => Object.assign(draw, { platform: { base, colors, dress } });
 /** LEDs round an edge at night, chasing. */
 const chase = (c: Ctx, night: number, t: number, pts: [number, number][], hue0 = 0) => {
   if (night <= 0.3) return;
@@ -19,8 +23,8 @@ const chase = (c: Ctx, night: number, t: number, pts: [number, number][], hue0 =
 const edge = (hw: number, y0: number, y1: number, step = 4): [number, number][] => { const p: [number, number][] = []; for (let y = y0; y <= y1; y += step) { p.push([-hw, y]); p.push([hw, y]); } return p; };
 
 /** A bus: long body, roof panels, a windscreen at the nose, rear window; `deck` dresses the roof. */
-function bus(paint: string, trim: string, deck: Draw): Draw {
-  return (c, t, night) => {
+function bus(paint: string, trim: string, deck: Draw): Draw & { platform: Platform } {
+  return platform("bus", [paint, trim], deck, (c, t, night) => {
     tyres(c, 13.5, [-21, 19, 25]);
     c.fillStyle = trim; rr(c, -13, -31, 26, 62, 4); c.fill();
     c.fillStyle = paint; rr(c, -12, -30, 24, 60, 3.5); c.fill();
@@ -30,11 +34,11 @@ function bus(paint: string, trim: string, deck: Draw): Draw {
     c.fillStyle = "#26304a"; c.fillRect(-8, 27, 16, 2);                                   // rear window
     deck(c, t, night);
     chase(c, night, t, edge(12.5, -26, 26));
-  };
+  });
 }
 /** A tanker: a cab up front, the long round tank behind on its own frame; `tank` dresses the tank. */
-function tanker(cab: string, tank: Draw): Draw {
-  return (c, t, night) => {
+function tanker(cab: string, tank: Draw): Draw & { platform: Platform } {
+  return platform("tanker", [cab], tank, (c, t, night) => {
     tyres(c, 13, [-24, 6, 14, 24]);
     c.fillStyle = cab; rr(c, -12, -32, 24, 15, 3); c.fill();
     c.fillStyle = "#26304a"; rr(c, -10, -31, 20, 4, 1.5); c.fill();
@@ -42,24 +46,24 @@ function tanker(cab: string, tank: Draw): Draw {
     tank(c, t, night);
     c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 1; for (const y of [-6, 8, 22]) { c.beginPath(); c.moveTo(-12, y); c.lineTo(12, y); c.stroke(); }
     chase(c, night, t, edge(12.5, -12, 28), 30);
-  };
+  });
 }
 /** The tank body itself, a rounded cylinder seen from above with a highlight down its spine. */
 const tankBody = (c: Ctx, col: string, hi: string) => { c.fillStyle = col; rr(c, -12.5, -14, 25, 44, 11); c.fill(); c.fillStyle = hi; rr(c, -3, -12, 6, 40, 3); c.fill(); };
 /** A love wagon: a stubby van, split windscreen, round nose; `body` paints it. */
-function wagon(paint: string, body: Draw): Draw {
-  return (c, t, night) => {
+function wagon(paint: string, body: Draw): Draw & { platform: Platform } {
+  return platform("wagon", [paint], body, (c, t, night) => {
     tyres(c, 12.5, [-17, 17]);
     c.fillStyle = paint; rr(c, -12, -27, 24, 54, 9); c.fill();
     c.fillStyle = "#f4efe2"; rr(c, -12, -27, 24, 9, [9, 9, 2, 2]); c.fill();             // the two-tone nose
     c.fillStyle = "#26304a"; rr(c, -10, -24, 9.4, 5, 1.5); c.fill(); rr(c, 0.6, -24, 9.4, 5, 1.5); c.fill();
     body(c, t, night);
     chase(c, night, t, edge(12, -16, 24), 300);
-  };
+  });
 }
 /** A 4×4: big tyres out at the corners, a roll cage over an open tub; `load` is what rides in it. */
-function fourByFour(paint: string, load: Draw): Draw {
-  return (c, t, night) => {
+function fourByFour(paint: string, load: Draw): Draw & { platform: Platform } {
+  return platform("4x4", [paint], load, (c, t, night) => {
     tyres(c, 15, [-20, 20], 6, 11);
     c.fillStyle = paint; rr(c, -13, -30, 26, 60, 4); c.fill();
     c.fillStyle = "rgba(0,0,0,.2)"; rr(c, -13, -30, 26, 8, [4, 4, 0, 0]); c.fill();      // the bonnet
@@ -67,11 +71,11 @@ function fourByFour(paint: string, load: Draw): Draw {
     c.strokeStyle = "#2a2c38"; c.lineWidth = 2; c.strokeRect(-11, -15, 22, 40); c.beginPath(); c.moveTo(-11, 5); c.lineTo(11, 5); c.stroke();
     load(c, t, night);
     if (night > 0.3) for (const s of [-1, 1]) { c.strokeStyle = hsl((t * 120 + (s > 0 ? 180 : 0)) % 360, 100, 65); c.lineWidth = 1; c.beginPath(); c.moveTo(s * 11, 25); c.lineTo(s * (11 + Math.sin(t * 5) * 3), 40); c.stroke(); }
-  };
+  });
 }
 /** A train: an engine and carriages, articulated, each its own colour; `engine` dresses the front. */
-function train(cars: string[], engine: Draw): Draw {
-  return (c, t, night) => {
+function train(cars: string[], engine: Draw): Draw & { platform: Platform } {
+  return platform("train", cars, engine, (c, t, night) => {
     const n = cars.length, len = 62 / n;
     cars.forEach((col, k) => {
       const y0 = -31 + k * len;
@@ -82,11 +86,11 @@ function train(cars: string[], engine: Draw): Draw {
       if (night > 0.3) for (let y = y0 + 3; y < y0 + len - 2; y += 4) { c.fillStyle = hsl((k * 70 + y * 8 + t * 140) % 360, 100, 70); c.fillRect(-9, y, 1.4, 1.4); c.fillRect(7.6, y, 1.4, 1.4); }
     });
     engine(c, t, night);
-  };
+  });
 }
 /** A tram: a long rounded car, a trolley pole up top and windows down both sides; `dress` trims it. */
-function tram(paint: string, trim: string, dress: Draw): Draw {
-  return (c, t, night) => {
+function tram(paint: string, trim: string, dress: Draw): Draw & { platform: Platform } {
+  return platform("tram", [paint, trim], dress, (c, t, night) => {
     tyres(c, 12, [-20, -12, 12, 20], 3, 5);
     c.fillStyle = trim; rr(c, -12, -31, 24, 62, 10); c.fill();
     c.fillStyle = paint; rr(c, -10.5, -29.5, 21, 59, 9); c.fill();
@@ -94,18 +98,18 @@ function tram(paint: string, trim: string, dress: Draw): Draw {
     c.strokeStyle = "#2a2c38"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -40); c.stroke();
     c.fillStyle = night > 0.3 ? "#9be7ff" : "#555"; disc(c, 0, -40, 1.6); c.fill();
     dress(c, t, night);
-  };
+  });
 }
 /** A boat on wheels: a pointed hull, a deck and a wake of dust kicked up behind; `rig` is its superstructure. */
-function boat(hull: string, deck: string, rig: Draw): Draw {
-  return (c, t, night) => {
+function boat(hull: string, deck: string, rig: Draw): Draw & { platform: Platform } {
+  return platform("boat", [hull, deck], rig, (c, t, night) => {
     tyres(c, 11, [-6, 20], 3, 6);
     c.fillStyle = hull; c.beginPath(); c.moveTo(0, -34); c.quadraticCurveTo(15, -18, 13, 26); c.quadraticCurveTo(0, 31, -13, 26); c.quadraticCurveTo(-15, -18, 0, -34); c.fill();
     c.fillStyle = deck; c.beginPath(); c.moveTo(0, -29); c.quadraticCurveTo(11, -15, 10, 24); c.quadraticCurveTo(0, 28, -10, 24); c.quadraticCurveTo(-11, -15, 0, -29); c.fill();
     c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 0.6; for (let y = -20; y < 24; y += 3) { c.beginPath(); c.moveTo(-9, y); c.lineTo(9, y); c.stroke(); }
     rig(c, t, night);
     chase(c, night, t, [[0, -34], [6, -26], [-6, -26], [11, -10], [-11, -10], [12, 6], [-12, 6], [12, 20], [-12, 20]], 180);
-  };
+  });
 }
 
 /* ── the art cars ─────────────────────────────────────────────────────────── */
@@ -113,7 +117,7 @@ function boat(hull: string, deck: string, rig: Draw): Draw {
 const text = (c: Ctx, s: string, y: number, col: string, size = 4.2) => { c.save(); c.translate(0, y); c.rotate(Math.PI / 2); c.fillStyle = col; c.font = `800 ${size}px system-ui, sans-serif`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(s, 0, 0); c.restore(); };
 const speakers = (c: Ctx, y: number) => { for (const x of [-6, 6]) { c.fillStyle = "#1d1f2b"; rr(c, x - 3.5, y - 3.5, 7, 7, 1); c.fill(); c.fillStyle = "#4b5068"; disc(c, x, y, 2.4); c.fill(); } };
 
-export const PLATFORM_CARS: Record<string, Draw> = {
+export const PLATFORM_CARS: Record<string, Draw & { platform: Platform }> = {
   // buses
   dancetronauts: bus("#e8ecf5", "#2a2d3c", (c, t, night) => { c.fillStyle = "#cfd6ea"; c.beginPath(); c.moveTo(0, -18); c.lineTo(7, -6); c.lineTo(7, 14); c.lineTo(-7, 14); c.lineTo(-7, -6); c.closePath(); c.fill(); c.fillStyle = "#ff4b6e"; c.beginPath(); c.moveTo(-7, 14); c.lineTo(-11, 22); c.lineTo(-7, 18); c.moveTo(7, 14); c.lineTo(11, 22); c.lineTo(7, 18); c.fill(); if (night > 0.3) { c.fillStyle = hsl(30 + Math.sin(t * 20) * 15, 100, 60); c.beginPath(); c.moveTo(-4, 18); c.lineTo(0, 30 + Math.sin(t * 24) * 3); c.lineTo(4, 18); c.fill(); } c.fillStyle = "#3a7bd5"; disc(c, 0, -4, 3); c.fill(); }),
   "favela-art-car": bus("#f2b134", "#6b3a1f", (c) => { const cols = ["#e94f37", "#3fa7d6", "#59cd90", "#fac05e", "#ee6352", "#a882dd"]; for (let k = 0; k < 9; k++) { const x = -10 + (k % 3) * 7, y = -20 + Math.floor(k / 3) * 15; c.fillStyle = cols[k % cols.length]; c.fillRect(x, y, 6, 9 + (k % 2) * 3); c.fillStyle = "#2a2d3c"; c.fillRect(x + 2, y + 3, 2, 2); } }),

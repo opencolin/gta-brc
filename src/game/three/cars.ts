@@ -6,6 +6,14 @@ import { carRoof, hullSize, roofSize, type Drawing } from "./decals";
 import { bigImagination } from "./bigImagination";
 import { dragonLady } from "./dragonLady";
 import { goldenTicket, type Ticket } from "./goldenTicket";
+import { axolotl } from "./axolotl";
+import { discoDoge } from "./doge";
+import { kuker } from "./kuker";
+import { PLATFORM_IDS, platformModel } from "./platforms";
+import { ONEOFFS_A } from "./oneoffs-a";
+import { ONEOFFS_B } from "./oneoffs-b";
+import { ONEOFFS_C } from "./oneoffs-c";
+import { ONEOFFS_D } from "./oneoffs-d";
 
 /**
  * The art cars (PLAN-3D.md 2.5): every famous car (the 54 mutants and the Golden Ticket) is a hull, a dark skirt, six wheels and its
@@ -23,13 +31,23 @@ export type CarMeshes = {
   roofAt(g: Game): number;
 };
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
+/** How near a model with a `far` stand-in is drawn as itself (platforms.ts: up to 14 of them can be within SHOW_ROOF at once, about 1,700 triangles each). */
+const SHOW_MODEL = 1600;
 
-/** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts), Big Imagination's 747 (bigImagination.ts) and the Dragon Lady (dragonLady.ts). `roof`: how high a ride on top of it stands. */
-type Model = Ticket & { roof: number };
+/** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts), Big Imagination's 747 (bigImagination.ts), the Dragon Lady (dragonLady.ts),
+ * and the creatures (critters.ts, asked 2026-10-31): Disco Doge (doge.ts), the Axolotl (axolotl.ts) and Kuker (kuker.ts). `roof`: how high a ride on top of it stands; `live`: its paint() only moves its parts, so it runs every frame while near. */
+type Model = Ticket & { roof: number; live?: boolean; /** beyond SHOW_MODEL it is the instanced hull, skirt and wheels (the cars on a base vehicle, platforms.ts: a draw call apiece, as the roof was) */ far?: boolean };
 const MODELS: Record<string, () => Model> = {
+  // the art cars on the city games' base vehicles (platforms.ts, asked 2026-11-02): a bus, a tanker, a love wagon, a 4×4, a train, a tram or a boat built in 3D, the dressing on top
+  ...Object.fromEntries(PLATFORM_IDS.map((id) => [id, () => platformModel(id)])),
+  // the one-off art cars (oneoffs-*.ts, asked 2026-11-02), drawn as themselves within SHOW_MODEL and as the instanced hull beyond
+  ...Object.fromEntries(Object.entries({ ...ONEOFFS_A, ...ONEOFFS_B, ...ONEOFFS_C, ...ONEOFFS_D }).map(([id, f]) => [id, () => ({ ...f(), far: true })])),
   "golden-ticket": () => ({ ...goldenTicket(), roof: 9.4 }),
   "big-imagination-747": () => { const j = bigImagination(); return { group: j.group, paint: j.paint, roof: j.roof }; },
   "dragon-lady": () => { const y = dragonLady(); return { group: y.group, paint: y.paint, roof: y.roof }; },
+  "disco-doge": discoDoge,
+  axolotl,
+  kuker,
 };
 
 /** hullX and hullZ: where the hull's centre is from the car's, to the right and toward the tail (the art is not always centred on the car). */
@@ -92,7 +110,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   const driven = (id: string, hue: number): THREE.Group => {
     let g = mine.get(id);
     if (g) return g;
-    if (MODELS[id]) { g = MODELS[id]().group; g.visible = false; scene.add(g); mine.set(id, g); return g; }
+    if (MODELS[id]) { const md = MODELS[id](); g = md.group; g.userData.live = !!md.live; g.visible = false; scene.add(g); mine.set(id, g); return g; }
     const k = kitOf(id, hue); g = new THREE.Group();
     const hull = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: k.color })); hull.scale.set(k.hullW, k.hullH, k.hullL); hull.position.set(k.hullX, k.hullH / 2 + 1.5, k.hullZ);
     const skirt = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x1b1f3b })); skirt.scale.set(k.hullW + 2, 2, k.hullL + 2); skirt.position.set(k.hullX, 1, k.hullZ);
@@ -104,7 +122,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
   };
 
   const d = new THREE.Object3D(), base = new THREE.Matrix4(), local = new THREE.Matrix4(), out = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  cars.forEach((c, i) => { if (!c.ticket) return; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }); // the models never use their instanced slots
+  cars.forEach((c, i) => { if (!c.ticket || c.ticket.far) return; hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }); // the models never use their instanced slots
   let lastDriven = 0;
   const drivenId = (g: Game): string | null => {
     const key = drivenKey();
@@ -126,12 +144,14 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
           return;
         }
         c.shown = true;
-        if (c.ticket) {
+        if (c.ticket && c.ticket.far && dist >= SHOW_MODEL) c.ticket.group.visible = false;
+        else if (c.ticket) {
+          if (c.ticket.far) { hulls.setMatrixAt(i, zero); skirts.setMatrixAt(i, zero); for (let k = 0; k < 6; k++) wheels.setMatrixAt(i * 6 + k, zero); }
           const tg = c.ticket.group; tg.visible = true; tg.position.set(p!.x, 0, p!.y); tg.rotation.y = -p!.h;
           // painted at 10 Hz while it is near; farther off, once whenever the night comes or goes (as the roofs are), so it is not left lit by day or dark by night
           const nf = night > 0.3;
           // (the Dragon Lady's deck drawing waits on an image, so it is repainted whenever it shows)
-          if (dist < LIVE_ROOF || (c.id === "dragon-lady" && dist < SHOW_ROOF) ? g.t - c.last > 0.1 : c.nf !== nf) { c.ticket.paint(g.t, night); c.last = g.t; c.nf = nf; }
+          if (dist < LIVE_ROOF || (c.id === "dragon-lady" && dist < SHOW_ROOF) ? c.ticket.live || g.t - c.last > 0.1 : c.nf !== nf) { c.ticket.paint(g.t, night); c.last = g.t; c.nf = nf; }
           return;
         }
         const k = c.kit, yaw = -p!.h, co = Math.cos(yaw), si = Math.sin(yaw);
@@ -156,7 +176,7 @@ export function buildCars(scene: THREE.Scene): CarMeshes {
         grp.position.set(g.car.x, 0, g.car.y); grp.rotation.y = -g.car.h;
         const tk = grp.userData.ticket as Ticket | undefined, roof = grp.children.find((o) => o.userData.drawing) as THREE.Mesh | undefined;
         const dr = tk ?? (roof?.userData.drawing as Drawing | undefined);
-        if (dr && g.t - lastDriven > 0.1) { dr.paint(g.t, night); lastDriven = g.t; }
+        if (dr && (MODELS[id] && grp.userData.live || g.t - lastDriven > 0.1)) { dr.paint(g.t, night); lastDriven = g.t; }
       }
     },
   };
