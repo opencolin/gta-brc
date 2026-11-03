@@ -8,13 +8,15 @@
  *
  * Proportions follow the real city, scaled up by CITY_SCALE (1.5×, so the camps have room
  * for alleys, RV circles and shade): the Esplanade is 2,500 ft from the Man in the real city,
- * the first block (Esplanade to A) is the deepest at about 440 ft, the rest about 250 ft and
- * the outer three 200 ft. Streets are drawn wider than the real 40 ft (scaled) so an art car
- * can be steered on them.
- * The arc streets are lettered A to L (their names change every year). Radials run every half
+ * and since 2026-11-03 the streets are where the 2026 city's are (getlost.fyi's street map,
+ * measured in getlost.ts's import): the Esplanade 2,500 ft from the Man, A 430 ft out from it,
+ * then blocks of about 280 ft, E to F twice that, and the outer two 180 ft. Streets are drawn
+ * wider than the real 40 ft (scaled) so an art car can be steered on them.
+ * The arc streets are lettered A to K (their names change every year). Radials run every half
  * hour from 2:00 to 10:00; 3:00, 4:30, 6:00, 7:30 and 9:00 are the wide ones. Center Camp is
- * a plaza on the 6:00 radial straddling the Esplanade and A, and the trash fence is a
- * pentagon round the whole thing.
+ * a plaza on the 6:00 radial over the Esplanade, A and B; the round plazas are at B and G on
+ * the wide radials, at 2:00 & B and 10:00 & B, and the trash fence is a pentagon round the
+ * whole thing.
  *
  * No imports, no DOM: brc.test.mjs checks it.
  */
@@ -26,10 +28,10 @@ export const CITY_SCALE = 1.5;
 const S = CITY_SCALE;
 
 /** The arc streets, inside out: the Esplanade faces the Man, then A to L. */
-export const ARCS = ["Esplanade", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
+export const ARCS = ["Esplanade", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"] as const;
 export type ArcName = (typeof ARCS)[number];
 /** Each arc street's distance from the Man, in feet. */
-export const ARC_R: readonly number[] = [2500, 2940, 3190, 3440, 3690, 3940, 4190, 4440, 4690, 4940, 5190, 5390, 5590].map((r) => r * S);
+export const ARC_R: readonly number[] = [2500, 2930, 3205, 3485, 3765, 4045, 4530, 4810, 5090, 5370, 5550, 5740].map((r) => r * S);
 /** Road widths, in feet: widened from the real 40 ft so a car fits with room to steer. */
 /** The longest ride's length (playa.ts VEHICLES; playa.test.mjs holds every ride to it). */
 export const CAR_LEN_REF = 36;
@@ -50,12 +52,12 @@ export const MAN_R = 80;
 /** The Temple: out at 12:00, as far past the Man as the Esplanade is on the other side. */
 export const TEMPLE_DIST = 2500 * S;
 export const TEMPLE_R = 120;
-/** Center Camp: on 6:00 between the Esplanade and A; the plaza is open, the café in its middle is not. */
-export const CENTER_CAMP_DIST = 2720 * S;
-export const CENTER_CAMP_R = 380 * S;
+/** Center Camp: on 6:00 over the Esplanade, A and B, out to Route 66; the plaza is open, the café in its middle is not. */
+export const CENTER_CAMP_DIST = 2990 * S;
+export const CENTER_CAMP_R = 520 * S;
 export const CAFE_R = 130 * S;
 /** The trash fence: a regular pentagon round the Man, one corner at 12:00. */
-export const FENCE_R = 7600 * S;
+export const FENCE_R = 8260 * S;
 
 /** Minutes past 12:00 → radians clockwise from 12:00. */
 export const clockToAngle = (min: number) => (min / 720) * Math.PI * 2;
@@ -111,6 +113,12 @@ export function parseAddress(s: string): Vec | null {
 }
 
 export const CENTER_CAMP: Vec = polar(360, CENTER_CAMP_DIST);
+/** The round plazas (open ground, no camps): at B and G on the wide radials, 6:00 & G, and the bigger ones at 2:00 & B and 10:00 & B. */
+export const PLAZAS: readonly (Vec & { r: number; name: string })[] = [
+  ...[180, 270, 450, 540].map((m) => ({ ...polar(m, ARC_R[2]), r: 100 * S, name: `${clockLabel(m)} & B Plaza` })),
+  ...[180, 270, 360, 450, 540].map((m) => ({ ...polar(m, ARC_R[7]), r: 100 * S, name: `${clockLabel(m)} & G Plaza` })),
+  ...[125, 595].map((m) => ({ ...polar(m, ARC_R[2]), r: 133 * S, name: `${clockLabel(m === 125 ? 120 : 600)} & B Plaza` })),
+];
 export const TEMPLE: Vec = polar(0, TEMPLE_DIST);
 
 /**
@@ -153,7 +161,7 @@ export function fenceDepth(p: Vec): { depth: number; nx: number; ny: number } {
   return best;
 }
 
-/** The ring a distance from the Man falls in: -1 inside the Esplanade, ARCS.length - 1 past L, i between arc i and i + 1. */
+/** The ring a distance from the Man falls in: -1 inside the Esplanade, ARCS.length - 1 past K, i between arc i and i + 1. */
 export function ringOf(r: number): number {
   if (r < ARC_R[0]) return -1;
   for (let i = 0; i < ARC_R.length - 1; i++) if (r < ARC_R[i + 1]) return i;
@@ -178,6 +186,7 @@ export type Surface =
 export function surfaceAt(p: Vec): Surface {
   if (fenceDepth(p).depth < 0) return { kind: "outside" };
   if (Math.hypot(p.x - CENTER_CAMP.x, p.y - CENTER_CAMP.y) < CENTER_CAMP_R) return { kind: "plaza" };
+  for (const z of PLAZAS) if (Math.abs(p.x - z.x) < z.r && Math.abs(p.y - z.y) < z.r && Math.hypot(p.x - z.x, p.y - z.y) < z.r) return { kind: "plaza" };
   const { min, r } = toPolar(p);
   const span = min >= CITY_FROM - 1e-9 && min <= CITY_TO + 1e-9;
   // the arc street under the point, if any (an arc is a road only inside the city's span, with a half road of overhang)

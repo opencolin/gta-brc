@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ARCS, ARC_R, CITY_SCALE, ROAD_W, RADIALS, WIDE_RADIALS, CITY_FROM, CITY_TO, CENTER_CAMP, TEMPLE, FENCE, FENCE_R,
+  ARCS, ARC_R, CITY_SCALE, ROAD_W, RADIALS, WIDE_RADIALS, CITY_FROM, CITY_TO, CENTER_CAMP, TEMPLE, FENCE, FENCE_R, PLAZAS,
   polar, toPolar, clockLabel, parseClock, pointAt, parseAddress, surfaceAt, blockPush, addressOf, fenceDepth, ringOf,
 } from "./brc.ts";
 
@@ -28,8 +28,9 @@ test("clock labels and parsing round-trip", () => {
   assert.equal(parseClock("nope"), null);
 });
 
-test("streets: Esplanade then A to L outward, radii strictly increasing, Esplanade at 2,500 ft (scaled)", () => {
-  assert.deepEqual([...ARCS], ["Esplanade", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]);
+test("streets: Esplanade then A to K outward, as the 2026 city has them, radii strictly increasing, Esplanade at 2,500 ft (scaled)", () => {
+  assert.deepEqual([...ARCS], ["Esplanade", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"]);
+  assert.equal(ARC_R[6] - ARC_R[5], 485 * CITY_SCALE, "E to F is the deep block");
   assert.equal(ARC_R[0], 2500 * CITY_SCALE);
   for (let i = 1; i < ARC_R.length; i++) {
     const depth = ARC_R[i] - ARC_R[i - 1];
@@ -44,7 +45,7 @@ test("streets: Esplanade then A to L outward, radii strictly increasing, Esplana
 test("addresses at known corners", () => {
   assert.equal(addressOf(pointAt("7:30", "E")), "7:30 & E");
   assert.equal(addressOf(pointAt("4:30", "C")), "4:30 & C");
-  assert.equal(addressOf(pointAt("2:00", "L")), "2:00 & L");
+  assert.equal(addressOf(pointAt("2:00", "K")), "2:00 & K");
   assert.equal(addressOf(pointAt("9:00", "Esplanade")), "9:00 & Esplanade");
   // a little off the corner still reads as the corner
   const p = pointAt("3:00", "G");
@@ -71,12 +72,15 @@ test("the 12:00 opening: no street and no camps between 10:00 and 2:00", () => {
 
 test("surfaces: arc streets, radials, corners, blocks, plaza, fence", () => {
   assert.deepEqual(surfaceAt(polar(200, ARC_R[5])), { kind: "road", arc: "E" });
-  assert.deepEqual(surfaceAt(polar(450, 3300 * CITY_SCALE)), { kind: "road", radial: 450 });
+  assert.deepEqual(surfaceAt(polar(450, 3380 * CITY_SCALE)), { kind: "road", radial: 450 });
   assert.deepEqual(surfaceAt(pointAt("7:30", "E")), { kind: "road", arc: "E", radial: 450 });
   // between E and F, between 7:30 and 8:00
   const s = surfaceAt(polar(465, (ARC_R[5] + ARC_R[6]) / 2));
   assert.deepEqual(s, { kind: "block", ring: 5, sector: RADIALS.indexOf(450) });
   assert.equal(surfaceAt(CENTER_CAMP).kind, "plaza");
+  assert.equal(PLAZAS.length, 11);
+  for (const z of PLAZAS) assert.equal(surfaceAt(z).kind, "plaza", z.name);
+  assert.equal(surfaceAt(pointAt("7:30", "G")).kind, "plaza", "7:30 & G is a plaza");
   assert.equal(surfaceAt({ x: 0, y: FENCE_R + 100 }).kind, "outside");
   assert.equal(ringOf(100), -1);
   assert.equal(ringOf(ARC_R[3] + 1), 3);

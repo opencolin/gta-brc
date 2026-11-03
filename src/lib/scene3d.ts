@@ -1,5 +1,5 @@
 import {
-  AIRPORT, ARC_R, CENTER_CAMP, CENTER_CAMP_R, FENCE, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R,
+  AIRPORT, ARC_R, CENTER_CAMP, CENTER_CAMP_R, FENCE, PLAZAS, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_R,
   arcWidth, blockBounds, polar, radialWidth, toPolar, type Vec,
 } from "./brc.ts";
 import type { BlockPlan, Struct, StructKind } from "./camps.ts";
@@ -42,7 +42,7 @@ export const LAYER = { outside: 1, block: 2, street: 3, plaza: 4, ring: 5, mark:
 const PLAZA = "#efe5cf", PAVE = "#efe7d4", APRON = "#e8dfc9";
 const CITY_FROM = 120, CITY_TO = 600;
 
-/** The streets, the 192 blocks, Center Camp's plaza and Rod's Road, the Man's and the Temple's circles, the airport's runways and apron, Gate Road. */
+/** The streets, the 176 blocks, the round plazas, Center Camp's plaza and Rod's Road, the Man's and the Temple's circles, the airport's runways and apron, Gate Road. */
 export function groundFlats(): Flat[] {
   const out: Flat[] = [];
   // the blocks: ring i between arc i and i + 1, sector j between radial j and j + 1 (the streets' half widths are already off)
@@ -57,11 +57,13 @@ export function groundFlats(): Flat[] {
     const half = arcWidth(i) / 2, over = half / ARC_R[i];
     out.push({ kind: "arc", color: PALETTE.road, y: LAYER_Y.street, layer: LAYER.street, r0: ARC_R[i] - half, r1: ARC_R[i] + half, a0: cang(CITY_FROM) - over, a1: cang(CITY_TO) + over });
   }
-  // the radials, from the Esplanade out past L
+  // the radials, from the Esplanade out past K
   for (const m of RADIALS) out.push({ kind: "radial", color: PALETTE.road, y: LAYER_Y.street, layer: LAYER.street, from: polar(m, ARC_R[0]), to: polar(m, ARC_R[ARC_R.length - 1] + 28), width: radialWidth(m) });
   // Center Camp: the plaza, Rod's Road round it
   out.push({ kind: "disc", color: PLAZA, y: LAYER_Y.plaza, layer: LAYER.plaza, cx: CENTER_CAMP.x, cy: CENTER_CAMP.y, r: CENTER_CAMP_R });
   out.push({ kind: "ring", color: PALETTE.road, y: LAYER_Y.ring, layer: LAYER.ring, cx: CENTER_CAMP.x, cy: CENTER_CAMP.y, r0: CENTER_CAMP_R - 30, r: CENTER_CAMP_R + 30 });
+  // the round plazas at B and G (brc.ts PLAZAS): open ground over the streets that meet there
+  for (const z of PLAZAS) out.push({ kind: "disc", color: PLAZA, y: LAYER_Y.plaza, layer: LAYER.plaza, cx: z.x, cy: z.y, r: z.r });
   // the Man's circle and the Temple's
   out.push({ kind: "disc", color: PLAZA, y: LAYER_Y.plaza, layer: LAYER.plaza, cx: 0, cy: 0, r: MAN_R * 5 });
   out.push({ kind: "disc", color: PLAZA, y: LAYER_Y.plaza, layer: LAYER.plaza, cx: TEMPLE.x, cy: TEMPLE.y, r: TEMPLE_R * 3.4 });

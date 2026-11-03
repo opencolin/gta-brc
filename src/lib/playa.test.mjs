@@ -10,7 +10,7 @@ import { packVee,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
-import { planAt, structPush } from "./camps.ts";
+import { planAt, realCamps, structPush } from "./camps.ts";
 
 const DT = 1 / 60;
 const run = (car, input, secs, grip = 8) => { for (let i = 0; i < secs * 60; i++) car = carStep(car, input, DT, grip); return car; };
@@ -322,6 +322,17 @@ test("bikes and the unicycle ride through camp blocks; cars bounce off them; nob
   assert.ok(solidAt(thing, true), `a camp's ${thing.kind} is solid`);
   assert.equal(planAt(plan, thing), holder);
   assert.ok(structPush(thing, thing));
+});
+
+test("the 2026 city's real camps hold the lots, their names on the signs, and the pager runs people to their events", () => {
+  const signs = cityPlan().flatMap((b) => b.structs.filter((s) => s.kind === "sign" && s.uid));
+  assert.ok(signs.length > 950, `${signs.length} real camps signed`);
+  assert.equal(new Set(signs.map((s) => s.uid)).size, signs.length, "each camp once");
+  const byUid = new Map(realCamps().map((c) => [c.uid, c]));
+  for (const s of signs) { assert.equal(s.label, byUid.get(s.uid).name); assert.ok(Math.hypot(s.x - byUid.get(s.uid).at.x, s.y - byUid.get(s.uid).at.y) < 500, `${s.label} near its address`); }
+  const rides = JOBS.filter((j) => j.to.startsWith("real:"));
+  assert.ok(rides.length >= 12);
+  for (const j of rides) { const p = place(j.to); assert.equal(solidAt(p.at), null, `${p.label}: the stop is on open ground`); assert.match(j.line, /^(a burner|two burners) at .* to make ".*" at .*, (Mon|Tue|Wed|Thu|Fri|Sat|Sun) /); }
 });
 
 test("the camps: several per block, varied, solid things clear of the streets", () => {

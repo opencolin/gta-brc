@@ -104,7 +104,7 @@ function buildLabels(group: THREE.Group, maxAnisotropy: number): void {
   const ap = polar(252, FENCE_R * 1.09), g2 = polar(270, FENCE_R * 1.25);
   const labels = [
     ...WIDE_RADIALS.map((m) => { const p = polar(m, ARC_R.at(-1)! + 330); return { text: clock(m), x: p.x, y: p.y, ft: 180, weight: 700 }; }),
-    ...[0, 2, 4, 6, 8, 10, 12].map((i) => { const p = polar(606, ARC_R[i]); return { text: ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], x: p.x, y: p.y, ft: 120, weight: 600 }; }),
+    ...[0, 2, 4, 6, 8, 11].map((i) => { const p = polar(606, ARC_R[i]); return { text: ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], x: p.x, y: p.y, ft: 120, weight: 600 }; }),
     { text: "airport", x: ap.x, y: ap.y + 700, ft: 150, weight: 600 }, { text: "gate", x: g2.x, y: g2.y + 260, ft: 150, weight: 600 },
   ];
   const CW = 256, CH = 96, PX = 64, COLS = 4, rows = Math.ceil(labels.length / COLS);

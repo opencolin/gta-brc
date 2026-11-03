@@ -15,15 +15,16 @@ import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, PLAZAS, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, POLO_JOB, vehicleOf, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
-import type { Struct } from "@/lib/camps";
+import { realCamps, type Struct } from "@/lib/camps";
+import { burnTime, dayName, hourLabel, isOn, loadGetLost, toGame, type PlayaEvent } from "@/lib/getlost";
 import { TAKEOVER, loudness, nearest, newSticky, pendingSticky, stepMix, stepSticky, stopSticky, type Source, type Voice } from "@/lib/playaSound";
 
 /**
@@ -878,6 +879,7 @@ function drawCity(ctx: CanvasRenderingContext2D, w: number, h: number, labels: b
     for (const b of blocks()) { blockPath(ctx, b); ctx.fill(); }
     ctx.fillStyle = C.playa; ctx.beginPath(); ctx.arc(CENTER_CAMP.x, CENTER_CAMP.y, CENTER_CAMP_R, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = C.blockEdge; ctx.beginPath(); ctx.arc(CENTER_CAMP.x, CENTER_CAMP.y, CAFE_R * 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.playa; for (const z of PLAZAS) { ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2); ctx.fill(); }
     ctx.fillStyle = C.navy; ctx.beginPath(); ctx.arc(0, 0, 240, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(TEMPLE.x, TEMPLE.y, 240, 0, Math.PI * 2); ctx.fill();
   }
@@ -1076,6 +1078,11 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     for (let k = 0; k < 16; k++) { ctx.fillStyle = k % 2 ? "#f6efe2" : "#e8c9a4"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, CAFE_R, (k / 16) * Math.PI * 2, ((k + 1) / 16) * Math.PI * 2); ctx.closePath(); ctx.fill(); }
     ctx.strokeStyle = "#9c7b52"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, CAFE_R, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
+  }
+  // the round plazas at B and G (asked 2026-11-03, the 2026 city): open ground where the streets meet
+  for (const z of PLAZAS) if (seen(z.x, z.y, z.r)) {
+    ctx.fillStyle = C.road; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C.blockEdge; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.stroke(); ctx.setLineDash([]);
   }
   if (seen(AGAVE.dome.x, AGAVE.dome.y, 240)) drawAgave(ctx, t, night);
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
@@ -1316,7 +1323,21 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
-type Hud = { address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
+/** A 2026 event where the game draws it: at its host camp's sign, or where getlost.fyi put it. */
+type PlacedEvent = PlayaEvent & { x: number; y: number; host: string };
+/** Events within this many game feet of you show as "on now". */
+const NOW_R = 900;
+/** The events on at the game's day and hour nearest you, nearest first, three at most. */
+function onNowNear(evs: readonly PlacedEvent[], p: Vec, day: string, hour: number): Hud["onNow"] {
+  const out: (Hud["onNow"][number] & { d: number })[] = [];
+  for (const e of evs) {
+    if (Math.abs(e.x - p.x) > NOW_R || Math.abs(e.y - p.y) > NOW_R) continue;
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < NOW_R && isOn(e, day, hour)) out.push({ key: e.uid, name: e.name, host: e.host, till: hourLabel(e.to), d });
+  }
+  return out.sort((a, b) => a.d - b.d).slice(0, 3).map(({ d: _d, ...e }) => e);
+}
+type Hud = { /** the burn's day and time (getlost.ts burnTime) */ when: string; /** events on now near you (asked 2026-11-03) */ onNow: { key: string; name: string; host: string; till: string }[]; address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -1373,6 +1394,17 @@ export default function PlayaWin() {
   // (made once, in a state initialiser: the argument of useRef is evaluated on every render, and newGame parks the Golden Ticket at Agave in playa.ts's module-level parkedCars each time it runs, so a Golden Ticket left anywhere else went back within a tenth of a second)
   const [firstGame] = useState(() => newGame((Date.now() & 0xffff) + 1, undefined, startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport"));
   const game = useRef<Game>(firstGame);
+  // the 2026 city's events (getlost.fyi, 3 MB): fetched once after the game is up, placed at their hosts' signs
+  const eventsRef = useRef<PlacedEvent[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadGetLost().then((d) => {
+      if (!alive) return;
+      const camps = new Map(realCamps().map((c) => [c.uid, c]));
+      eventsRef.current = d.events.flatMap((e) => { const c = e.at ? camps.get(e.at) : undefined, at = c?.at ?? toGame(e); return at ? [{ ...e, x: at.x, y: at.y, host: c?.name ?? e.venue }] : []; });
+    }).catch(() => {}); // offline or not deployed: no "on now", the rest plays on
+    return () => { alive = false; };
+  }, []);
   const keys = useRef<Input>({ ...NO_INPUT });
   const touch = useRef<Input>({ ...NO_INPUT });
   const phaseRef = useRef<Phase>("title");
@@ -1380,7 +1412,7 @@ export default function PlayaWin() {
   const [map, setMap] = useState(false);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
-  const [hud, setHud] = useState<Hud>({ address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false });
+  const [hud, setHud] = useState<Hud>({ when: "", onNow: [], address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
@@ -1724,6 +1756,7 @@ export default function PlayaWin() {
         setPeek(seen && loudness(seen.d) > 20 && g.alt <= 0 && g.vehicle !== "plane" ? seen.key : null); // no passing videos from the air: they flash by too fast to watch (asked 2026-10-27)
         const soon = quiet ? null : pendingSticky(sticky.current); // the place in earshot that is about to play
         setHud({
+          ...(() => { const n = Math.floor(g.dayT / DAY_SECONDS), bt = burnTime(n, g.dayT / DAY_SECONDS - n); return { when: `${dayName(bt.day)} ${hourLabel(bt.hour)}`, onNow: eventsRef.current ? onNowNear(eventsRef.current, g.car, bt.day, bt.hour) : [] }; })(),
           address: addressOf(g.car), mph: mph(spd), pager: pagerLine(m),
           time: m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow" ? m.timeLeft : null,
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
@@ -1924,6 +1957,7 @@ export default function PlayaWin() {
 
         <div className="pl-where">
           <b className="pl-addr">{hud.address}</b>
+          {hud.when && <span className="pl-count">{hud.when}</span>}
           <span className="pl-speed"><b className={over ? "pl-over" : undefined}>{hud.mph}</b> mph <span className="pl-limit">limit {SPEED_LIMIT_MPH}</span></span>
           <span className="pl-count">gifts <b>{hud.gifts}</b> · moop <b>{hud.moop}</b></span>
           {hud.alt > 0 && <span className="pl-count">{hud.chute ? "under the chute" : "flying"} · <b>{hud.alt}&apos;</b> up</span>}
@@ -1934,6 +1968,11 @@ export default function PlayaWin() {
               {soundOf(hud.hearKey).tracks.length > 1 && <button type="button" className="pl-hear-btn" onClick={() => skipSet(hud.hearKey)} aria-label={`next set from ${hud.hear}`}>⏭</button>}
               <button type="button" className="pl-hear-btn" onClick={() => stopSound(hud.hearKey)} aria-label={`stop ${hud.hear}`}>×</button>
             </span>
+          )}
+          {hud.onNow.length > 0 && (
+            <ul className="pl-now" aria-label="on now nearby">
+              {hud.onNow.map((e) => <li key={e.key}><b>{e.name}</b> <span>{e.host} · till {e.till}</span></li>)}
+            </ul>
           )}
           {hud.warn && phase === "play" && <span className="pl-warn" role="status">{hud.warn}</span>} {/* the slow-down and bump notes sit under the speedometer, out of the way (asked 2026-10-27) */}
         </div>

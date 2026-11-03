@@ -15,10 +15,12 @@
  * art car's top speed reads about 50. The camp speed limit is 5, as everyone ignores.
  */
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, GATE, MAN_R, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_DIST, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
   clockToAngle, fenceDepth, parseClock, pointAt, polar, surfaceAt, toPolar, type ArcName, type Vec,
 } from "./brc.ts";
-import { planAt, planCity, structPush, type BlockPlan } from "./camps.ts";
+import { planAt, planCity, realCamps, structPush, type BlockPlan } from "./camps.ts";
+import { EVENT_RIDES } from "./camps2026.ts";
+import { dayName, hourLabel } from "./getlost.ts";
 import { SOUND_CAMPS, campTracks, type SoundCamp } from "./soundcamps.ts";
 
 /** Where Agave Lounge camps: the Esplanade at 8:30, its dome facing the open playa. */
@@ -738,14 +740,24 @@ export function makeNpcs(rand: () => number): Npc[] {
     }
   }
   out.push(...moreRides(), ...EXODUS);
+  // Center Camp sits across the Esplanade, A and B (the 2026 city, asked 2026-11-03): a ride on one of those arcs keeps to one side of it and turns back at its edge
+  for (const n of out) if (n.path === "arc" && !n.lead && n.from <= 360 && n.to >= 360) {
+    const gap = arcGap(n.r);
+    if (gap > 0) { if (n.phase < 240) n.to = 360 - gap; else n.from = 360 + gap; n.phase %= n.to - n.from; }
+  }
   return out;
+}
+/** Half the clock span (minutes) Center Camp takes out of the arc at radius r, with room for a rider; 0 for an arc clear of it. */
+function arcGap(r: number): number {
+  const d = Math.abs(r - CENTER_CAMP_DIST), R = CENTER_CAMP_R + 20;
+  return d >= R ? 0 : (Math.asin(Math.sqrt(R * R - d * d) / r) * 720) / (Math.PI * 2) + 2;
 }
 
 /* ── jobs on the pager ──────────────────────────────────────────────────── */
 
 export type Place = { label: string; at: Vec };
 /**
- * A place by key: "agave", "center", "temple", "man", "camp:<id>" (its parking bay),
+ * A place by key: "agave", "center", "temple", "man", "camp:<id>" (its parking bay), "real:<uid>" (a 2026 camp, on the street at its way in),
  * "mutant:<id>" (where that art car is at time t), "art:<name>" (in front of the piece), or
  * an address like "4:30 & C".
  */
@@ -759,6 +771,12 @@ export function place(key: string, t = 0): Place {
     const s = spotOf(key);
     if (!s) throw new Error(`no such camp: ${key}`);
     return { label: s.camp?.address ? `${s.name} (${s.camp.address})` : s.name, at: s.mid };
+  }
+  if (key.startsWith("real:")) {
+    const c = realCamps().find((x) => x.uid === key.slice(5));
+    if (!c) throw new Error(`no such camp: ${key}`);
+    const b = blockPush(c.at), at = b ? { x: c.at.x + b.nx * (b.depth + 25), y: c.at.y + b.ny * (b.depth + 25) } : c.at;
+    return { label: c.address ? `${c.name} (${c.address.replace(/ · .*/, "")})` : c.name, at };
   }
   if (key.startsWith("mutant:")) {
     const m = mutantOf(key);
@@ -793,11 +811,17 @@ export const JOBS: readonly Job[] = [
   { kind: "follow", from: "mutant:mayan-warrior", to: "mutant:mayan-warrior", who: "Mayan Warrior", need: 20, line: "find Mayan Warrior on the open playa and follow it for 20 s" },
   ride("2:00 & B", "agave", "a DJ", "a DJ at 2:00 & B is late for their set at Agave Lounge"),
   ride("camp:disorient", "mutant:titanics-end", "a dancer", "a dancer at Disorient wants to catch Titanic's End out on deep playa"),
-  ride("10:00 & L", "man", "a dusty walker", "a dusty walker at 10:00 & L wants a ride to the Man"),
+  ride("10:00 & K", "man", "a dusty walker", "a dusty walker at 10:00 & K wants a ride to the Man"),
   // the skydive (asked 2026-10-26): taking the plane makes this the job; it also comes up on its own, pointing you to the airport
   { kind: "skydive", from: "airport", to: "agave", who: "you", need: 350, line: "take the plane at the airport, climb over the city and bail out: land within 350 ft of Agave Lounge" },
   // the job after the jump (asked 2026-10-26): the Golden Ticket, parked at Agave, fetches Polo & Pan from Robot Heart (the airport was too far a run) for their set
   { kind: "ride", from: "mutant:robot-heart", to: "agave", who: "Polo & Pan", drive: "mutant:golden-ticket", line: "Polo & Pan are out at Robot Heart: take the Golden Ticket parked at Agave Lounge and bring them back for their set" },
+  // rides to real 2026 events (asked 2026-11-03, from getlost.fyi): from a corner across town to the camp that hosts it
+  ...EVENT_RIDES.map((e, i): Job => {
+    const from = `${clockLabel(RADIALS[(i * 7 + 3) % RADIALS.length])} & ${ARCS[(i * 5 + 2) % ARCS.length]}`, who = i % 3 ? "two burners" : "a burner";
+    const host = realCamps().find((c) => c.uid === e.at)!;
+    return ride(from, `real:${e.at}`, who, `${who} at ${from} ${i % 3 ? "want" : "wants"} to make "${e.name}" at ${host.name}, ${dayName(e.day)} ${hourLabel(e.from)}: get them there`);
+  }),
   ride("agave", "camp:daft-punk-fence", "two dancers", "drive two dancers from Agave out to the Daft Punk sets at the trash fence"),
   ride("camp:the-kazbah", "camp:opulent-temple", "a camper", "a camper at the Kazbah is due on the dancefloor at Opulent Temple"),
   { kind: "follow", from: "mutant:robot-heart", to: "mutant:robot-heart", who: "Robot Heart", need: 20, line: "find Robot Heart on deep playa and follow it for 20 s" },

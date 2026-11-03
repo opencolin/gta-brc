@@ -11,7 +11,7 @@
  * Reference: Umbra SAR image of BRC 2025 (CC BY 4.0, Wikimedia Commons) and the 2005 Landsat view.
  */
 import {
-  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, CITY_SCALE, FENCE, FENCE_R, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, PLAZAS, CITY_SCALE, FENCE, FENCE_R, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   arcWidth, blockBounds, clockToAngle, polar, radialWidth,
 } from "@/lib/brc";
 
@@ -108,6 +108,8 @@ function paint(x: CanvasRenderingContext2D, size: number) {
   x.strokeStyle = P.blockEdge; x.lineWidth = 10; x.beginPath(); x.arc(CENTER_CAMP.x, CENTER_CAMP.y, CENTER_CAMP_R - 40, 0, Math.PI * 2); x.stroke();
   x.fillStyle = "#e8c9a4"; x.beginPath(); x.arc(CENTER_CAMP.x, CENTER_CAMP.y, CAFE_R * 1.3, 0, Math.PI * 2); x.fill();
   x.strokeStyle = "#9c7b52"; x.lineWidth = 20; x.stroke();
+  // the round plazas at B and G: open ground ringed by the streets that meet there
+  for (const z of PLAZAS) { x.fillStyle = P.plaza; x.beginPath(); x.arc(z.x, z.y, z.r, 0, Math.PI * 2); x.fill(); x.strokeStyle = P.blockEdge; x.lineWidth = 10; x.stroke(); }
   // the Man on his circle, the Temple on its
   x.fillStyle = P.plaza; x.beginPath(); x.arc(0, 0, MAN_R * 5, 0, Math.PI * 2); x.fill(); x.strokeStyle = P.blockEdge; x.lineWidth = 10; x.stroke();
   x.fillStyle = P.navy; x.beginPath(); x.arc(0, 0, MAN_R * 1.6, 0, Math.PI * 2); x.fill();
@@ -135,7 +137,7 @@ function paint(x: CanvasRenderingContext2D, size: number) {
   x.fillStyle = P.navy; x.textAlign = "center"; x.textBaseline = "middle"; x.font = `700 ${180}px system-ui, sans-serif`;
   for (const m of WIDE_RADIALS) { const p = polar(m, ARC_R.at(-1)! + 330); x.fillText(clockLabel(m), p.x, p.y); }
   x.font = `600 ${120}px system-ui, sans-serif`;
-  for (const i of [0, 2, 4, 6, 8, 10, 12]) { const p = polar(606, ARC_R[i]); x.fillText(ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], p.x, p.y); }
+  for (const i of [0, 2, 4, 6, 8, 11]) { const p = polar(606, ARC_R[i]); x.fillText(ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], p.x, p.y); }
   x.font = `600 ${150}px system-ui, sans-serif`;
   x.fillText("airport", ap.x, ap.y + 700); x.fillText("gate", g2.x, g2.y + 260);
   x.setTransform(1, 0, 0, 1, 0, 0);

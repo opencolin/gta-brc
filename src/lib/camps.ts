@@ -4,21 +4,29 @@
  * street out where the block is deep), each laid out its own way: an RV circle round a
  * shared shade, rows of shiftpods, a big shade with carpets and couches, geodesic domes, a
  * little stage with speakers. Bike racks, flags, LED arches at the entrance, a porta-potty
- * bank here and there, and signs with invented camp names.
+ * bank here and there, and a sign at the way in. Since 2026-11-03 the lots hold the 2026 city's
+ * real camps (camps2026.ts, from getlost.fyi): each block's camps take its lots nearest first,
+ * with their names on the signs and what they offer choosing the layout (a bar or a kitchen is a
+ * lounge under a big shade, music a stage, yoga or ritual domes, coffee a kitchen with pods
+ * behind); a lot no real camp fronts keeps an invented name.
  *
  * Generated once, deterministically, from a hash of the block, so it is stable and costs
  * nothing per frame. playa.ts collides with the solid parts (bikes and the unicycle ride the
- * alleys; cars never get in), PlayaWin.tsx draws what is on screen. No imports but brc.ts,
- * no DOM: playa.test.mjs checks it.
+ * alleys; cars never get in), PlayaWin.tsx draws what is on screen. No imports but brc.ts and
+ * the 2026 camps, no DOM: playa.test.mjs checks it.
  */
 import { ARC_R, RADIALS, blockBounds, clockToAngle, polar, surfaceAt, type Vec } from "./brc.ts";
+import { CAMPS_2026, type Camp2026 } from "./camps2026.ts";
+import { campAt } from "./getlost.ts";
 
 export type StructKind = "rv" | "pod" | "tent" | "shade" | "canopy" | "carpet" | "couch" | "dome" | "stage" | "speaker" | "rack" | "flag" | "arch" | "potty" | "sign" | "bikes";
 /**
  * One thing in a camp: a rectangle `w` along × `l` deep turned to `rot` (canvas radians), or
  * a circle of radius w / 2 when `round`. `solid` things are bounced off.
  */
-export type Struct = { kind: StructKind; x: number; y: number; rot: number; w: number; l: number; hue: number; solid: boolean; round?: boolean; label?: string; /** bikes on a rack, or leaning in a row (asked 2026-10-26) */ n?: number };
+export type Struct = { kind: StructKind; x: number; y: number; rot: number; w: number; l: number; hue: number; solid: boolean; round?: boolean; label?: string; /** bikes on a rack, or leaning in a row (asked 2026-10-26) */ n?: number; /** a real camp's sign: its uid in camps2026.ts */ uid?: string };
+/** A real camp's spot in the game, for its sign and its events. */
+export type RealCamp = Camp2026 & { at: Vec };
 export type BlockPlan = { ring: number; sector: number; cx: number; cy: number; br: number; structs: Struct[]; solids: Struct[] };
 export type Avoid = { x: number; y: number; r: number };
 
@@ -43,13 +51,22 @@ const put = (f: Frame, lx: number, ly: number): Vec => ({ x: f.o.x + f.ax.x * lx
  * things in it, in the lot's frame (rotation relative to the lot).
  */
 type LotThing = Omit<Struct, "x" | "y" | "rot"> & { lx: number; ly: number; r: number };
-function layLot(U: number, W: number, seed: number, rnd: () => number): LotThing[] {
+/** The layout a real camp's offer calls for, or none to let the lot choose. */
+function campKind(c?: Camp2026): number | null {
+  const t = new Set(c?.topics ?? []);
+  if (t.has("music")) return 4;
+  if (t.has("yoga") || t.has("meditation") || t.has("ritual") || t.has("movement")) return 3;
+  if (t.has("coffee")) return 1;
+  if (t.has("bar") || t.has("food") || t.has("soft-drinks") || t.has("massage") || t.has("games") || t.has("board-games")) return 2;
+  return null;
+}
+function layLot(U: number, W: number, seed: number, rnd: () => number, camp?: Camp2026): LotThing[] {
   const out: LotThing[] = [];
   const add = (kind: StructKind, lx: number, ly: number, w: number, l: number, hue: number, solid: boolean, r = 0, extra: Partial<Struct> = {}) => out.push({ kind, lx, ly, w, l, hue, solid, r, ...extra });
   const hue = Math.floor(rnd() * 360);
   const fy = W / 2; // the frontage edge
   const inner = { u: U / 2 - 8, w0: -W / 2 + 8, w1: fy - 22 }; // leave a strip at the street for the entrance
-  const kind = Math.floor(hash(seed * 7 + 3) * 5);
+  const kind = campKind(camp) ?? Math.floor(hash(seed * 7 + 3) * 5);
   if (kind === 0 && U > 90 && W > 90) {
     // an RV circle round a shared shade, open toward the street
     const R = Math.min(U - 16, inner.w1 - inner.w0) / 2 - 10, cy = (inner.w0 + inner.w1) / 2;
@@ -93,11 +110,16 @@ function layLot(U: number, W: number, seed: number, rnd: () => number): LotThing
   // parked bikes (asked 2026-10-26): a row leaning by the way in, and a few dropped by the shade
   if (rnd() < 0.8) add("bikes", 18 + rnd() * 10, fy - 14, 4 + Math.floor(rnd() * 4) * 4, 6, Math.floor(rnd() * 360), false, 0, { n: 2 + Math.floor(rnd() * 4) });
   if (rnd() < 0.5) add("bikes", -U / 2 + 30 + rnd() * 20, (inner.w0 + inner.w1) / 2 + 14, 12, 6, Math.floor(rnd() * 360), false, (rnd() - 0.5) * 0.8, { n: 2 + Math.floor(rnd() * 2) });
-  if (rnd() < 0.55) add("sign", U / 2 - 20, fy - 8, 26, 6, hue, false, 0, { label: campName(seed) });
+  if (rnd() < 0.55 || camp) add("sign", U / 2 - 20, fy - 8, 26, 6, hue, false, 0, camp ? { label: camp.name, uid: camp.uid } : { label: campName(seed) });
   return out;
 }
 
 const PLANS = new Map<string, BlockPlan[]>();
+/** A real camp takes a lot only this close to its address (game feet): in a full block the last ones go unsigned rather than far off. */
+const NEAR_LOT = 350;
+let REAL: RealCamp[] | null = null;
+/** The 2026 camps placed on the game's streets (getlost.ts campAt): stepped into the block each fronts. */
+export const realCamps = (): readonly RealCamp[] => REAL ??= CAMPS_2026.map((c) => ({ ...c, at: campAt(c)! }));
 
 /**
  * Every block's camps. `avoid` keeps the things out of circles (the sound camps' stages and
@@ -124,16 +146,18 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
         ? [{ front: true, w0: 0, w1: depth / 2 - 9 }, { front: false, w0: depth / 2 + 9, w1: depth }]
         : [{ front: true, w0: 0, w1: depth }];
       let lotSeed = seed * 31;
+      // first the lots, then which real camp takes which (nearest pairs first), then each lot laid out
+      const lots: { f: Frame; U: number; W: number; seed: number; camp?: Camp2026 }[] = [];
       for (const row of rows) {
         const W = row.w1 - row.w0;
         // the row's edge at its narrow end (the inner one), measured along the arc, with the radials' half widths off
         const rIn = b.r0 + row.w0;
         const a0 = clockToAngle(b.m0) + b.w0 / rIn, a1 = clockToAngle(b.m1) - b.w1 / rIn;
         const span = (a1 - a0) * rIn;
-        const lots = Math.max(1, Math.round(span / (130 + rnd() * 70)));
+        const n = Math.max(1, Math.round(span / (130 + rnd() * 70)));
         const ALLEY = 16;
-        const U = (span - ALLEY * (lots - 1)) / lots;
-        for (let k = 0; k < lots; k++) {
+        const U = (span - ALLEY * (n - 1)) / n;
+        for (let k = 0; k < n; k++) {
           lotSeed++;
           const uMid = -span / 2 + U / 2 + k * (U + ALLEY);
           const r = b.r0 + (row.w0 + row.w1) / 2;
@@ -143,17 +167,23 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
           const ax = { x: Math.cos(a), y: Math.sin(a) };
           const out1 = { x: Math.sin(a), y: -Math.cos(a) };
           const ay = row.front ? { x: -out1.x, y: -out1.y } : out1; // toward the lot's street
-          const f: Frame = { o, ax, ay, rot: a };
-          for (const s of layLot(U, W, lotSeed, rnd)) {
-            const p = put(f, s.lx, s.ly);
-            const rad = s.round ? s.w / 2 : Math.hypot(s.w, s.l) / 2;
-            if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + rad)) continue;
-            // keep everything inside its block, clear of the streets
-            if (surfaceAt(p).kind !== "block") continue;
-            const st: Struct = { kind: s.kind, x: p.x, y: p.y, rot: a + s.r, w: s.w, l: s.l, hue: s.hue, solid: s.solid, ...(s.round ? { round: true } : {}), ...(s.label ? { label: s.label } : {}), ...(s.n ? { n: s.n } : {}) };
-            if (s.solid && !fits(st)) continue;
-            plan.structs.push(st);
-          }
+          lots.push({ f: { o, ax, ay, rot: a }, U, W, seed: lotSeed });
+        }
+      }
+      const mine = realCamps().filter((c) => { const s = surfaceAt(c.at); return s.kind === "block" && s.ring === ring && s.sector === sector; });
+      const pairs = mine.flatMap((c) => lots.map((l, li) => ({ c, li, d: Math.hypot(c.at.x - l.f.o.x, c.at.y - l.f.o.y) }))).sort((p, q) => p.d - q.d || (p.c.uid < q.c.uid ? -1 : 1));
+      const taken = new Set<string>();
+      for (const p of pairs) if (p.d < NEAR_LOT && !taken.has(p.c.uid) && !lots[p.li].camp) { lots[p.li].camp = p.c; taken.add(p.c.uid); }
+      for (const { f, U, W, seed: ls, camp } of lots) {
+        for (const s of layLot(U, W, ls, rnd, camp)) {
+          const p = put(f, s.lx, s.ly);
+          const rad = s.round ? s.w / 2 : Math.hypot(s.w, s.l) / 2;
+          if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + rad)) continue;
+          // keep everything inside its block, clear of the streets
+          if (surfaceAt(p).kind !== "block") continue;
+          const st: Struct = { kind: s.kind, x: p.x, y: p.y, rot: f.rot + s.r, w: s.w, l: s.l, hue: s.hue, solid: s.solid, ...(s.round ? { round: true } : {}), ...(s.label ? { label: s.label } : {}), ...(s.n ? { n: s.n } : {}), ...(s.uid ? { uid: s.uid } : {}) };
+          if (s.solid && !fits(st)) continue;
+          plan.structs.push(st);
         }
       }
       // porta-potty banks on the big radials, at B and at H
@@ -161,7 +191,7 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
         for (let k = 0; k < 8; k++) {
           const r = b.r0 + 24 + k * 11, a = clockToAngle(b.m0) + (b.w0 + 12) / r;
           const p = { x: Math.sin(a) * r, y: -Math.cos(a) * r };
-          if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + 8)) continue;
+          if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + 8) || surfaceAt(p).kind !== "block") continue; // not in a plaza
           plan.structs.push({ kind: "potty", x: p.x, y: p.y, rot: a, w: 8, l: 8, hue: 0, solid: true });
         }
       }

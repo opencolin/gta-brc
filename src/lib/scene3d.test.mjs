@@ -13,12 +13,12 @@ const plans = cityPlan();
 const at = (a, r) => ({ x: r * Math.cos(a), y: r * Math.sin(a) });
 const lerp = (a, b, t) => a + (b - a) * t;
 
-test("the ground has 13 arc streets, 17 radials and 192 blocks, each well formed", () => {
+test("the ground has 12 arc streets, 17 radials and 176 blocks, each well formed", () => {
   const flats = groundFlats();
   const arcs = flats.filter((f) => f.kind === "arc"), radials = flats.filter((f) => f.kind === "radial"), blocks = flats.filter((f) => f.kind === "block");
-  assert.equal(arcs.length, ARC_R.length); assert.equal(arcs.length, 13);
+  assert.equal(arcs.length, ARC_R.length); assert.equal(arcs.length, 12);
   assert.equal(radials.length, RADIALS.length); assert.equal(radials.length, 17);
-  assert.equal(blocks.length, 192);
+  assert.equal(blocks.length, 176);
   for (const b of blocks) {
     assert.ok(b.r0 < b.r1, "block r0 < r1");
     assert.ok(b.a0i < b.a1i, "inner edge runs the right way");
@@ -37,15 +37,15 @@ test("the ground's layers are ordered: blocks under streets under plazas, each w
   const block = y("block"), arc = y("arc"), disc = y("disc"), ring = y("ring");
   assert.ok(block.y < arc.y && arc.y < disc.y && disc.y < ring.y);
   assert.ok(block.layer < arc.layer && arc.layer < disc.layer && disc.layer < ring.layer);
-  // plazas for Center Camp, the Man and the Temple; two runways and an apron and Gate Road
-  assert.equal(flats.filter((f) => f.kind === "disc").length, 3);
+  // plazas for Center Camp, the Man and the Temple, and the 11 round plazas at B and G; two runways and an apron and Gate Road
+  assert.equal(flats.filter((f) => f.kind === "disc").length, 14);
   assert.equal(flats.filter((f) => f.kind === "strip").length, 4);
 });
 
-test("campPrisms: about 66,000 pieces for the 40,081 structures, all with a size and a sector", () => {
+test("campPrisms: about 61,000 pieces for the 36,375 structures, all with a size and a sector", () => {
   const prisms = campPrisms(plans);
   const structs = plans.reduce((n, p) => n + p.structs.length, 0);
-  assert.equal(structs, 40081);
+  assert.equal(structs, 36375);
   assert.ok(prisms.length >= 40000, `${prisms.length} prisms`);
   for (const p of prisms) {
     assert.ok(p.sy > 0 && p.sx > 0 && p.sz > 0, `${p.kind} has a size`);
@@ -62,7 +62,7 @@ test("campPrisms: arches glow, bike rows carry 2 to 6 bikes, and there is one ro
   const rows = prisms.filter((p) => p.kind === "bike-row");
   assert.ok(rows.every((p) => p.n >= 2 && p.n <= 6), "n in 2..6");
   const withN = plans.reduce((n, p) => n + p.structs.filter((s) => (s.kind === "rack" || s.kind === "bikes") && s.n).length, 0);
-  assert.equal(rows.length, withN); assert.ok(withN > 6000);
+  assert.equal(rows.length, withN); assert.ok(withN > 5000);
 });
 
 test("campPrisms: each struct becomes the pieces the plan lists", () => {
@@ -95,10 +95,10 @@ test("a struct's frame: x, z, yaw = -rot, and poles at its rotated corners", () 
   for (const [gx, gy] of want) assert.ok(poles.some((p) => Math.abs(p.x - gx) < 1e-6 && Math.abs(p.z - gy) < 1e-6), `a pole at ${gx}, ${gy}`);
 });
 
-test("sectorBlocks: 16 wedges of 12 block circles each", () => {
+test("sectorBlocks: 16 wedges of 11 block circles each", () => {
   const sb = sectorBlocks(plans);
   assert.equal(sb.length, 16);
-  for (const w of sb) { assert.equal(w.length, 12); for (const b of w) assert.ok(b.br > 100 && Number.isFinite(b.cx) && Number.isFinite(b.cy)); }
+  for (const w of sb) { assert.equal(w.length, 11); for (const b of w) assert.ok(b.br > 100 && Number.isFinite(b.cx) && Number.isFinite(b.cy)); }
 });
 
 test("colours: hsl to hex the way CSS reads it, and every kind has one", () => {
