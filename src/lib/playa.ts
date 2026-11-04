@@ -15,7 +15,7 @@
  * art car's top speed reads about 50. The camp speed limit is 5, as everyone ignores.
  */
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_DIST, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockPush, clockLabel,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_DIST, CENTER_CAMP_R, CAFE_R, CITY_SCALE, CITY_TO, FENCE_R, GATE, MAN_R, RADIALS, TEMPLE, TEMPLE_DIST, TEMPLE_R, arcIndex, arcWidth, blockBounds, blockPush, clockLabel,
   clockToAngle, fenceDepth, parseClock, pointAt, polar, surfaceAt, toPolar, type ArcName, type Vec,
 } from "./brc.ts";
 import { planAt, planCity, realCamps, structPush, type BlockPlan } from "./camps.ts";
@@ -352,7 +352,7 @@ export const OBSTACLES: readonly Circle[] = [
   { ...TEMPLE, r: TEMPLE_R, name: "the Temple" },
   { ...CENTER_CAMP, r: CAFE_R, name: "Center Camp café" },
   ...ART,
-  ...SPOTS.filter((s) => !s.camp?.piece).map((s) => s.stage), // a piece's stage is the piece, already listed
+  ...SPOTS.filter((s) => !s.camp?.piece && s.kind !== "art").map((s) => s.stage), // a piece's stage is the piece, already listed; an art place's marker hovers overhead (asked 2026-11-03)
   AGAVE.moon,
 ];
 
@@ -369,9 +369,10 @@ export type Push = { depth: number; nx: number; ny: number };
 /**
  * Whether a point is in something solid, and the shortest way out. A block of camps is solid
  * to a car (but for the parking bays cut into it); a ride that goes `through` the camps only
- * bounces off what stands in them.
+ * bounces off what stands in them. `edges`: a car driving, which may ride onto a block's edge and round its corners (blockCore);
+ * without it the whole block counts (the camera, where things are placed).
  */
-export function solidAt(p: Vec, through = false): Push | null {
+export function solidAt(p: Vec, through = false, edges = false): Push | null {
   const f = fenceDepth(p);
   if (f.depth < 0) {
     // past the fence: solid everywhere but the wedge the airport sits in (brc.ts AIRPORT.gap)
@@ -381,6 +382,8 @@ export function solidAt(p: Vec, through = false): Push | null {
   }
   const b = blockPush(p);
   if (b) {
+    const core = through ? null : edges ? blockCore(p) : b;
+    if (!through && !core) return obstacleAt(p);   // on the block's edge, or round one of its corners: a car may drive there
     if (through) {
       const plan = planAt(cityPlan(), p);
       if (plan) for (const s of plan.solids) {
@@ -389,7 +392,7 @@ export function solidAt(p: Vec, through = false): Push | null {
         if (q) return q;
       }
     } else {
-      let best: Push = b, open = false;
+      let best: Push = core!, open = false;
       for (const s of SPOTS) {
         if (Math.abs(p.x - s.mid.x) > 260 || Math.abs(p.y - s.mid.y) > 260) continue;
         if (inBay(p, s.bay)) { open = true; break; }
@@ -399,11 +402,41 @@ export function solidAt(p: Vec, through = false): Push | null {
       if (!open) return best;
     }
   }
+  return obstacleAt(p);
+}
+function obstacleAt(p: Vec): Push | null {
   for (const o of OBSTACLES) {
     const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy);
     if (d < o.r) return d > 1e-6 ? { depth: o.r - d, nx: dx / d, ny: dy / d } : { depth: o.r, nx: 0, ny: -1 };
   }
   return null;
+}
+/**
+ * What of a block of camps is solid to a car (asked 2026-11-03: "make it so cars don't get stuck on corners and can drive over the camp
+ * boundaries"): not its first BLOCK_EDGE ft in from the street, which a car may ride up onto, and its corners are rounded off by
+ * BLOCK_CORNER ft, so a car cutting a corner slides round it instead of catching on a point. Null where a car may drive; a point in the core
+ * gets the way out to its edge.
+ */
+export const BLOCK_EDGE = 30, BLOCK_CORNER = 50;
+export function blockCore(p: Vec): Push | null {
+  const s = surfaceAt(p);
+  if (s.kind !== "block") return null;
+  const { min, r } = toPolar(p), b = blockBounds(s.ring, s.sector), a = clockToAngle(min);
+  const ur = { x: Math.sin(a), y: -Math.cos(a) }, ut = { x: Math.cos(a), y: Math.sin(a) };   // away from the Man, clockwise
+  const sides = [
+    { d: r - b.r0, nx: -ur.x, ny: -ur.y }, { d: b.r1 - r, nx: ur.x, ny: ur.y },
+    { d: clockToAngle(min - b.m0) * r - b.w0, nx: -ut.x, ny: -ut.y }, { d: clockToAngle(b.m1 - min) * r - b.w1, nx: ut.x, ny: ut.y },
+  ];
+  const rad = sides[0].d < sides[1].d ? sides[0] : sides[1], tan = sides[2].d < sides[3].d ? sides[2] : sides[3];
+  const k = BLOCK_EDGE + BLOCK_CORNER, u = k - rad.d, v = k - tan.d;
+  if (u > 0 && v > 0) {
+    // in a corner's square: solid only inside the quarter circle of radius BLOCK_CORNER about the corner of the core
+    const h = Math.hypot(u, v);
+    if (h >= BLOCK_CORNER) return null;
+    return h > 1e-6 ? { depth: BLOCK_CORNER - h, nx: (rad.nx * u + tan.nx * v) / h, ny: (rad.ny * u + tan.ny * v) / h } : { depth: BLOCK_CORNER, nx: rad.nx, ny: rad.ny };
+  }
+  const near = rad.d < tan.d ? rad : tan;
+  return near.d > BLOCK_EDGE ? { depth: near.d - BLOCK_EDGE, nx: near.nx, ny: near.ny } : null;
 }
 
 /** Push the car out along n and bounce what was going into it. Returns the speed of the impact. */
@@ -424,7 +457,7 @@ export function collide(c: Car, v: Vehicle = CAR): number {
   for (let round = 0; round < 4; round++) {
     let worst: Push | null = null;
     for (const p of carPoints(c, v)) {
-      const s = solidAt(p, v.throughCamps);
+      const s = solidAt(p, v.throughCamps, true);
       if (s && (!worst || s.depth > worst.depth)) worst = s;
     }
     if (!worst) break;
@@ -584,7 +617,7 @@ export function npcAt(n: Npc, t: number): { x: number; y: number; h: number } {
     const len = (n.to - n.from) * perMin;
     const s = ((n.phase * perMin + t * n.speed) % (2 * len) + 2 * len) % (2 * len);
     const along = s < len ? s : 2 * len - s;
-    dir = s < len ? 1 : -1;
+    dir = (s < len ? 1 : -1) * (Math.sign(n.speed) || 1);   // the way it is going, back or forth (a negative speed runs the route from its far end: asked 2026-11-03, "some bikers are moving backwards")
     min = n.from + along / perMin;
   }
   const p = polar(min, n.r);
@@ -934,6 +967,11 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
   return null;
 }
 
+/** Skip the job on the pager (asked 2026-11-03): no gifts and not a failure; the next one is briefed at once. */
+export function skipMission(m: Mission) {
+  m.job = nextJob(m); m.phase = "brief"; m.wait = 0.5; m.timeLeft = 0; m.progress = 0;
+}
+
 /** Where the pager points: the pickup, the drop or the art car to follow, or nowhere between jobs. */
 export function missionTarget(m: Mission, t = 0): Place | null {
   const job = JOBS[m.job % JOBS.length];
@@ -1067,6 +1105,29 @@ export function flipDay(dayT: number): number {
   const base = Math.floor(dayT / DAY_SECONDS) * DAY_SECONDS;
   return nightLevel(dayT) > 0.5 ? base + DAY_SECONDS + 0.125 * DAY_SECONDS : base + 0.625 * DAY_SECONDS;
 }
+/** How long the night button's time-lapse takes, in seconds. */
+export const WARP_SECONDS = 4;
+/** How much faster the time-lapse runs through plain day and plain night than through the sunset and the sunrise, which it lingers on. */
+const WARP_HURRY = 3;
+const warpSpeed = (dayT: number) => { const n = nightLevel(dayT); return n > 0 && n < 1 ? 1 : WARP_HURRY; };
+/**
+ * The night button (asked 2026-11-03: a transition, not a jump): run the clock forward to flipDay's time over WARP_SECONDS, three times slower
+ * through the sunset (or the sunrise) than through the day and the night either side, so most of the trip is the sun going down and the sky
+ * and the lamps following it. Pressed again on the way, it goes on to the next flip after that.
+ */
+export function warpDay(g: Game): void {
+  const to = flipDay(g.dayWarp ? g.dayWarp.to : g.dayT), N = 200, df = (to - g.dayT) / N;
+  let cost = 0;
+  for (let i = 0; i < N; i++) cost += df / warpSpeed(g.dayT + (i + 0.5) * df);
+  g.dayWarp = { to, rate: cost / WARP_SECONDS };
+}
+/** One step of the day's clock: real time, or the warp's time-lapse while there is one. */
+function stepDay(g: Game, dt: number): void {
+  const w = g.dayWarp;
+  if (!w) { g.dayT += dt; return; }
+  g.dayT = Math.min(w.to, g.dayT + w.rate * warpSpeed(g.dayT) * dt);
+  if (g.dayT >= w.to) g.dayWarp = null;
+}
 
 /* ── the whole game ─────────────────────────────────────────────────────── */
 
@@ -1085,7 +1146,7 @@ export function seeded(seed: number): () => number {
 export type Dust = { x: number; y: number; life: number; size: number };
 export type Game = {
   t: number; car: Car; vehicle: VehicleId; mission: Mission; npcs: Npc[]; moop: Vec[]; moopCount: number;
-  storm: Storm; dayT: number; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string;
+  storm: Storm; dayT: number; /** the night button's time-lapse under way (warpDay), or none */ dayWarp?: { to: number; rate: number } | null; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string;
   parking: Parking;
   /** feet up: more than 0 and the plane, or you under the canopy, is in the air (asked 2026-10-22) */ alt: number;
   /** you bailed out: under a parachute, drifting down */ chute: boolean;
@@ -1236,7 +1297,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   const ev: GameEvent[] = [];
   if (!(dt > 0) || !Number.isFinite(dt)) return ev;
   dt = Math.min(dt, 0.05);
-  g.t += dt; g.dayT += dt;
+  g.t += dt; stepDay(g, dt);
   g.hitCool = Math.max(0, g.hitCool - dt);
   g.slip = Math.max(0, (g.slip ?? 0) - dt);
   g.warn = Math.max(0, g.warn - dt);

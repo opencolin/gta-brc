@@ -62,6 +62,8 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
 
   // ── stages: one instanced mesh per shape
   const camps = spots.filter((s) => s.kind === "camp" && s.key !== PYRAMID.key), stones = spots.filter((s) => s.kind === "art"), fences = spots.filter((s) => s.kind === "fence");
+  /** an art place's crystal: its half-width and how high it hovers */
+  const STONE_R = 5, STONE_Y = 18;
   const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number, set: (i: number, d: THREE.Object3D, c: THREE.Color) => void) => {
     const m = new THREE.InstancedMesh(geo, mat, n), c = new THREE.Color();
     for (let i = 0; i < n; i++) { d.position.set(0, 0, 0); d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); set(i, d, c); d.updateMatrix(); m.setMatrixAt(i, d.matrix); m.setColorAt(i, c); }
@@ -78,8 +80,9 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
     o.position.set(s.stage.x + sx * 0.62 * r * Math.cos(ph) + (0.35 * r + 6) * Math.cos(th), 6, s.stage.y + sx * 0.62 * r * Math.sin(ph) + (0.35 * r + 6) * Math.sin(th));
     o.rotation.y = -ph; c.setHex(0x14172c, THREE.SRGBColorSpace);
   });
-  // a standing stone for an art place: an octahedron in its colour, glowing at night
-  inst(new THREE.OctahedronGeometry(1), glowing({}, "glow-stone", 0.6), stones.length, (i, o, c) => { const s = stones[i], r = s.stage.r * 0.7; o.position.set(s.stage.x, r, s.stage.y); o.scale.set(r, r * 1.4, r); o.rotation.y = -(FACING(s) - Math.PI / 2); c.setHex(hslHex(s.hue, 75, 55), THREE.SRGBColorSpace); });
+  // an art place's marker: a small crystal in its colour hovering 18 ft up, glowing at night, that you drive under (asked 2026-11-03: the 50 ft stones
+  // were big obstacles); it turns slowly (update below)
+  const stoneMesh = inst(new THREE.OctahedronGeometry(1), glowing({}, "glow-stone", 0.6), stones.length, (i, o, c) => { const s = stones[i], r = STONE_R; o.position.set(s.stage.x, STONE_Y, s.stage.y); o.scale.set(r, r * 1.5, r); o.rotation.y = -(FACING(s) - Math.PI / 2); c.setHex(hslHex(s.hue, 75, 55), THREE.SRGBColorSpace); });
   // the fence's pyramid
   inst(new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), white, fences.length, (i, o, c) => { const s = fences[i]; o.position.set(s.stage.x, 15, s.stage.y); o.scale.set(s.stage.r, 30, s.stage.r); c.setHex(0x2a2440, THREE.SRGBColorSpace); });
 
@@ -94,6 +97,8 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
     group,
     update(g, t) {
       pyramid?.update(g, t);
+      // the art places' crystals turn slowly and bob, together
+      stoneMesh.rotation.y = 0; stoneMesh.position.y = Math.sin(t * 1.3) * 1.5;
       const key = g.parking.at;
       if (key !== at) { at = key; const i = key == null ? undefined : index.get(key); if (i === undefined) hl.visible = false; else { hl.geometry = all[i].geo; hl.visible = true; } }
       if (hl.visible) (hl.material as THREE.MeshBasicMaterial).color.setHSL(((t * 90) % 360) / 360, 1, 0.62, THREE.SRGBColorSpace);

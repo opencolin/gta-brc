@@ -362,3 +362,23 @@
 }
 .pl[data-map] .pl-tools { visibility: hidden; }
 .pl[data-phone][data-map] .pl-map-x { bottom: calc(18px + var(--pl-player-h, 0px) + env(safe-area-inset-bottom, 0px)); } /* above the player on a phone */
+
+/* on a desk (asked 2026-11-03): the minimap up in the top right corner beside the pager, and the buttons that were under it in a row at the
+   bottom of the screen, in the middle; the ride list opens upward from there */
+.pl:not([data-phone]) .pl-pager { grid-column: 1; grid-row: 1; }
+.pl:not([data-phone]) .pl-where { grid-column: 1; grid-row: 2; }
+.pl:not([data-phone]) .pl-side { grid-column: 2; grid-row: 1 / span 2; position: static; }
+.pl:not([data-phone]) .pl-tools { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: none; flex-wrap: nowrap; align-items: center; gap: 6px; z-index: 5; }
+.pl:not([data-phone]) .pl-rides { top: auto; bottom: calc(100% + 4px); right: auto; left: 0; }
+/* the keys (asked 2026-11-03): under your ride at the bottom middle, in rows across, just above the buttons */
+.pl:not([data-phone]) .pl-keys { right: auto; left: 50%; bottom: 62px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 14px; max-width: max(340px, min(620px, calc(100% - 780px))); width: max-content; }
+.pl:not([data-phone]) .pl-keys > div { display: flex; gap: 5px; }
+/* the panel made big with the SoundCloud sets stacked and a video playing (asked 2026-11-03): the video in the bottom right corner on its own,
+   not in the column with the sets and the buttons; the sets keep room below them so the last one is never under it */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]):has(.pl-lg-stack) .pl-lg-player.pl-lg-video {
+  position: absolute; right: 16px; bottom: 16px; z-index: 2; width: min(560px, 42vw); height: auto; aspect-ratio: 16 / 9; flex: none;
+  border-radius: 10px; overflow: hidden; border: 2px solid var(--pl-pink); box-shadow: 0 8px 28px rgba(0, 0, 0, .55); background: #000;
+}
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]):has(.pl-lg-video) .pl-lg-stack { padding-bottom: calc(min(560px, 42vw) * 9 / 16 + 32px); }
+/* the pager's skip button (asked 2026-11-03): small, at the end of the job's line */
+.pl .pl-pager .pl-skip { min-height: 24px; padding: 1px 8px; font-size: var(--t-caption); flex: none; }

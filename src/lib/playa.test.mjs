@@ -4,12 +4,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
-  newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
-  newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, DAY_SECONDS,
+  newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
+  newMission, stepMission, skipMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, warpDay, WARP_SECONDS, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
-import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, toPolar, clockToAngle } from "./brc.ts";
+import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, blockBounds, toPolar, clockToAngle } from "./brc.ts";
 import { planAt, realCamps, structPush } from "./camps.ts";
 
 const DT = 1 / 60;
@@ -72,7 +72,7 @@ test("collisions: a block bounces the car back onto the street, slower", () => {
     const h = collide(c, v);
     hit = Math.max(hit, h);
     if (h && !after) after = { ...c };
-    for (const p of [c, { x: c.x, y: c.y }]) assert.equal(blockPush(p), null, "never left inside a block");
+    for (const p of [c, { x: c.x, y: c.y }]) assert.equal(blockCore(p), null, "never left inside a block (its edge and corners are drivable)");
   }
   assert.ok(hit > 100, `hard impact (${hit})`);
   assert.ok(finite(c) && after);
@@ -237,6 +237,14 @@ test("storms rise, hold and blow over; night comes and goes; the toggle flips it
   assert.equal(sunGlow(nightLevel(DAY_SECONDS * 0.1)), 0); assert.equal(sunGlow(nightLevel(DAY_SECONDS * 0.6)), 0);
   assert.equal(nightLevel(flipDay(0)), 1);
   assert.equal(nightLevel(flipDay(DAY_SECONDS * 0.7)), 0);
+  // the night button runs the clock forward through the sunset over a few seconds, not at once (asked 2026-11-03)
+  const g = newGame(7, undefined, "agave"), t0 = g.dayT, dark = [];
+  warpDay(g);
+  for (let t = 0; t < WARP_SECONDS + 0.5; t += 0.05) { stepGame(g, NO_INPUT, 0.05); dark.push(nightLevel(g.dayT)); }
+  assert.ok(dark.filter((n) => n > 0 && n < 1).length > 0.6 * dark.length, "most of it is the sunset");
+  assert.ok(dark[0] < 0.1, "it does not jump"); assert.ok(dark.some((n) => n > 0.2 && n < 0.8), "it passes through the sunset");
+  assert.equal(nightLevel(g.dayT), 1, "and ends in the night"); assert.equal(g.dayWarp, null); assert.ok(g.dayT > t0);
+  for (let i = 1; i < dark.length; i++) assert.ok(dark[i] >= dark[i - 1] - 1e-9, "the dark only deepens on the way to night");
 });
 
 test("a whole game steps for minutes without NaN, the car never inside anything, MOOP gets picked up", () => {
@@ -317,10 +325,17 @@ test("bikes and the unicycle ride through camp blocks; cars bounce off them; nob
       c = carStep(c, { ...NO_INPUT, gas: i < 40 }, DT, 8, v);
       collide(c, v);
       const b = blockPush(c);
-      if (b && b.depth > 8) inBlock = true;
+      if (b && b.depth > (v.throughCamps ? 8 : BLOCK_EDGE + 8)) inBlock = true;   // a car may ride up onto the block's edge, not into it
     }
     assert.equal(inBlock, v.throughCamps, `${id} ${v.throughCamps ? "gets into" : "stays out of"} the block`);
   }
+  // a car rides onto a block's edge and round its corners (asked 2026-11-03), not into its middle
+  const bb = blockBounds(4, 7), inward = (m, r) => polar(m, r);
+  const step = (ft, r) => (ft / r) * (720 / (Math.PI * 2));
+  assert.equal(blockCore(inward(bb.m0 + step(bb.w0 + 20, bb.r0 + 20), bb.r0 + 20)), null, "20 ft into a corner is drivable");
+  assert.equal(blockCore(inward((bb.m0 + bb.m1) / 2, bb.r0 + BLOCK_EDGE - 2)), null, "the edge is drivable");
+  assert.ok(blockCore(inward((bb.m0 + bb.m1) / 2, (bb.r0 + bb.r1) / 2)), "the middle is not");
+  assert.ok(solidAt(inward((bb.m0 + bb.m1) / 2, bb.r0 + 10)), "but the camera still counts the whole block");
   assert.ok(solidAt({ x: 0, y: 14000 }, true), "the fence stops a bike");
   assert.ok(solidAt({ x: 0, y: 10 }, true), "so does the Man");
   // and the bike bounces off what stands in the camps
@@ -387,8 +402,10 @@ test("every sound camp has a stage at its address and a bay you can drive into; 
         assert.ok(d <= 16, `${s.name} at ${gotClock}, within a quarter hour of ${clock}`);
       }
     }
-    assert.ok(solidAt(s.stage), `${s.name}'s stage is solid`);
-    assert.ok(solidAt(s.stage, true), `${s.name}'s stage is solid to a bike too`);
+    if (s.kind !== "art") {   // an art place's marker hovers overhead: you drive under it (asked 2026-11-03)
+      assert.ok(solidAt(s.stage), `${s.name}'s stage is solid`);
+      assert.ok(solidAt(s.stage, true), `${s.name}'s stage is solid to a bike too`);
+    }
     assert.equal(solidAt(s.mid), null, `${s.name}'s bay is open to a car`);
     assert.ok(inBay(s.mid, s.bay));
   }
@@ -520,7 +537,7 @@ test("switching rides mid-game keeps the game finite and the ride clear of walls
     setVehicle(g, id);
     for (let i = 0; i < 60 * 10; i++) {
       stepGame(g, { ...NO_INPUT, gas: true, right: i % 100 < 30 }, DT);
-      const s = solidAt(g.car, VEHICLES[id].throughCamps);
+      const s = solidAt(g.car, VEHICLES[id].throughCamps, true);
       assert.ok(!s || s.depth < 12, `${id} not deep in a wall`);
     }
     assert.ok(finite(g.car));
@@ -825,4 +842,15 @@ test("after the jump, Polo & Pan (asked 2026-10-26): the pager points at the Gol
   const gifts = m.gifts;
   assert.equal(stepMission(m, { ...AGAVE.mid, speed: 0 }, 0.1, w({ driving: "mutant:golden-ticket" })), "delivered");
   assert.ok(m.gifts > gifts); assert.match(pagerLine(m), /Polo & Pan are on/);
+});
+
+test("skipping a job briefs another, with no gifts and no failure (asked 2026-11-03)", () => {
+  const m = newMission(5), car = { x: 0, y: -3000, speed: 0 };
+  for (let i = 0; i < 40 && m.phase === "brief"; i++) stepMission(m, car, 0.1);
+  const job = m.job, gifts = m.gifts, failed = m.failed;
+  skipMission(m);
+  assert.notEqual(m.job, job); assert.equal(m.phase, "brief"); assert.equal(m.gifts, gifts); assert.equal(m.failed, failed);
+  let started = null;
+  for (let i = 0; i < 10 && !started; i++) started = stepMission(m, car, 0.1);
+  assert.equal(started, "start", "the next job is on within a second");
 });

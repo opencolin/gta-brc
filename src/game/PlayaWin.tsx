@@ -6,7 +6,8 @@ import { useBoardFocus } from "./useBoardFocus";
 import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
 import { ART_CARS, drawGoldenTicket } from "./artcars";
 import { ART_PIECES } from "./artpieces";
-import { RidePicker } from "./RidePicker";
+import { GARAGE_RIDES, RidePicker } from "./RidePicker";
+import { UNLOCK_KEY, nextUnlock, unlockedRides } from "@/lib/unlocks";
 import { LED_DAY, PYRAMID, ledPhase, ledRgb } from "@/lib/pyramidStage";
 import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
 import { hasWebGL2, readViewMode, VIEW_KEY, writeViewMode, type Renderer, type ViewMode } from "./view";
@@ -20,7 +21,7 @@ import {
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, flipDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import { realCamps, type Struct } from "@/lib/camps";
@@ -1282,13 +1283,17 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
 
   // an arrow pointing to a target off the screen: on a ring round the ride, not out at the edge (2026-10-22)
   if (tg) {
+    // big and easy to see (asked 2026-11-03): about 2.5 times the old one, a white halo round a navy edge, nudging toward the target as it pulses
     const arrow = (x: number, y: number, a: number) => {
-      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-      ctx.fillStyle = C.pink; ctx.strokeStyle = C.navy; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-10, -11); ctx.lineTo(-4, 0); ctx.lineTo(-10, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const nudge = 4 * Math.max(0, Math.sin(t * 6));
+      ctx.save(); ctx.translate(x + Math.cos(a) * nudge, y + Math.sin(a) * nudge); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(-24, -28); ctx.lineTo(-10, 0); ctx.lineTo(-24, 28); ctx.closePath();
+      ctx.lineJoin = "round"; ctx.shadowColor = "rgba(27, 31, 59, .45)"; ctx.shadowBlur = 10;
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = C.pink; ctx.fill(); ctx.strokeStyle = C.navy; ctx.lineWidth = 3.5; ctx.stroke();
       ctx.restore();
     };
-    const m = 34, s = proj(tg.at);
+    const m = 34, ma = 64, s = proj(tg.at);   // ma: how far the big arrow keeps from the edges
     if (s) {
       if (yaw !== null) {
         // the chase view's own ring lies on the ground (three/targets.ts); this adds a beam rising from the target to be found from afar, and, where the
@@ -1310,13 +1315,13 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
       const sx = s.x, sy = s.y;
       if (sx < m || sx > w - m || sy < m || sy > h - m) {
         const a = Math.atan2(sy - h / 2, sx - w / 2);
-        const k = Math.min((w / 2 - m) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - m) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(90, Math.min(w, h) * 0.3));
+        const k = Math.min((w / 2 - ma) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - ma) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(110, Math.min(w, h) * 0.3));
         arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a);
       }
     } else if (yaw !== null) {
       // behind the 3D camera: the arrow rides the bottom edge, to the side of the screen the target is on, pointing round behind you
       const rel = wrapAngle(Math.atan2(tg.at.x - g.car.x, -(tg.at.y - g.car.y)) - yaw); // the target's bearing from the ride, relative to where the camera looks (+ is to the right)
-      arrow(w / 2 + Math.sin(rel) * (w / 2 - m * 2), h - m * 2, Math.atan2(-Math.cos(rel), Math.sin(rel)));
+      arrow(w / 2 + Math.sin(rel) * (w / 2 - ma * 2), h - ma * 2, Math.atan2(-Math.cos(rel), Math.sin(rel)));
     }
   }
 }
@@ -1439,6 +1444,10 @@ export default function PlayaWin() {
   // the garage: the famous art cars you have found and parked beside, any of them yours to drive (asked 2026-10-22)
   const [garage, setGarage] = useState<string[]>([]);
   const [skin, setSkin] = useState<string | null>(null);
+  // the rides that are yours (asked 2026-11-03, unlocks.ts): the Playa Cruiser, then one more for each job delivered; an art car once driven
+  const [delivered, setDelivered] = useState(0);
+  useEffect(() => { try { const n = Number(localStorage.getItem(UNLOCK_KEY) || 0); if (Number.isFinite(n) && n > 0) setDelivered(n); } catch {} }, []);
+  const unlocked = unlockedRides(delivered, garage);
   useEffect(() => { try { const v = JSON.parse(localStorage.getItem(GARAGE_KEY) || "[]"); if (Array.isArray(v)) setGarage(v.filter((x) => typeof x === "string" && ART_CARS[x])); } catch {} }, []);
   const drive = (id: string) => {
     const g = game.current;
@@ -1643,6 +1652,14 @@ export default function PlayaWin() {
             }
             else if (e === "delivered") {
               flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
+              // a new ride for each job delivered, until they are all yours
+              setDelivered((d) => {
+                const got = nextUnlock(d); if (!got) return d;
+                try { localStorage.setItem(UNLOCK_KEY, String(d + 1)); } catch {}
+                const name = GARAGE_RIDES.find((r) => r.id === got)?.name ?? VEHICLES[got].name;
+                setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. V for the garage`, until: game.current.t + 3.5 }; }, 2600);
+                return d + 1;
+              });
               // Polo & Pan delivered to Agave Lounge (asked 2026-10-26): their set, as Brunch Life recorded it, goes on
               if (g.mission.job === POLO_JOB) { flash.current = { text: "Polo & Pan are on at Agave Lounge!", until: g.t + 3 }; pick("agave", POLO_SET); setLounge(true); }
             }
@@ -1809,19 +1826,33 @@ export default function PlayaWin() {
     };
     const mo = win ? new MutationObserver(check) : null;
     if (win) mo!.observe(win, { attributes: true, attributeFilter: ["class", "style", "inert"] });
-    // a click into a SoundCloud player in this window takes the page's focus: let go of the keys, but keep driving
+    // a click into a SoundCloud player in this window takes the page's focus: let go of the keys, but keep driving, and give the keys back to
+    // the board once the click has landed (asked 2026-11-03: "many times the focus gets lost and I have to click on the screen to drive again")
+    let back = 0;
     const blur = () => setTimeout(() => {
       const a = document.activeElement;
-      if (a?.tagName === "IFRAME" && root.current?.contains(a)) { keys.current = { ...NO_INPUT }; touch.current = { ...NO_INPUT }; return; }
+      if (a?.tagName === "IFRAME" && root.current?.contains(a)) {
+        keys.current = { ...NO_INPUT }; touch.current = { ...NO_INPUT };
+        clearTimeout(back); back = window.setTimeout(() => { if (document.activeElement === a) board.current?.focus({ preventScroll: true }); }, 500);
+        return;
+      }
       away();
     }, 0);
+    // and when the focus has fallen to the page (a button that was clicked went away, a click on nothing), a key still drives: the board takes it back
+    const stray = (e: globalThis.KeyboardEvent) => {
+      const a = document.activeElement;
+      if ((a && a !== document.body) || (win && !win.classList.contains("focused")) || !board.current) return;
+      board.current.focus({ preventScroll: true });
+      onKeyRef.current(e as unknown as KeyboardEvent, e.type === "keydown");
+    };
     document.addEventListener("visibilitychange", check);
     window.addEventListener("blur", blur);
-    return () => { mo?.disconnect(); document.removeEventListener("visibilitychange", check); window.removeEventListener("blur", blur); };
+    document.addEventListener("keydown", stray); document.addEventListener("keyup", stray);
+    return () => { mo?.disconnect(); clearTimeout(back); document.removeEventListener("visibilitychange", check); window.removeEventListener("blur", blur); document.removeEventListener("keydown", stray); document.removeEventListener("keyup", stray); };
   }, []);
 
   const go = () => { setPhase("play"); setMap(false); setLayout(false); board.current?.focus({ preventScroll: true }); };
-  const toggleNight = () => { const g = game.current; g.dayT = flipDay(g.dayT); };
+  const toggleNight = () => warpDay(game.current);   // a time-lapse through the sunset or the sunrise (playa.ts warpDay)
   // the trip (asked 2026-10-26): trails, a colour wash and a sway, eased in and out over a few seconds; T or the ✶ button
   const [trip, setTrip] = useState(false); const tripRef = useRef(false); tripRef.current = trip; const tripLevel = useRef(0);
   // nothing stops you while the big map is open or the trip is on (asked 2026-10-27: tripping, you pass through the people, the art cars, the camps and the fence, with no bump, no slow-down warning and no gift lost): either one is enough, so turning one off leaves the other's say
@@ -1867,7 +1898,8 @@ export default function PlayaWin() {
     else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (g.vehicle === "found") { e.preventDefault(); ridealong(); } else if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
-  };
+  };  const onKeyRef = useRef(onKey); onKeyRef.current = onKey;
+
   // turning the chase view by dragging (phase 5): on the view itself, not on a button, the stick or a panel (e.target is the stage or one of its two canvases); a mouse with its right button, a finger with the other one on the stick or alone
   const onView = (e: ReactPointerEvent | ReactMouseEvent) => viewRef.current === "chase" && (e.target === e.currentTarget || (e.target as HTMLElement).classList?.contains("pl-canvas"));
   const viewDown = (e: ReactPointerEvent) => {
@@ -1953,6 +1985,9 @@ export default function PlayaWin() {
         <div className="pl-pager" aria-live="polite">
           <span className="pl-pager-txt">{hud.pager}</span>
           {hud.time != null && <b className={hud.time < 10 ? "pl-late" : undefined}>{fmt(hud.time)}</b>}
+          {/* skip this job for the next one (asked 2026-11-03) */}
+          <button type="button" className="pl-btn pl-skip" onClick={() => { skipMission(game.current.mission); flash.current = { text: "skipped: here's the next job", until: game.current.t + 1.5 }; board.current?.focus({ preventScroll: true }); }}
+            aria-label="skip this job for the next one" title="next job">skip ▸</button>
         </div>
 
         <div className="pl-where">
@@ -2078,7 +2113,7 @@ export default function PlayaWin() {
           </button>
         )}
       </div>
-      <RidePicker open={rides} current={vehicle} skin={skin} garage={garage} night={hud.night}
+      <RidePicker open={rides} current={vehicle} skin={skin} garage={garage} unlocked={unlocked} next={nextUnlock(delivered)} night={hud.night}
         near={parked?.startsWith("mutant:") ? { id: parked.slice(7), name: soundOf(parked).name, aboard, driving: vehicle === "found" && skin === parked.slice(7) } : vehicle === "found" && skin ? { id: skin, name: soundOf(`mutant:${skin}`).name, aboard: false, driving: true } : null}
         onPick={(id) => { ride(id); setRides(false); }} onDrive={(id) => { drive(id); setRides(false); }} onRideAlong={() => { ridealong(); setRides(false); }} onClose={() => { setRides(false); board.current?.focus({ preventScroll: true }); }} />
       <Lounge parked={parked} now={now} open={lounge} onPick={pick} onPlaying={onPlaying} onClose={stopMusic}
