@@ -26,6 +26,13 @@ import { buildRides, updateRide, type RideMeshes } from "./rides";
 const SNAP = 1500;
 /** frame() is not called while top-down is showing, so a gap longer than this (seconds) since the last frame means the camera's state is stale: start behind the ride again instead of easing across what it drove meanwhile. */
 const STALE = 0.25;
+/**
+ * The camera's near plane (feet). The depth buffer's precision at a distance d goes as d² / near, so with the near plane at 1 ft the ground's
+ * layers (scene3d.ts LAYER: 0.05 ft and one depth unit apart) z-fight across the city once the eye is a few hundred feet up (asked 2026-11-03:
+ * the ground flickered from the plane). In the air it moves out to half the way to your ride and a quarter of the eye's height, up to 40 ft:
+ * nothing else is that close up there. On the ground it stays at 1 ft, where things pass close to the lens.
+ */
+const nearPlane = (eyeY: number, toRide: number, alt: number) => (alt < 30 ? 1 : Math.round(Math.max(1, Math.min(40, toRide / 2, eyeY / 4))));
 
 /** What the camera needs from the game. */
 const camTargetOf = (g: Game): CamTarget => {
@@ -174,7 +181,8 @@ export class ChaseRenderer implements Renderer {
     const { eye: e, look: l, fov } = this.cam;
     this.camera.position.set(e.x, e.y, e.z);
     this.camera.lookAt(l.x, l.y, l.z);
-    if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    const near = nearPlane(e.y, Math.hypot(e.x - g.car.x, e.y - g.alt, e.z - g.car.y), g.alt);
+    if (this.camera.fov !== fov || this.camera.near !== near) { this.camera.fov = fov; this.camera.near = near; this.camera.updateProjectionMatrix(); }
     nightUniform.value = view.night; this.places.update(view.night, g.t, this.camera); this.stages.update(g, g.t); this.art.update(this.camera.position, g, view.night); this.agave.update(view.night, g.t);
     this.sky.update(this.camera.position, view.night, view.storm, Math.hypot(this.camera.position.x - g.car.x, this.camera.position.y - g.alt, this.camera.position.z - g.car.y)); tintGround(view.night); this.lights.update(g, view, this.camera.position, Math.min(dt, 0.1)); this.ground.update(this.camera.position); this.camps.update(this.camera.position);
     this.cars.update(g, this.camera.position, view.night); this.targets.update(g);

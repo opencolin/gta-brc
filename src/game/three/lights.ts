@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CENTER_CAMP, TEMPLE } from "@/lib/brc";
 import { AGAVE, ART, MUTANTS, SPOTS, drivenKey, npcAt, vehicleOf, type Game } from "@/lib/playa";
-import { DAY_SECONDS } from "@/lib/playa";
+import { DAY_SECONDS, sunGlow } from "@/lib/playa";
 import { hslHex } from "@/lib/scene3d";
 import type { ViewState } from "../view";
 import { groundLight } from "./materials";
@@ -15,6 +15,8 @@ import { groundLight } from "./materials";
 /** The horizon's colour by day, which the fog fades the far ground into so the two meet without a seam. */
 export const HORIZON = "#f6ead2";
 const ZENITH = "#8ec5fc", N_ZENITH = "#0a0c24", N_HORIZON = "#2a2440", DUST = "#e6d3ae";
+/** The sunset's and the sunrise's glow: orange low on the horizon, pink above it (playa.ts sunGlow says how much). */
+const G_HORIZON = "#ff8f4f", G_ZENITH = "#e58fb0";
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const c1 = new THREE.Color(), c2 = new THREE.Color();
@@ -23,7 +25,7 @@ const mixTo = (out: THREE.Color, a: THREE.ColorRepresentation, b: THREE.ColorRep
 
 /**
  * The sky: a tall open cylinder round the camera with a gradient from the horizon up, repainted as the night and the dust storm come and go
- * (day blue over cream; night navy over plum; storm, the dust's colour all through), the stars, and the fog that fades the distance into
+ * (day blue over cream; sunset and sunrise, orange low and pink above; night navy over plum; storm, the dust's colour all through), the stars, and the fog that fades the distance into
  * the horizon's colour (2,500 to 14,000 ft by day, closing to 900 to 5,000 at night and to 70 to 300 in a storm, or to 0.9 and 2.2 times your ride's distance from the camera when that is more: the plane and the chute are well below it). The sky and the stars ignore the fog and
  * ride with the camera, or they would be fog-coloured and sit at the Gate's distance. Above the cylinder's rim the scene's background is the zenith.
  */
@@ -56,7 +58,9 @@ export function buildSky(scene: THREE.Scene): { update: (cam: THREE.Vector3, nig
       // the gradient is only redrawn when the night or the storm has moved
       // the storm's colour is the dust's, darker at night (a lit whiteout in the dark would be the one bright thing)
       const dust = mixTo(c1, DUST, "#3a3550", night).clone();
-      mixTo(top, ZENITH, N_ZENITH, night); top.lerp(dust, storm); mixTo(hor, HORIZON, N_HORIZON, night); hor.lerp(dust, storm);
+      const glow = sunGlow(night) * (1 - storm);
+      mixTo(top, ZENITH, N_ZENITH, night); top.lerp(c2.set(G_ZENITH), 0.35 * glow); top.lerp(dust, storm);
+      mixTo(hor, HORIZON, N_HORIZON, night); hor.lerp(c2.set(G_HORIZON), 0.8 * glow); hor.lerp(dust, storm);
       if (Math.abs(night - last[0]) + Math.abs(storm - last[1]) > 0.004) {
         last = [night, storm];
         const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, "#" + top.getHexString(THREE.SRGBColorSpace)); g.addColorStop(1, "#" + hor.getHexString(THREE.SRGBColorSpace));
@@ -117,7 +121,8 @@ export function addLights(scene: THREE.Scene, touch = false): Lights {
       const night = view.night, storm = view.storm;
       // the day: where the sun is (high at noon, low at dusk, rising again at dawn) and how warm
       const f = (((g.dayT / DAY_SECONDS) % 1) + 1) % 1;
-      const elev = f < 0.1 ? 40 + 30 * (f / 0.1) : f < 0.45 ? 70 - 65 * ((f - 0.1) / 0.35) : f < 0.9 ? 5 : 5 + 35 * ((f - 0.9) / 0.1);
+      // (playa.ts nightLevel: high at noon, f 0.125; on the horizon at sunset, 0.375, and at sunrise, 0.875; held just above it through the night)
+      const elev = f < 0.25 ? 25 + 45 * Math.sin(Math.PI * (f / 0.25)) : f < 0.375 ? Math.max(5, 25 * (1 - (f - 0.25) / 0.125)) : f < 0.875 ? 5 : Math.max(5, 25 * ((f - 0.875) / 0.125));
       const e = (elev * Math.PI) / 180, warm = Math.pow(1 - elev / 70, 2);
       sun.position.set(-0.55 * Math.cos(e), Math.sin(e), -0.45 * Math.cos(e));
       sun.color.set("#fff4e0").lerp(c1.set("#ff9c5a"), warm);

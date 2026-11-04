@@ -1046,18 +1046,26 @@ export function stepStorm(s: Storm, dt: number, rand: () => number): "storm" | n
 
 /** One day on the playa, in seconds of play. */
 export const DAY_SECONDS = 240;
-/** How dark it is at a point in the day (0 = noon sun, 1 = night), with a dusk and a dawn between. */
+/**
+ * How dark it is at a point in the day (0 = noon sun, 1 = night). The day is four equal quarters (asked 2026-11-03: sunrise and sunset are a
+ * big deal at Burning Man): day, sunset, night and sunrise. The sun sets halfway through the sunset quarter (f 0.375) and rises halfway through
+ * the sunrise one (f 0.875); before it sets is the golden hour, a little dim, and after it the twilight darkens to night.
+ */
 export function nightLevel(dayT: number): number {
   const f = ((dayT / DAY_SECONDS) % 1 + 1) % 1;
-  if (f < 0.4) return 0;
-  if (f < 0.5) return (f - 0.4) / 0.1;
-  if (f < 0.9) return 1;
-  return 1 - (f - 0.9) / 0.1;
+  const dusk = (u: number) => u < 0.5 ? 0.15 * (u / 0.5) : 0.15 + 0.85 * smoothstep((u - 0.5) / 0.5);   // u 0 to 1 through the sunset quarter
+  if (f < 0.25) return 0;
+  if (f < 0.5) return dusk((f - 0.25) / 0.25);
+  if (f < 0.75) return 1;
+  return dusk(1 - (f - 0.75) / 0.25);
 }
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
+/** How much the sky glows warm at the horizon (0 to 1): only through the sunset and the sunrise, brightest about when the sun is on the horizon. */
+export const sunGlow = (night: number) => night <= 0 || night >= 1 ? 0 : Math.sin(Math.PI * Math.sqrt(night));
 /** Skip to the other half of the day: noon from the night, night from the day. */
 export function flipDay(dayT: number): number {
   const base = Math.floor(dayT / DAY_SECONDS) * DAY_SECONDS;
-  return nightLevel(dayT) > 0.5 ? base + DAY_SECONDS + 0.05 * DAY_SECONDS : base + 0.55 * DAY_SECONDS;
+  return nightLevel(dayT) > 0.5 ? base + DAY_SECONDS + 0.125 * DAY_SECONDS : base + 0.625 * DAY_SECONDS;
 }
 
 /* ── the whole game ─────────────────────────────────────────────────────── */

@@ -5,6 +5,7 @@ import { LAYER } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import type { ViewState } from "../view";
 import { angelTexture, planeShadowTexture } from "./decals";
+import { cuttlefish } from "./cuttlefish";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 import { mergedParts, registerGround, shade, shaped as P, type Part } from "./materials";
 import { buildCyclist, buildRv, type Rig } from "./riders";
@@ -62,12 +63,8 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   rig("rv", buildRv(skin), [[15.6, 3.4, 1.4, -3.3], [15.6, 3.4, 1.4, 3.3]]);
   // the Golden Ticket: the gold cart with its speaker pods, its sign and its drawing on top (goldenTicket.ts)
   { const g = goldenTicket().group; g.visible = false; add("artcar", withBrake(g, 10.4, 3)); }
-  // the cuttlefish: a soft ellipsoid mantle with a fin round it, two eyes, a bunch of arms in front
-  add("fish", model([
-    P(ball(1, 16, 10), 0x3fb6a8, { sx: 9, sy: 3.5, sz: 15, y: 4.5 }), P(ball(1, 16, 6), 0xf2a65a, { sx: 10.2, sy: 0.7, sz: 16.2, y: 3.9 }),
-    P(ball(1.4), 0xfbf7ef, { x: -4, y: 7, z: -10 }), P(ball(1.4), 0xfbf7ef, { x: 4, y: 7, z: -10 }), P(ball(0.7), NAVY, { x: -4, y: 7.4, z: -11.2 }), P(ball(0.7), NAVY, { x: 4, y: 7.4, z: -11.2 }),
-    ...[-3, -1, 1, 3].map((x) => P(new THREE.ConeGeometry(0.9, 9, 6), 0x2f9488, { x, y: 4, z: -19, rx: -Math.PI / 2 })),
-  ]));
+  // the cuttlefish: its mantle and rippling fin, big W-pupilled eyes, arms gathered in front, colour rolling over its skin (cuttlefish.ts)
+  { const g = cuttlefish().group; g.visible = false; add("fish", g); }
   // the Agave dome car (a "found" ride with no art car): a pink deck with a white dome
   add("found", model([P(box(20, 4, 36), PINK, { y: 3 }), P(box(14, 1, 3), NAVY, { y: 5.5, z: -15 }), P(cyl(0.8, 0.8, 4), NAVY, { y: 3, z: -11, rz: Math.PI / 2, sx: 1 }), P(new THREE.SphereGeometry(8, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xf4efe6, { y: 5, z: 2 }), ...[-1, 1].flatMap((s) => [-12, 12].map((z): Part => P(cyl(3.4, 3.4, 3), TYRE, { x: s * 10, y: 3.4, z, rz: Math.PI / 2 })))]));
   // the plane: a white fuselage with a red stripe, a high wing, a tailplane and fin, a prop that spins
@@ -125,6 +122,7 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   // the golden ticket's lights and roof drawing redraw as it moves, ten times a second like the other decals
   const art = r.models.artcar, tk = art.userData.ticket as Ticket | undefined;
   if (tk && which === "artcar" && g.t - ((art.userData.last as number | undefined) ?? -1) > 0.1) { tk.paint(g.t, view.night); art.userData.last = g.t; }
+  if (which === "fish") (r.models.fish.userData.ticket as Ticket).paint(g.t, view.night);
   // a plane's shadow lies off to one side by its height (the sun is up and to the left, as the 2D has it) and fades as it rises
   const planeShadow = (s: THREE.Mesh, x: number, y: number, h: number, alt: number) => {
     s.visible = true; s.position.set(x + alt * 0.5, 0.4, y + alt * 0.4); s.rotation.y = yawOf(h); (s.material as THREE.MeshBasicMaterial).opacity = shade(1 / (1 + alt / 600));

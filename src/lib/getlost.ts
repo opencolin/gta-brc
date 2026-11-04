@@ -87,14 +87,14 @@ export function hourLabel(h: number): string {
 }
 /**
  * The day and hour at a point in the game's day (`f` 0 to 1 of DAY_SECONDS, `n` days in): playa.ts's nightLevel has the sun
- * down from f 0.45 to 0.95, so that is sunset at 7:30 PM to sunrise at 6:30 AM, the night 11 hours and the day 13. Day `n`
+ * set at f 0.375 and up again at 0.875, so that is sunset at 7:30 PM to sunrise at 6:30 AM, the night 11 hours and the day 13. Day `n`
  * of the game is BURN_DAYS[n] (round again after Sunday); after midnight it is the next day.
  */
 export function burnTime(n: number, f: number): { day: string; hour: number } {
-  const night = f >= 0.45 && f < 0.95, g = ((f - 0.95) % 1 + 1) % 1;
-  let hour = night ? 19.5 + ((f - 0.45) / 0.5) * 11 : 6.5 + (g / 0.5) * 13, d = n;
+  const night = f >= 0.375 && f < 0.875, g = ((f - 0.875) % 1 + 1) % 1;
+  let hour = night ? 19.5 + ((f - 0.375) / 0.5) * 11 : 6.5 + (g / 0.5) * 13, d = n;
   if (night && hour >= 24) { hour -= 24; d++; }
-  if (!night && f >= 0.95) d++; // past dawn: the next morning
+  if (!night && f >= 0.875) d++; // past dawn: the next morning
   return { day: BURN_DAYS[((d % 7) + 7) % 7], hour };
 }
 /** Whether an event is on at a day and hour: its own day, or past midnight on the day before (its hours run past 24). */

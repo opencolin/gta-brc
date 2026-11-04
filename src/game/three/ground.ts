@@ -1,8 +1,8 @@
 import { quality } from "./quality";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { AROUND, MAP_BOX, cityImage, surroundImage } from "@/game/citymap";
-import { ARCS, ARC_R, FENCE, FENCE_R, GATE, WIDE_RADIALS, polar } from "@/lib/brc";
+import { AROUND, MAP_BOX, cityImage, paintWelcome, surroundImage } from "@/game/citymap";
+import { ARCS, ARC_R, FENCE, FENCE_R, GATE, WELCOME, WIDE_RADIALS, polar } from "@/lib/brc";
 import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
 import { basic, hex, instanced, lambert, mergedParts, placed, registerGround, type Part } from "./materials";
@@ -124,6 +124,20 @@ function buildLabels(group: THREE.Group, maxAnisotropy: number): void {
   m.position.y = LAYER_Y.mark; m.renderOrder = LAYER.mark; group.add(m);
 }
 
+/**
+ * "WELCOME HOME" on the playa between the airport and K (asked 2026-11-03), crisper than the map's baked copy under it: one canvas on one
+ * quad, laid flat at the marks' layer and turned as the map turns it (brc.ts WELCOME), its top toward the Man for a plane flying in.
+ */
+function buildWelcome(group: THREE.Group, maxAnisotropy: number): void {
+  const { at, rot, w, h } = WELCOME, PX = 2048 / w;
+  const c = document.createElement("canvas"); c.width = 2048; c.height = Math.round(h * PX);
+  const x = c.getContext("2d")!; x.scale(PX, PX); x.translate(w / 2, h / 2); paintWelcome(x);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAnisotropy;
+  const q = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).rotateY(-rot).translate(at.x, 0, at.y);   // rotateY(-θ) on (x, z) is the canvas's rotate(θ) on (x, y)
+  const m = new THREE.Mesh(q, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.mark }));
+  m.position.y = LAYER_Y.mark; m.renderOrder = LAYER.mark; group.add(m);
+}
+
 /** The canvas drawn smaller onto one of `size` pixels square (null stays null). */
 function shrink(src: HTMLCanvasElement | null, size: number): HTMLCanvasElement | null {
   if (!src || src.width <= size) return src;
@@ -218,5 +232,6 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
 
   scene.add(group);
   buildLabels(group, maxAnisotropy);
+  buildWelcome(group, maxAnisotropy);
   return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; } };
 }

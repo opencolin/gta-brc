@@ -11,7 +11,7 @@
  * Reference: Umbra SAR image of BRC 2025 (CC BY 4.0, Wikimedia Commons) and the 2005 Landsat view.
  */
 import {
-  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, PLAZAS, CITY_SCALE, FENCE, FENCE_R, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, PLAZAS, CITY_SCALE, FENCE, FENCE_R, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WELCOME, WIDE_RADIALS,
   arcWidth, blockBounds, clockToAngle, polar, radialWidth,
 } from "@/lib/brc";
 
@@ -24,7 +24,7 @@ const cang = (min: number) => clockToAngle(min) - Math.PI / 2;
 
 const P = {
   playa: "#e8dcc2", grain: "#dccda9", outside: "#d4c3a0", street: "#f8f1e0", block: "#d6c39d", blockEdge: "#b39a70",
-  navy: "#1b1f3b", fence: "#f08a3c", plaza: "#efe5cf", runway: "#f1e9d6", track: "rgba(120, 95, 60, .16)",
+  navy: "#1b1f3b", fence: "#f08a3c", plaza: "#efe5cf", runway: "#f1e9d6", pink: "#ff6b9a", track: "rgba(120, 95, 60, .16)",
 };
 /** What a camp looks like from above: shade cloth, RVs, white tents, a few bright ones. Weighted toward pale. */
 const CAMP = ["#f6f1e6", "#f6f1e6", "#ece5d6", "#ece5d6", "#d9d0bd", "#cfc5ae", "#f3d9b4", "#dfe6e8", "#f0cdd0", "#cfe0cf", "#e9d9f0", "#f5e3a8"];
@@ -140,7 +140,16 @@ function paint(x: CanvasRenderingContext2D, size: number) {
   for (const i of [0, 2, 4, 6, 8, 11]) { const p = polar(606, ARC_R[i]); x.fillText(ARCS[i] === "Esplanade" ? "Esp" : ARCS[i], p.x, p.y); }
   x.font = `600 ${150}px system-ui, sans-serif`;
   x.fillText("airport", ap.x, ap.y + 700); x.fillText("gate", g2.x, g2.y + 260);
+  x.save(); x.translate(WELCOME.at.x, WELCOME.at.y); x.rotate(WELCOME.rot); paintWelcome(x); x.restore();
   x.setTransform(1, 0, 0, 1, 0, 0);
+}
+/** "WELCOME HOME" (brc.ts WELCOME) in two lines, pink edged in navy, centred on the origin in feet with its top up; ground.ts paints its own copy with this. */
+export function paintWelcome(x: CanvasRenderingContext2D): void {
+  const { w, h } = WELCOME;
+  x.textAlign = "center"; x.textBaseline = "middle"; x.lineJoin = "round"; x.lineWidth = h * 0.045; x.font = `900 ${h * 0.42}px system-ui, sans-serif`;
+  for (const [t, y] of [["WELCOME", -h * 0.24], ["HOME", h * 0.26]] as const) {
+    x.strokeStyle = P.navy; x.strokeText(t, 0, y, w * 0.95); x.fillStyle = P.pink; x.fillText(t, 0, y, w * 0.95);
+  }
 }
 const clockLabel = (min: number) => `${Math.floor(min / 60) || 12}:${String(min % 60).padStart(2, "0")}`;
 

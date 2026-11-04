@@ -36,12 +36,12 @@ test("a camp at a corner lands in a block of camps beside that corner, at its cl
 });
 
 test("the burn's clock: sunset at 7:30 PM, sunrise at 6:30 AM, past midnight is the next day", () => {
-  assert.deepEqual(burnTime(0, 0.45), { day: "2026-08-31", hour: 19.5 });
-  assert.equal(burnTime(0, 0.95).hour, 6.5); assert.equal(burnTime(0, 0.95).day, "2026-09-01");
+  assert.deepEqual(burnTime(0, 0.375), { day: "2026-08-31", hour: 19.5 });
+  assert.equal(burnTime(0, 0.875).hour, 6.5); assert.equal(burnTime(0, 0.875).day, "2026-09-01");
   assert.equal(burnTime(0, 0.2).day, "2026-08-31"); assert.ok(burnTime(0, 0.2).hour > 12 && burnTime(0, 0.2).hour < 19.5);
   const late = burnTime(1, 0.8); assert.equal(late.day, "2026-09-02"); assert.ok(late.hour < 6.5);
   let last = -1, lastDay = "";
-  for (let f = 0.951; f < 1.95; f += 0.01) { const n = Math.floor(f), b = burnTime(n, f - n); if (b.day === lastDay) assert.ok(b.hour > last, "time runs forward"); last = b.hour; lastDay = b.day; }
+  for (let f = 0.876; f < 1.87; f += 0.01) { const n = Math.floor(f), b = burnTime(n, f - n); if (b.day === lastDay) assert.ok(b.hour > last, "time runs forward"); last = b.hour; lastDay = b.day; }
   assert.equal(burnTime(7, 0.2).day, "2026-08-31", "round again after Sunday");
   assert.equal(hourLabel(16.5), "4:30 PM"); assert.equal(hourLabel(12), "noon"); assert.equal(hourLabel(25), "1 AM"); assert.equal(dayName("2026-08-31"), "Mon");
 });

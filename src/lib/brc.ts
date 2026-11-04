@@ -146,6 +146,13 @@ export const GATE = (() => {
   return { min, a, lat, at, stop, bell: { x: stop.x + lat.x * 70, y: stop.y + lat.y * 70 }, road: { from: polar(min, ARC_R[ARC_R.length - 1]), to: polar(min, FENCE_R * 1.7) }, width: 110 };
 })();
 
+/**
+ * "WELCOME HOME" in big letters on the playa (asked 2026-11-03): inside the fence between it and K on the airport's radial, its top toward the
+ * Man so it reads the right way up from a plane flying in from the airport. `at` is its middle, `rot` the canvas rotation that turns
+ * the text's top toward the Man, `w` and `h` its size in feet; citymap.ts paints it and ground.ts lays it on the 3D ground.
+ */
+export const WELCOME = { at: polar(252, 6330 * S), rot: clockToAngle(252) + Math.PI, w: 2000, h: 1000 };
+
 /** How far a point is inside the fence (negative: outside), and the inward normal of the nearest side. */
 export function fenceDepth(p: Vec): { depth: number; nx: number; ny: number } {
   let best = { depth: Infinity, nx: 0, ny: 0 };

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   newCar, carStep, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
-  newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, flipDay, DAY_SECONDS,
+  newMission, stepMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, DAY_SECONDS,
   newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
@@ -228,6 +228,13 @@ test("storms rise, hold and blow over; night comes and goes; the toggle flips it
   assert.equal(nightLevel(0), 0);
   assert.equal(nightLevel(DAY_SECONDS * 0.7), 1);
   assert.ok(nightLevel(DAY_SECONDS * 0.45) > 0 && nightLevel(DAY_SECONDS * 0.45) < 1, "dusk");
+  // four equal quarters: day, sunset, night, sunrise (asked 2026-11-03)
+  const share = (test) => { let k = 0; for (let i = 0; i < 1000; i++) if (test(nightLevel(DAY_SECONDS * (i + 0.5) / 1000))) k++; return k / 1000; };
+  assert.equal(share((n) => n === 0), 0.25, "a quarter of the day is day"); assert.equal(share((n) => n === 1), 0.25, "a quarter is night");
+  assert.equal(share((n) => n > 0 && n < 1), 0.5, "sunset and sunrise, a quarter each");
+  assert.ok(nightLevel(DAY_SECONDS * 0.3) < 0.15 && nightLevel(DAY_SECONDS * 0.95) < 0.15, "the golden hours either side of the sun on the horizon stay light");
+  assert.ok(sunGlow(nightLevel(DAY_SECONDS * 0.375)) > 0.8 && sunGlow(nightLevel(DAY_SECONDS * 0.875)) > 0.8, "the sky glows as the sun sets and rises");
+  assert.equal(sunGlow(nightLevel(DAY_SECONDS * 0.1)), 0); assert.equal(sunGlow(nightLevel(DAY_SECONDS * 0.6)), 0);
   assert.equal(nightLevel(flipDay(0)), 1);
   assert.equal(nightLevel(flipDay(DAY_SECONDS * 0.7)), 0);
 });

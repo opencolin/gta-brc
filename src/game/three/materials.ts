@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { sunGlow } from "@/lib/playa";
 
 /**
  * Shared materials, one per colour: a thousand boxes of the same colour are one material, and a rebuild after a lost GL
@@ -152,8 +153,10 @@ function litGround(shader: { uniforms: Record<string, THREE.IUniform>; vertexSha
 export function registerGround(m: THREE.MeshBasicMaterial): THREE.MeshBasicMaterial { m.onBeforeCompile = litGround; m.customProgramCacheKey = () => "ground-lit"; return m; }
 /** What the night multiplies an unlit colour by: a dark navy, about what the top-down painter's 78% overlay of #0a0c24 leaves of the beige playa. */
 const NIGHT_MUL = new THREE.Color(0x2a2c4a);
-/** Dim the unlit ground for this night level (0 day, 1 night). */
+/** What the sunset and the sunrise multiply it by at their warmest: the low sun's orange on the dust. */
+const GLOW_MUL = new THREE.Color(0xffc08a);
+/** Dim the unlit ground for this night level (0 day, 1 night), and warm it through the sunset and the sunrise (playa.ts sunGlow). */
 export function tintGround(night: number): void {
-  groundLight.mul.value.set(0xffffff).lerp(NIGHT_MUL, night);
+  groundLight.mul.value.set(0xffffff).lerp(GLOW_MUL, 0.6 * sunGlow(night)).lerp(NIGHT_MUL, night);
   groundLight.on.value = night > 0.01 ? 1 : 0;
 }
