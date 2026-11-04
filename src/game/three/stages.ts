@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MODELLED, buildArtPlaces } from "./artPlaces";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { SPOTS, type Game, type Spot } from "@/lib/playa";
 import { LAYER, hslHex } from "@/lib/scene3d";
@@ -61,7 +62,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   hl.rotation.x = Math.PI / 2; hl.position.y = 0.45; hl.renderOrder = LAYER.bayHi; hl.visible = false; group.add(hl);
 
   // ── stages: one instanced mesh per shape
-  const camps = spots.filter((s) => s.kind === "camp" && s.key !== PYRAMID.key), stones = spots.filter((s) => s.kind === "art"), fences = spots.filter((s) => s.kind === "fence");
+  const camps = spots.filter((s) => s.kind === "camp" && s.key !== PYRAMID.key), stones = spots.filter((s) => s.kind === "art" && !MODELLED.has(s.camp?.id ?? "")), fences = spots.filter((s) => s.kind === "fence");
   /** an art place's crystal: its half-width and how high it hovers */
   const STONE_R = 5, STONE_Y = 18;
   const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number, set: (i: number, d: THREE.Object3D, c: THREE.Color) => void) => {
@@ -90,6 +91,8 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   const py = SPOTS.find((s) => s.key === PYRAMID.key);
   const pyramid: PyramidMeshes | null = py ? buildPyramid(group, py.stage, FACING(py)) : null;
 
+  // the art places that have a model of the real piece (artPlaces.ts) instead of a crystal
+  const artPlaces = buildArtPlaces(group, spots.filter((s) => s.kind === "art"));
   scene.add(group);
   const index = new Map(SPOTS.map((s, i) => [s.key, i]));
   let at: string | null = null;
@@ -97,6 +100,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
     group,
     update(g, t) {
       pyramid?.update(g, t);
+      artPlaces.update(g.car.x, g.car.y);
       // the art places' crystals turn slowly and bob, together
       stoneMesh.rotation.y = 0; stoneMesh.position.y = Math.sin(t * 1.3) * 1.5;
       const key = g.parking.at;
