@@ -2056,6 +2056,11 @@ export default function PlayaWin() {
       const p = three.current?.perf?.();
       if (p) { console.log("[chase view]", `${p.calls} draw calls, ${(p.triangles / 1000).toFixed(0)}k triangles, ${p.geometries} geometries, ${p.textures} textures, ${p.fps.toFixed(1)} fps (${p.ms.toFixed(1)} ms/frame, ${p.cpuMs.toFixed(1)} ms of it frame()), ${p.extra ?? ""}`); flash.current = { text: `${p.calls} calls · ${(p.triangles / 1000).toFixed(0)}k tris · ${p.fps.toFixed(0)} fps`, until: game.current.t + 3 }; }
     }
+    // V plays the video nearby (asked 2026-11-04): the one showing in passing, or the nearest place's with only videos, over whatever was playing
+    else if (e.key === "v" || e.key === "V") {
+      e.preventDefault(); const g = game.current, seen = nearest(g.car, clipSources(g.t)), k = peek ?? (seen && loudness(seen.d) > 0 ? seen.key : null), t = k ? soundOf(k).tracks[0] : null;
+      if (k && t) { pick(k, t); setLounge(true); } else flash.current = { text: "no video nearby", until: g.t + 1.5 };
+    }
     else if (e.key === "g" || e.key === "G") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
@@ -2138,7 +2143,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, G changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, G changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E enters or exits an art car or the plane, V plays a video nearby, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
         onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
@@ -2229,7 +2234,8 @@ export default function PlayaWin() {
           <dl className="pl-keys" aria-label="the keys">
             <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
-            <div><dt>E</dt><dd>drive an art car</dd></div>
+            <div><dt>E</dt><dd>enter · exit</dd></div>
+            <div><dt>V</dt><dd>video nearby</dd></div>
             <div><dt>R</dt><dd>ride along · the garage</dd></div>
             <div><dt>G</dt><dd>garage</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
@@ -2264,7 +2270,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>G the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>G the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E enter or exit an art car or the plane · V play a video nearby</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>

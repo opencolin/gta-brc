@@ -269,7 +269,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
         </div>
       )}
       {now && !(stacked && !isVideo(now.url)) && (
-        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lg-clip-player" : ""}${theatre ? " pl-lg-full" : ""}`}>
+        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${/youtube\.com\/shorts\//.test(now.url) ? " pl-lg-clip-player" : ""}${theatre ? " pl-lg-full" : ""}`}>
           {isVideo(now.url) ? (<>
             <VideoShell ios={ios} url={now.url} title={now.title} playing={now.playing} onToggle={() => post(frame.current?.contentWindow, now.url, now.playing ? "pause" : "play")}>
               <iframe key={`${now.url}|${now.auto}`} ref={frame} tabIndex={-1} title={`${s.name}: ${now.title}, on YouTube`} allow="autoplay; encrypted-media"

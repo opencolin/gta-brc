@@ -332,6 +332,7 @@
 /* a clip (mostly phone video, often upright) gets room on a desk: a tall player it can fill (asked 2026-10-22); the player is in the screen's
    bottom right corner since 2026-11-03, so the panel keeps its width (it was 480 px for a clip) */
 .pl:not([data-phone]) .pl-lounge.pl-lounge-clip:not([data-mini]) { max-height: calc(100% - 120px); }
+/* pl-lg-clip-player: an upright video, a YouTube short (asked 2026-11-04: the art's landscape clips stood in an upright frame); every other video is framed 16:9 */
 .pl:not([data-phone]) .pl-lounge:not([data-mini]) .pl-lg-player.pl-lg-clip-player { aspect-ratio: auto; height: min(56vh, 520px); }
 /* what plays: no box of its own, so the player is one of the panel's rows as before (PlayaLounge's pl-lg-main) */
 .pl .pl-lg-main { display: contents; }
