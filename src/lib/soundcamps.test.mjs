@@ -39,6 +39,7 @@ test("every link is https://soundcloud.com/… or a YouTube video, and each camp
       for (const t of campTracks(c)) assert.match(t.url, /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${t.url}`);
       continue;
     }
+    if (c.id === "aquarian-shrine") { assert.equal(campTracks(c).length, 0, "its video taken away (asked 2026-11-05): nothing to play"); continue; }
     assert.match(c.soundcloud, /^https:\/\/soundcloud\.com\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+){0,2}$|^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${c.soundcloud}`);
     for (const u of (c.sets ?? []).map((s) => s.url)) assert.match(u, /^https:\/\/soundcloud\.com\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+){0,2}$|^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/, `${c.name}: ${u}`);
     assert.ok(campTracks(c).length >= 1);

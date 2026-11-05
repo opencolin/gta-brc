@@ -23,7 +23,7 @@ import {
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
-  AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, MUTANTS, NO_INPUT, parkedCarList, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
+  AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, JOBS, MUTANTS, NO_INPUT, parkedCarList, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
   atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, fallOf, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
@@ -1899,7 +1899,12 @@ export default function PlayaWin() {
               if (g.mission.job === POLO_JOB) { flash.current = { text: "Polo & Pan are on at Agave Lounge!", until: g.t + 3 }; pick("agave", POLO_SET); setLounge(true); }
             }
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
-            else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
+            else if (e === "picked") {
+              // someone aboard: onto the tuk-tuk, with room for them in its trailer, unless you are in a car of some sort (asked 2026-11-04)
+              const job = JOBS[g.mission.job % JOBS.length], bikeish = g.vehicle === "bike" || g.vehicle === "ebike" || g.vehicle === "unicycle" || g.vehicle === "onewheel";
+              if (job.kind === "ride" && bikeish && !g.aboard) { setVehicle(g, "tuktuk"); setVehicleState("tuktuk"); flash.current = { text: "on board! into the tuk-tuk", until: g.t + 2 }; }
+              else flash.current = { text: "on board!", until: g.t + 1.5 };
+            }
             else if (e === "start") setJob({ text: pagerLine(g.mission), n: ++jobN.current });
             else if (e === "park" && g.parking.at) onPark.current(g.parking.at);
             // an art car you drive ran into a camp or another art car: its music comes on, and its panel (asked 2026-11-04)
