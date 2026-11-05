@@ -2118,8 +2118,6 @@ export default function PlayaWin() {
   };
   const toggleMap = () => setMap((m) => { if (!m) { const c = game.current.car; bigView.current = { z: 2.2, cx: c.x, cy: c.y, follow: true }; } return !m; });
 
-  /** the minimap hidden (Z) */
-  const [miniOff, setMiniOff] = useState(false);
   /** which keys are down, for the radio's keycaps, and when each went down */
   const [lit, setLit] = useState<Record<string, boolean>>({}), litAt = useRef<Record<string, number>>({});
   /** a keycap on the radio pressed or let go: as its key on the keyboard */
@@ -2150,7 +2148,7 @@ export default function PlayaWin() {
     }
     else if (e.key === "g" || e.key === "G") { e.preventDefault(); toggleMap(); }
     else if (e.key === "l" || e.key === "L") { e.preventDefault(); toggleNight(); }
-    else if (e.key === "z" || e.key === "Z") { e.preventDefault(); setMiniOff((v) => !v); } // the minimap, shown or hidden (asked 2026-11-04: "Z a hotkey for zoom") // day or night (asked 2026-11-04: the buttons are gone on a desk, N is the next track)
+    else if (e.key === "z" || e.key === "Z") { e.preventDefault(); toggleMap(); } // zoom: the minimap full screen and back (asked 2026-11-04), as G does // day or night (asked 2026-11-04: the buttons are gone on a desk, N is the next track)
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); toggleView(); }
     // dev only (stripped from the production build): 9 prints the chase view's draw calls, triangles and frame times to the console (P is the music's)
@@ -2241,7 +2239,7 @@ export default function PlayaWin() {
   const over = hud.mph > SPEED_LIMIT_MPH;
 
   return (
-    <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined} data-nomini={miniOff ? "" : undefined}>
+    <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
         aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, R the rides, M back to the music, G the map, C the chase camera or top-down (drag with the right mouse button to turn it), E enters or exits an art car or the plane, V plays a video nearby, N or full stop plays the music nearby and then the next track, comma or B goes back a track, P plays and pauses, L day or night, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}

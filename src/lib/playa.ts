@@ -1136,8 +1136,10 @@ export function pagerLine(m: Mission): string {
 /** Under 1 mph for a second, in a bay (or beside an art car), counts as parked. */
 export const PARK_SPEED = 1 / MPH;
 export const PARK_STILL = 1;
-export const MUTANT_PARK_R = 120;
-export const MUTANT_LEAVE_R = 300;
+// beside an art car is inside the circle of people dancing round it (scene3d.ts carCrowd, 44 to 62 ft out), and E takes its wheel only from there
+// (asked 2026-11-04: "make the distance that E drives an art car match the circle around the art car"); a little more to leave, so it does not flicker
+export const MUTANT_PARK_R = 64;
+export const MUTANT_LEAVE_R = 74;
 /** `at`: the place key you are parked at; `cand`, `still`: where you are stopping and for how long. */
 export type Parking = { at: string | null; cand: string | null; still: number };
 export const newParking = (): Parking => ({ at: null, cand: null, still: 0 });

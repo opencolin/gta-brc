@@ -531,7 +531,5 @@
   color: #0b0c10; transform: translateY(2px); background: linear-gradient(90deg, #ff3b6b, #ffb13b, #f4ff3b, #3bff8a, #3bd8ff, #7a5bff, #ff3bd5, #ff3b6b); background-size: 400% 100%;
   box-shadow: 0 0 12px rgba(255, 90, 200, .8), 0 0 20px rgba(80, 200, 255, .55); animation: pl-rgb 0.9s linear infinite;
 }
-/* Z hides the minimap and brings it back (asked 2026-11-04) */
-.pl[data-nomini] .pl-mini { display: none; }
 /* no ride and drive buttons by an art car on a desk (asked 2026-11-04): E takes its wheel, its panel's button rides along */
 .pl:not([data-phone]):not([data-touch]) .pl-tools .pl-carbtn { display: none; }
