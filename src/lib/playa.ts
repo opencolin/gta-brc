@@ -225,7 +225,7 @@ export const ART: readonly ArtPiece[] = SOUND_CAMPS.filter((c) => c.piece && c.p
 /* ── the sound camps: a stage at the address, a parking bay cut into the block in front ── */
 
 /** A parking bay: an annular box, r0 to r1 from the Man and `half` feet either side of `min` along the street. */
-export type Bay = { min: number; r0: number; r1: number; half: number };
+export type Bay = { min: number; r0: number; r1: number; half: number; /** a ring round the place instead (the Man, the temples, the art: asked 2026-11-04), r0 to r1 from its centre */ ring?: { x: number; y: number; r0: number; r1: number } };
 export type Spot = {
   /** the place key: "agave" or "camp:<id>" */
   key: string; name: string; kind: "agave" | "camp" | "fence" | "art";
@@ -243,12 +243,14 @@ const ftToMin = (ft: number, r: number) => (ft / r) * (720 / (Math.PI * 2));
 
 /** Whether a point is in a bay. */
 export function inBay(p: Vec, b: Bay, margin = 0): boolean {
+  if (b.ring) { const d = Math.hypot(p.x - b.ring.x, p.y - b.ring.y); return d >= b.ring.r0 - margin && d <= b.ring.r1 + margin; }
   const { min, r } = toPolar(p);
   if (r < b.r0 - margin || r > b.r1 + margin) return false;
   return Math.abs(clockToAngle(dMin(min, b.min)) * r) <= b.half + margin;
 }
 /** From a point in the block beside a bay, the shortest way into the bay: the nearest point of its box. */
 function bayExit(p: Vec, b: Bay): Push | null {
+  if (b.ring) return null; // out on the open playa: nothing to get out of
   const { min, r } = toPolar(p);
   const v = clockToAngle(dMin(min, b.min)) * r;
   const rc = Math.max(b.r0, Math.min(b.r1, r)), vc = Math.max(-b.half, Math.min(b.half, v));
@@ -351,6 +353,20 @@ export const SPOTS: readonly Spot[] = (() => {
     if (c.piece && !campTracks(c).length) continue; // a piece with no videos yet is drawn, not a place to stop at
     out.push(c.kind === "art" ? artSpot(c) : c.kind === "fence" || !c.address ? fenceSpot(c) : placeCamp(c, out));
   }
+  // the parking (asked 2026-11-04: "make the parking areas for camps cover the entire camp, and for the man and temple and art pieces let's have a circular parking
+  // area around it"), made once every place has its spot, so where each stands is as it was: a camp's bay reaches back past its stage and as wide as it, the
+  // whole camp; the art, the Man and the temples a ring round them, from just outside the piece out past the old bay
+  for (const s of out) {
+    if (s.kind === "camp") {
+      const sr = toPolar(s.stage).r, b = s.bay;
+      if (sr > b.r1) b.r1 = sr + s.stage.r + 10; else if (sr < b.r0) b.r0 = sr - s.stage.r - 10;
+      b.half = Math.max(b.half, s.stage.r + 12);
+    } else if (s.kind === "art") {
+      // the places at the Man (his base, the sets there) ring the Man himself; every other piece rings its own spot
+      if (Math.hypot(s.stage.x, s.stage.y) < 450) s.bay.ring = { x: 0, y: 0, r0: MAN_R + 25, r1: Math.max(250, Math.hypot(s.mid.x, s.mid.y) + 40) };
+      else { const out0 = Math.hypot(s.mid.x - s.stage.x, s.mid.y - s.stage.y); s.bay.ring = { x: s.stage.x, y: s.stage.y, r0: s.stage.r + 15, r1: Math.max(s.stage.r + 110, out0 + 30) }; }
+    }
+  }
   return out;
 })();
 export const spotOf = (key: string) => SPOTS.find((s) => s.key === key);
@@ -368,7 +384,9 @@ export const OBSTACLES: readonly Circle[] = [
 /** The camps inside the blocks (camps.ts), clear of the stages, the bays and Center Camp. */
 let CITY: BlockPlan[] | null = null;
 export const cityPlan = () => CITY ??= planCity([
-  ...SPOTS.flatMap((s) => [{ x: s.stage.x, y: s.stage.y, r: s.stage.r + 14 }, { x: s.mid.x, y: s.mid.y, r: s.bay.half + 30 }]),
+  ...SPOTS.flatMap((s) => [{ x: s.stage.x, y: s.stage.y, r: s.stage.r + 14 }, { x: s.mid.x, y: s.mid.y, r: s.bay.half + 30 },
+    // a camp's whole lot is its parking now (2026-11-04): nothing of the camp's own stands in it
+    ...(s.kind === "camp" && !s.bay.ring ? [{ ...polar(s.bay.min, (s.bay.r0 + s.bay.r1) / 2), r: Math.hypot(s.bay.half, (s.bay.r1 - s.bay.r0) / 2) + 6 }] : [])]),
   { x: AGAVE.moon.x, y: AGAVE.moon.y, r: AGAVE.moon.r + 14 },
   { x: CENTER_CAMP.x, y: CENTER_CAMP.y, r: CENTER_CAMP_R + 30 },
 ]);
@@ -1032,7 +1050,8 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
     return "start";
   }
   if (m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow") {
-    m.timeLeft -= dt;
+    // the skydive's clock stops while you are up in the plane (asked 2026-11-04: the next job came up while still flying): it runs on the ground and under the chute
+    if (!(job.kind === "skydive" && w.plane && (w.alt ?? 0) > 0)) m.timeLeft -= dt;
     if (job.kind === "moop") {
       m.progress = w.moop - m.moop0;
       if (m.phase === "pickup" && m.progress >= (job.need ?? 5)) { m.phase = "dropoff"; m.timeLeft += 8; return "picked"; }
@@ -1044,7 +1063,7 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
     } else if (job.kind === "skydive") {
       // up in the plane: high enough and the jump is on; under the chute: where you touch down decides it
       m.progress = dist(car, AGAVE.dome);
-      if (w.plane) m.moop0 = 1;
+      m.moop0 = w.plane ? 1 : 0; // moop0: still aboard the plane
       if (m.phase === "pickup" && (w.alt ?? 0) >= SKYDIVE_ALT) { m.phase = "dropoff"; return "picked"; }
       if (w.landed) {
         if (m.phase === "dropoff" && m.progress <= (job.need ?? 350) * CITY_SCALE) return deliver();
@@ -1061,7 +1080,8 @@ export function stepMission(m: Mission, car: { x: number; y: number; speed: numb
     return null;
   }
   m.wait -= dt;
-  if (m.wait <= 0) { m.job = job.kind === "skydive" ? POLO_JOB : nextJob(m); m.phase = "brief"; m.wait = 3; } // after the jump, Polo & Pan
+  // after a jump that landed by Agave, Polo & Pan; and no new job comes up while you are still flying the plane (asked 2026-11-04)
+  if (m.wait <= 0 && !(w.plane && (w.alt ?? 0) > 0)) { m.job = job.kind === "skydive" && m.phase === "done" ? POLO_JOB : nextJob(m); m.phase = "brief"; m.wait = 3; }
   return null;
 }
 
@@ -1092,8 +1112,9 @@ export function pagerLine(m: Mission): string {
   }
   if (job.kind === "skydive") {
     const ft = Math.round(m.progress / CITY_SCALE);
-    if (m.phase === "pickup") return m.moop0 ? `climb to ${SKYDIVE_ALT} ft over the city, then E ejects you: land by Agave Lounge` : "get to the airport and take the plane (E on the pad)";
-    if (m.phase === "dropoff") return `eject (E) and steer the chute to Agave Lounge · ${ft} ft from the dome`;
+    // the jump, step by step (asked 2026-11-04: "a mission to tell the user to fly to agave lounge and jump out of the plane")
+    if (m.phase === "pickup") return m.moop0 ? `fly to Agave Lounge (follow the arrow) and climb to ${SKYDIVE_ALT} ft · ${ft} ft to go` : "get to the airport and take the plane (E on the pad)";
+    if (m.phase === "dropoff") return m.moop0 ? (ft < 1500 ? `over Agave Lounge: jump! E ejects you · ${ft} ft from the dome` : `fly to Agave Lounge and jump out over it (E) · ${ft} ft to go`) : `steer the chute down onto Agave Lounge · ${ft} ft from the dome`;
     if (m.phase === "done") return `you landed ${ft} ft from the dome. the camp cheers and pours you a mezcal`;
     return ft ? `you came down ${ft} ft from Agave Lounge. the mezcal is still there if you ride over` : "the jump was the point: you landed the plane instead";
   }
@@ -1316,7 +1337,7 @@ export function seeded(seed: number): () => number {
 export type Dust = { x: number; y: number; life: number; size: number };
 export type Game = {
   t: number; car: Car; vehicle: VehicleId; mission: Mission; npcs: Npc[]; moop: Vec[]; moopCount: number;
-  storm: Storm; dayT: number; /** the night button's time-lapse under way (warpDay), or none */ dayWarp?: { to: number; rate: number } | null; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string;
+  storm: Storm; dayT: number; /** the night button's time-lapse under way (warpDay), or none */ dayWarp?: { to: number; rate: number } | null; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string; /** the art car or camp the art car you drive last ran into (its music comes on), and when */ bumpedInto?: string | null; bumpedAt?: number;
   parking: Parking;
   /** feet up: more than 0 and the plane, or you under the canopy, is in the air (asked 2026-10-22) */ alt: number;
   /** you bailed out: under a parachute, drifting down */ chute: boolean; /** seconds of freefall left before the canopy opens (0 under it) */ fallT?: number;
@@ -1324,7 +1345,7 @@ export type Game = {
   /** the dust angels made at the Gate (asked 2026-10-26), left in the playa; `angelT` is the seconds left of the one being made, lying down */ angels: Vec[]; angelT: number;
   rand: () => number;
 };
-export type GameEvent = MissionEvent | "moop" | "bump" | "hit" | "slow" | "storm" | "park" | "leave" | "takeoff" | "landed" | "bail";
+export type GameEvent = MissionEvent | "moop" | "bump" | "hit" | "bumpinto" | "slow" | "storm" | "park" | "leave" | "takeoff" | "landed" | "bail";
 export const MOOP_N = 80;
 export const MOOP_R = 22;
 
@@ -1499,10 +1520,15 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
     g.car = { ...g.car, x: p.x, y: p.y, h: p.h, vx: jump ? 0 : (p.x - g.car.x) / dt, vy: jump ? 0 : (p.y - g.car.y) / dt };
   } else if (g.chute) {
     // under the canopy: the keys drift you, the ground comes up at a steady rate, and you land on the bike
-    const c = g.car, ax = stickOn(input) ? Math.sin(input.stick!.a) * input.stick!.k : (input.right ? 1 : 0) - (input.left ? 1 : 0), ay = stickOn(input) ? -Math.cos(input.stick!.a) * input.stick!.k : (input.brake ? 1 : 0) - (input.gas ? 1 : 0);
-    let vx = c.vx * (1 - 1.4 * dt) + ax * 90 * dt, vy = c.vy * (1 - 1.4 * dt) + ay * 90 * dt;
-    const sp = Math.hypot(vx, vy); if (sp > 45) { vx *= 45 / sp; vy *= 45 / sp; }
-    g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h: sp > 5 ? Math.atan2(vx, -vy) : c.h };
+    // steered as a canopy is (asked 2026-11-04: the camera flipped round as you turned): always gliding forward, left and right turn you, gas speeds the glide and
+    // brake slows it; a stick turns you toward where it points. Your heading never jumps, so the view behind you never swings round
+    const c = g.car, falling = (g.fallT ?? 0) > 0;
+    let turn: number, pace: number;
+    if (stickOn(input)) { const d = Math.atan2(Math.sin(input.stick!.a - c.h), Math.cos(input.stick!.a - c.h)); turn = Math.max(-1, Math.min(1, d * 2)) * Math.min(1, input.stick!.k * 1.5); pace = 0.5 + 0.5 * input.stick!.k; }
+    else { turn = (input.right ? 1 : 0) - (input.left ? 1 : 0); pace = input.gas ? 1 : input.brake ? 0.2 : 0.55; }
+    const h = c.h + turn * (falling ? 1.6 : 1.1) * dt, glide = falling ? 30 * pace + 10 : 45 * pace + 8;
+    const k = 1 - Math.exp(-2 * dt), vx = c.vx + (Math.sin(h) * glide - c.vx) * k, vy = c.vy + (-Math.cos(h) * glide - c.vy) * k;
+    g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h };
     if (g.fallT && g.fallT > 0) { // falling free: faster and faster, until FREEFALL is up or the ground is OPEN_AT away
       const s = FREEFALL - g.fallT; g.alt = Math.max(0, g.alt - Math.min(FALL_FAST, 25 + 32 * s) * dt); g.fallT -= dt;
       if (g.alt <= OPEN_AT) g.fallT = 0;
@@ -1537,6 +1563,10 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   }
   const impact = riding || g.ghost || airborne ? 0 : collide(g.car, v);
   if (impact > 60) { g.bumps++; ev.push("bump"); }
+  // driving an art car into a camp's stage: its music comes on (asked 2026-11-04: "let the user see music from that camp or art car")
+  const artCar = g.vehicle === "found" || g.vehicle === "artcar";
+  const bumpInto = (key: string) => { if (g.bumpedInto === key && g.t - (g.bumpedAt ?? -99) < 4) return; g.bumpedInto = key; g.bumpedAt = g.t; ev.push("bumpinto"); };
+  if (artCar && impact > 15) { const sp = SPOTS.find((s) => s.kind !== "fence" && Math.hypot(g.car.x - s.stage.x, g.car.y - s.stage.y) < s.stage.r + v.len / 2 + 25); if (sp) bumpInto(sp.key); }
   const spd = speedOf(g.car);
 
   // the others: art cars are heavy and bikes don't stop for you; you bounce off them and it costs a gift.
@@ -1571,6 +1601,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
     } else if (d < min && g.slip <= 0) {
       const push = d > 1e-6 ? { depth: min - d, nx: dx / d, ny: dy / d } : { depth: min, nx: 0, ny: 1 };
       const hit = bounce(g.car, push, v.restitution);
+      if (artCar && n.kind === "mutant" && n.key && hit > 6) bumpInto(n.key); // an art car into another: the other's music comes on
       if (g.hitCool <= 0 && hit > 22) {
         g.hitCool = 1.5;
         g.mission.gifts = Math.max(0, g.mission.gifts - 1);

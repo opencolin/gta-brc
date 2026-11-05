@@ -26,6 +26,7 @@ const mix = (a: number, b: number, k: number) => {
 /** A bay's outline as the top-down painter cuts it: an annular box, r0 to r1, `half` feet either side of its clock position. */
 function bayShape(sp: Spot): THREE.Shape {
   const b = sp.bay, a = (r: number, sg: number) => cang(b.min) + (sg * b.half) / r, s = new THREE.Shape();
+  if (b.ring) { const q = b.ring; s.absarc(q.x, q.y, q.r1, 0, Math.PI * 2, false); const hole = new THREE.Path(); hole.absarc(q.x, q.y, q.r0, 0, Math.PI * 2, true); s.holes.push(hole); return s; } // a ring round the piece (asked 2026-11-04)
   s.absarc(0, 0, b.r0, a(b.r0, -1), a(b.r0, 1), false); s.absarc(0, 0, b.r1, a(b.r1, 1), a(b.r1, -1), true);
   return s;
 }

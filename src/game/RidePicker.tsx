@@ -15,10 +15,10 @@ export const GARAGE_RIDES: { id: VehicleId; name: string; line: string }[] = [
   { id: "onewheel", name: "Onewheel", line: "a board on one fat wheel, ridden sideways: 19 mph, carves tight, floats over the dust" },
   { id: "bike", name: "Playa Cruiser", line: "the fat-tyred beach bike every burner rides: 21 mph, through the camps" },
   { id: "tuktuk", name: "Tuktuk", line: "a bike pulling a little covered trailer: 30 mph, quick on its feet, sticks to the streets" },
-  { id: "rv", name: "RV", line: "a camp's Winnebago: 30 mph, slow to turn, keeps to the streets, the whole crew aboard" },
   { id: "ebike", name: "Fat Tire eBike", line: "fat tyres and a battery: 50 mph, a strong pull, floats over the dust, still through the camps" },
   { id: "fish", name: "Cuttlefish Art Car", line: "a cuttlefish on wheels, colours rolling, 32 mph, loose in the dust" },
   { id: "artcar", name: "Golden Ticket Art Car", line: "a San Francisco meter-maid cart reborn in gold overnight: a bus seat, LEDs, Void sound, 50 mph" },
+  { id: "rv", name: "RV", line: "a camp's Winnebago: 30 mph, slow to turn, keeps to the streets, the whole crew aboard" }, // the last in the garage (asked 2026-11-04)
 ];
 type Card = { key: string; name: string; line: string; stats: [number, number, number]; draw: (c: CanvasRenderingContext2D, t: number, night: number) => void; found?: string; near?: boolean };
 
@@ -32,15 +32,17 @@ export function RidePicker({ open, current, skin, garage, unlocked, next, night,
 }) {
   const maxSpeed = Math.max(...GARAGE_RIDES.map((r) => VEHICLES[r.id].maxSpeed)), maxYaw = Math.max(...GARAGE_RIDES.map((r) => VEHICLES[r.id].maxYaw)), maxGrip = Math.max(...GARAGE_RIDES.map((r) => VEHICLES[r.id].grip));
   const nearDraw = near && ART_CARS[near.id];
+  const rideCard = (r: (typeof GARAGE_RIDES)[number]): Card => { const v = VEHICLES[r.id]; return { key: r.id, name: r.name, line: r.line, stats: [v.maxSpeed / maxSpeed, v.maxYaw / maxYaw, v.grip / maxGrip] as [number, number, number], draw: SIDE_VIEWS[r.id] }; };
   const cards: Card[] = [
     ...(near ? [{ key: `near:${near.id}`, name: near.name, line: near.driving ? "you are at its wheel" : near.aboard ? "you are riding along on it" : "right beside you: ride along on it, or take its wheel", stats: [VEHICLES.found.maxSpeed / maxSpeed, VEHICLES.found.maxYaw / maxYaw, VEHICLES.found.grip / maxGrip] as [number, number, number],
       draw: (c: CanvasRenderingContext2D, t: number, n: number) => { c.save(); c.translate(0, -30); c.scale(1.3, 1.3); c.rotate(Math.PI / 2); if (nearDraw) nearDraw(c, t, n); else { c.fillStyle = "#4b5068"; c.beginPath(); c.roundRect(-10, -32, 20, 64, 5); c.fill(); } c.restore(); }, near: true }] : []),
-    ...GARAGE_RIDES.filter((r) => unlocked.includes(r.id)).map((r) => { const v = VEHICLES[r.id]; return { key: r.id, name: r.name, line: r.line, stats: [v.maxSpeed / maxSpeed, v.maxYaw / maxYaw, v.grip / maxGrip] as [number, number, number], draw: SIDE_VIEWS[r.id] }; }),
+    ...GARAGE_RIDES.filter((r) => unlocked.includes(r.id) && r.id !== "rv").map(rideCard),
     ...garage.filter((id) => ART_CARS[id] && id !== near?.id && id !== "golden-ticket").map((id) => { // the Golden Ticket is a card of its own above // the car beside you is the first card already, not a second one here
       const v = VEHICLES.found, draw = ART_CARS[id];
       return { key: `found:${id}`, name: soundOf(`mutant:${id}`).name, line: "found on the playa: yours to drive, its music aboard", stats: [v.maxSpeed / maxSpeed, v.maxYaw / maxYaw, v.grip / maxGrip] as [number, number, number],
         draw: (c: CanvasRenderingContext2D, t: number, n: number) => { c.save(); c.translate(0, -30); c.scale(1.3, 1.3); c.rotate(Math.PI / 2); draw(c, t, n); c.restore(); }, found: id };
     }),
+    ...GARAGE_RIDES.filter((r) => unlocked.includes(r.id) && r.id === "rv").map(rideCard), // the RV last of all, after the art cars you have found (asked 2026-11-04)
   ];
   const currentKey = near && (near.aboard || near.driving) ? `near:${near.id}` : current === "found" && skin ? `found:${skin}` : current;
   const [sel, setSel] = useState(Math.max(0, cards.findIndex((c) => c.key === currentKey)));

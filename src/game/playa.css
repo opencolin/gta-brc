@@ -504,3 +504,32 @@
 /* no buttons on a desk (asked 2026-11-04: "let's get rid of all these buttons"): the keys do it all, the radio's legend says which; a touch screen keeps them */
 .pl:not([data-phone]):not([data-touch]) .pl-tools > :not(.pl-found) { display: none; } /* the Gate's dust angel and bell, and the plane on its pad, stay */
 .pl:not([data-phone]):not([data-touch]) .pl-deck { padding-bottom: 14px; }
+/* the radio's keycaps are buttons (asked 2026-11-04), and while a key is down its cap lights up RGB, the colours running round it */
+.pl:not([data-phone]) .pl-deck .pl-keys > div { pointer-events: auto; cursor: pointer; border-radius: 6px; padding: 1px 3px; user-select: none; -webkit-user-select: none; }
+.pl:not([data-phone]) .pl-deck .pl-keys > div:hover dt { background: linear-gradient(180deg, #5a5f70, #3d404b); }
+.pl:not([data-phone]) .pl-deck .pl-keys > div.pl-key-lit dt {
+  color: #0b0c10; border-color: transparent; transform: translateY(2px);
+  background: linear-gradient(90deg, #ff3b6b, #ffb13b, #f4ff3b, #3bff8a, #3bd8ff, #7a5bff, #ff3bd5, #ff3b6b); background-size: 400% 100%;
+  box-shadow: 0 0 10px rgba(255, 90, 200, .8), 0 0 18px rgba(80, 200, 255, .55); animation: pl-rgb 0.9s linear infinite;
+}
+.pl:not([data-phone]) .pl-deck .pl-keys > div.pl-key-lit dd { color: #fff; text-shadow: 0 0 8px rgba(160, 120, 255, .9); }
+@keyframes pl-rgb { to { background-position: 400% 0; } }
+@media (prefers-reduced-motion: reduce) { .pl:not([data-phone]) .pl-deck .pl-keys > div.pl-key-lit dt { animation: none; } }
+/* the pad at the radio's left (asked 2026-11-04): a plus of four raised buttons, up, left, right and down, lit RGB while held */
+.pl:not([data-phone]) .pl-deck { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 18px; width: clamp(560px, calc(100vw - 720px), 960px); }
+.pl:not([data-phone]) .pl-deck-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pl .pl-dpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; pointer-events: auto; }
+.pl .pl-dpad > span {
+  display: grid; place-items: center; align-content: center; gap: 0; border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;
+  background: linear-gradient(180deg, #4a4e5c, #2a2d36); color: #eef0f6; border: 1px solid #0b0c10; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 3px 0 #0b0c10;
+}
+.pl .pl-dpad > span b { font-size: 15px; line-height: 1; }
+.pl .pl-dpad > span small { font-size: 10px; opacity: .7; line-height: 1; }
+.pl .pl-dpad > span:hover { background: linear-gradient(180deg, #5a5f70, #33363f); }
+.pl .pl-dpad-up { grid-column: 2; grid-row: 1; } .pl .pl-dpad-left { grid-column: 1; grid-row: 2; } .pl .pl-dpad-right { grid-column: 3; grid-row: 2; } .pl .pl-dpad-down { grid-column: 2; grid-row: 3; }
+.pl .pl-dpad > span.pl-key-lit {
+  color: #0b0c10; transform: translateY(2px); background: linear-gradient(90deg, #ff3b6b, #ffb13b, #f4ff3b, #3bff8a, #3bd8ff, #7a5bff, #ff3bd5, #ff3b6b); background-size: 400% 100%;
+  box-shadow: 0 0 12px rgba(255, 90, 200, .8), 0 0 20px rgba(80, 200, 255, .55); animation: pl-rgb 0.9s linear infinite;
+}
+/* Z hides the minimap and brings it back (asked 2026-11-04) */
+.pl[data-nomini] .pl-mini { display: none; }

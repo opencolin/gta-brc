@@ -42,10 +42,10 @@ test("the ground's layers are ordered: blocks under streets under plazas, each w
   assert.equal(flats.filter((f) => f.kind === "strip").length, 4);
 });
 
-test("campPrisms: about 61,000 pieces for the 36,728 structures, all with a size and a sector", () => {
+test("campPrisms: about 61,000 pieces for the 36,368 structures, all with a size and a sector", () => {
   const prisms = campPrisms(plans);
   const structs = plans.reduce((n, p) => n + p.structs.length, 0);
-  assert.equal(structs, 36728);   // 36,375 until the tea houses took their lots, 36,344 until camps shared lots, 36,732 until PlayAlchemist's pyramid grew (2026-11-04)
+  assert.equal(structs, 36368);   // 36,375 until the tea houses took their lots, 36,344 until camps shared lots, 36,732 until PlayAlchemist's pyramid grew, 36,728 until the camps' whole lots were their parking (2026-11-04)
   assert.ok(prisms.length >= 40000, `${prisms.length} prisms`);
   for (const p of prisms) {
     assert.ok(p.sy > 0 && p.sx > 0 && p.sz > 0, `${p.kind} has a size`);

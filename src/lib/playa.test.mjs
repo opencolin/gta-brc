@@ -750,8 +750,11 @@ test("the skydive (asked 2026-10-26): taking the plane makes it the job; high en
   assert.ok(takePlane(g)); assert.equal(g.mission.job, SKYDIVE_JOB); assert.equal(g.mission.phase, "pickup");
   assert.match(pagerLine(g.mission), /climb to 400 ft/);
   const m = g.mission, car = { x: AGAVE.dome.x + 60, y: AGAVE.dome.y, speed: 0 };
-  assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: SKYDIVE_ALT }), "picked"); assert.equal(m.phase, "dropoff");
-  assert.match(pagerLine(m), /eject/);
+  assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: SKYDIVE_ALT, plane: true }), "picked"); assert.equal(m.phase, "dropoff");
+  assert.match(pagerLine(m), /over Agave Lounge: jump! E ejects you/, "over the camp, the pager says jump (asked 2026-11-04)");
+  // and the clock stands still while you fly: no new job comes up in the air
+  const left = m.timeLeft; for (let i = 0; i < 600; i++) stepMission(m, { x: AGAVE.dome.x + 9000, y: AGAVE.dome.y, speed: 200 }, 1, { t: i, moop: 0, alt: 600, plane: true });
+  assert.equal(m.timeLeft, left); assert.equal(m.phase, "dropoff"); assert.match(pagerLine(m), /fly to Agave Lounge and jump out over it/);
   assert.equal(missionTarget(m, 0).label.slice(0, 5), "Agave");
   const g1 = m.gifts;
   assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: 0, landed: true }), "delivered"); assert.ok(m.gifts > g1);
@@ -936,4 +939,18 @@ test("bailing out you fall free a few seconds before the canopy opens, well abov
   assert.ok(opened && opened.t > 3, `the freefall lasts a few seconds (${opened?.t.toFixed(1)} s)`);
   assert.ok(opened.alt >= OPEN_AT - 5, `and the canopy opens well up (${Math.round(opened.alt)} ft)`);
   const low = newGame(2); setVehicle(low, "plane"); low.alt = 200; bailOut(low); assert.equal(low.fallT, 0, "too low to fall free: the canopy opens at once");
+});
+
+test("an art car you drive into a camp's stage or another art car brings on its music (asked 2026-11-04)", () => {
+  const g = newGame(4); setVehicle(g, "artcar"); g.npcs = g.npcs.filter((n) => n.kind === "mutant");
+  // into another art car, standing still 200 ft ahead
+  const m = g.npcs.find((n) => !n.lead); m.speed = 0; const p = npcAt(m, g.t), h = p.h + Math.PI / 2;
+  g.car = { ...newCar({ x: p.x - Math.sin(h) * 120, y: p.y + Math.cos(h) * 120 }, h) }; g.car.vx = Math.sin(h) * 120; g.car.vy = -Math.cos(h) * 120;
+  let got = null; for (let i = 0; i < 60 * 4 && !got; i++) if (stepGame(g, { ...NO_INPUT, gas: true }, DT).includes("bumpinto")) got = g.bumpedInto;
+  assert.equal(got, m.key, "the art car you ran into");
+  // into a camp's stage
+  const sp = SPOTS.find((s) => s.kind === "camp" && s.key !== "camp:playalchemist"), dx = sp.stage.x - sp.mid.x, dy = sp.stage.y - sp.mid.y, L = Math.hypot(dx, dy), h2 = Math.atan2(dx, -dy);
+  g.npcs = []; g.car = { ...newCar({ x: sp.mid.x, y: sp.mid.y }, h2) }; g.car.vx = dx / L * 120; g.car.vy = dy / L * 120;
+  got = null; for (let i = 0; i < 60 * 4 && !got; i++) if (stepGame(g, { ...NO_INPUT, gas: true }, DT).includes("bumpinto")) got = g.bumpedInto;
+  assert.equal(got, sp.key, "the camp whose stage you ran into");
 });

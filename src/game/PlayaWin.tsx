@@ -10,6 +10,7 @@ import { GARAGE_RIDES, RidePicker } from "./RidePicker";
 import { SKY_KEY } from "@/lib/flyover";
 import { UNLOCK_KEY, nextUnlock, unlockedRides } from "@/lib/unlocks";
 import { carCrowd, crowdFall } from "@/lib/scene3d";
+import { isVideo } from "@/lib/playaMedia";
 import { LED_DAY, ledPhase, ledRgb, pyramidOf, type Pyramid } from "@/lib/pyramidStage";
 import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
 import { hasWebGL2, readViewMode, VIEW_KEY, writeViewMode, type Renderer, type ViewMode } from "./view";
@@ -59,6 +60,23 @@ const KEYS: Record<string, keyof Input> = {
   ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", " ": "handbrake",
 };
 const hsl = (h: number, s = 85, l = 60, a = 1) => `hsla(${h}, ${s}%, ${l}%, ${a})`;
+/** The car radio's keycaps (asked 2026-11-04: clickable, lit RGB while pressed): what each says, the keys that light it, the key a click sends. */
+const LEGEND: { cap: string; text: string; keys: string[]; send: string }[] = [
+  { cap: "space", text: "drift", keys: [" "], send: " " },
+  { cap: "E", text: "enter · exit", keys: ["e"], send: "e" },
+  { cap: "V", text: "video", keys: ["v"], send: "v" },
+  { cap: "R", text: "rides", keys: ["r"], send: "r" },
+  { cap: "C", text: "camera", keys: ["c"], send: "c" },
+  { cap: "M", text: "music", keys: ["m"], send: "m" },
+  { cap: "G", text: "map", keys: ["g"], send: "g" },
+  { cap: "Z", text: "zoom", keys: ["z"], send: "z" },
+  { cap: "T", text: "trip", keys: ["t"], send: "t" },
+  { cap: "P", text: "play · pause", keys: ["p"], send: "p" },
+  { cap: ", B", text: "back", keys: [",", "b"], send: "," },
+  { cap: ". N", text: "next", keys: [".", "n"], send: "." },
+  { cap: "L", text: "day · night", keys: ["l"], send: "l" },
+  { cap: "1-8", text: "tracks", keys: ["1", "2", "3", "4", "5", "6", "7", "8"], send: "1" },
+];
 /** Clock minutes → a canvas angle (canvas 0 is 3 o'clock, ours is 12). */
 const cang = (min: number) => clockToAngle(min) - Math.PI / 2;
 
@@ -754,6 +772,7 @@ function drawStruct(ctx: CanvasRenderingContext2D, it: Struct, night: number, z:
 /** A sound camp's spot: the parking bay cut into its block (a pink carpet with a P), and its stage behind. */
 function bayPath(ctx: CanvasRenderingContext2D, sp: Spot) {
   const b = sp.bay;
+  if (b.ring) { const q = b.ring; ctx.beginPath(); ctx.arc(q.x, q.y, q.r1, 0, Math.PI * 2); ctx.moveTo(q.x + q.r0, q.y); ctx.arc(q.x, q.y, q.r0, 0, Math.PI * 2, true); return; } // a ring round the piece (asked 2026-11-04)
   const a = (r: number, sg: number) => cang(b.min) + (sg * b.half) / r;
   ctx.beginPath(); ctx.arc(0, 0, b.r0, a(b.r0, -1), a(b.r0, 1)); ctx.arc(0, 0, b.r1, a(b.r1, 1), a(b.r1, -1), true); ctx.closePath();
 }
@@ -1183,7 +1202,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const b of vis) for (const it of b.items) if (seen(it.x, it.y, it.w + it.l)) drawStruct(ctx, it, night, z, font);
   // the sound camps: their bays, then their stages
   const spots = SPOTS.filter((sp) => seen(sp.mid.x, sp.mid.y, 260));
-  for (const sp of spots) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
+  for (const sp of spots) if (!sp.bay.ring) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
   for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) drawStage(ctx, sp, t, night); // a piece is its own stage (drawArt)
   for (const sp of spots) drawCrowd(ctx, sp, t, night, g.car);
   for (const { key, at } of parkedCarList()) if (seen(at.x, at.y, 120)) drawCarCrowd(ctx, key, at, t, night, g.car);
@@ -1213,6 +1232,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
   if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_FENCE_R + 20)) drawTemple(ctx, night);
   for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t, night);
+  for (const sp of spots) if (sp.bay.ring) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t); // the rings round the Man, the temples and the art, over their bases (2026-11-04)
   for (const a of ART_2026_SPOTS) if (seen(a.x, a.y, 14)) drawArt2026(ctx, a, t, night);
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
@@ -1446,12 +1466,15 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
         // ground ring is under about 40 px across, a pulsing ring sized by distance (as tall on the screen as a STOP_R pillar standing on it)
         const top = proj(tg.at, STOP_R), pulse = 0.5 + 0.5 * Math.sin(t * 5);
         const rr = Math.min(Math.min(w, h) * 0.35, Math.max(9, top ? Math.abs(s.y - top.y) : 9)) * (0.85 + 0.15 * pulse);
-        const beam = proj(tg.at, 600);
+        // up in the air (the plane, the chute) near the target, no beam and no ring on the screen: drawn over the 3D picture they would cross the canopy in front of you
+        // (asked 2026-11-04: "the pink line is appearing in front of the parachute"); the ground ring (three/targets.ts) still marks it
+        const overhead = g.alt > 0 && Math.hypot(tg.at.x - g.car.x, tg.at.y - g.car.y) < 3000;
+        const beam = overhead ? null : proj(tg.at, 600);
         if (beam) { ctx.strokeStyle = `rgba(255, 107, 154, ${0.35 + 0.25 * pulse})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(beam.x, beam.y); ctx.stroke(); }
         // the ground ring's own size on the screen decides (not the pole's, and not the pulse): the smaller of its two spans; a little hysteresis so it does not blink at the edge
         const span = (a: Vec, b: Vec) => { const p = proj(a), q = proj(b); return p && q ? Math.hypot(p.x - q.x, p.y - q.y) : Infinity; };
         const ground = Math.min(span({ x: tg.at.x - STOP_R, y: tg.at.y }, { x: tg.at.x + STOP_R, y: tg.at.y }), span({ x: tg.at.x, y: tg.at.y - STOP_R }, { x: tg.at.x, y: tg.at.y + STOP_R }));
-        ringShown = ground < (ringShown ? 46 : 38);
+        ringShown = !overhead && ground < (ringShown ? 46 : 38);
         if (ringShown) {
           ctx.strokeStyle = C.pink; ctx.lineWidth = 4; ctx.setLineDash([12, 8]);
           ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -1874,6 +1897,8 @@ export default function PlayaWin() {
             else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
             else if (e === "start") setJob({ text: pagerLine(g.mission), n: ++jobN.current });
             else if (e === "park" && g.parking.at) onPark.current(g.parking.at);
+            // an art car you drive ran into a camp or another art car: its music comes on, and its panel (asked 2026-11-04)
+            else if (e === "bumpinto" && g.bumpedInto) { const k = g.bumpedInto, t = startSetFor(k); if (t) { pick(k, t); setLounge(true); flash.current = { text: `♪ ${soundOf(k).name}`, until: g.t + 2 }; } }
             else if (e === "leave") onLeave.current();
           }
         }
@@ -2087,8 +2112,19 @@ export default function PlayaWin() {
   };
   const toggleMap = () => setMap((m) => { if (!m) { const c = game.current.car; bigView.current = { z: 2.2, cx: c.x, cy: c.y, follow: true }; } return !m; });
 
+  /** the minimap hidden (Z) */
+  const [miniOff, setMiniOff] = useState(false);
+  /** which keys are down, for the radio's keycaps, and when each went down */
+  const [lit, setLit] = useState<Record<string, boolean>>({}), litAt = useRef<Record<string, number>>({});
+  /** a keycap on the radio pressed or let go: as its key on the keyboard */
+  const pressKey = (key: string, down: boolean) => { const b = board.current; if (!b) return; b.focus({ preventScroll: true }); b.dispatchEvent(new globalThis.KeyboardEvent(down ? "keydown" : "keyup", { key, bubbles: true })); };
   const onKey = (e: KeyboardEvent, down: boolean) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    { // the radio's keycaps light up while their key is down, and a quick tap still shows (asked 2026-11-04)
+      const kk = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (down) { litAt.current[kk] = performance.now(); setLit((l) => (l[kk] ? l : { ...l, [kk]: true })); }
+      else { const wait = Math.max(0, 260 - (performance.now() - (litAt.current[kk] ?? 0))); setTimeout(() => setLit((l) => (l[kk] ? { ...l, [kk]: false } : l)), wait); }
+    }
     const onButton = e.target !== e.currentTarget && !!(e.target as HTMLElement).closest?.("button");
     const k = KEYS[e.key];
     if (k && !(onButton && e.key === " ")) {
@@ -2099,8 +2135,16 @@ export default function PlayaWin() {
     }
     if (!down) return;
     else if (musicKey(e)) { /* used */ }
-    else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
-    else if (e.key === "l" || e.key === "L") { e.preventDefault(); toggleNight(); } // day or night (asked 2026-11-04: the buttons are gone on a desk, N is the next track)
+    // M: back to the music (asked 2026-11-04): a video playing stops and the music on the road comes back, and with the sound off it comes on; G opens the map now
+    else if (e.key === "m" || e.key === "M") {
+      e.preventDefault(); const n = nowRef.current;
+      if (n && isVideo(n.url)) stopMusic();
+      if (!soundRef.current) toggleSound();
+      flash.current = { text: "♪ back to the music", until: game.current.t + 1.5 };
+    }
+    else if (e.key === "g" || e.key === "G") { e.preventDefault(); toggleMap(); }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); toggleNight(); }
+    else if (e.key === "z" || e.key === "Z") { e.preventDefault(); setMiniOff((v) => !v); } // the minimap, shown or hidden (asked 2026-11-04: "Z a hotkey for zoom") // day or night (asked 2026-11-04: the buttons are gone on a desk, N is the next track)
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); toggleView(); }
     // dev only (stripped from the production build): 9 prints the chase view's draw calls, triangles and frame times to the console (P is the music's)
@@ -2191,9 +2235,9 @@ export default function PlayaWin() {
   const over = hud.mph > SPEED_LIMIT_MPH;
 
   return (
-    <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
+    <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined} data-nomini={miniOff ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, R the rides, M the map, C the chase camera or top-down (drag with the right mouse button to turn it), E enters or exits an art car or the plane, V plays a video nearby, N or full stop plays the music nearby and then the next track, comma or B goes back a track, P plays and pauses, L day or night, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, R the rides, M back to the music, G the map, C the chase camera or top-down (drag with the right mouse button to turn it), E enters or exits an art car or the plane, V plays a video nearby, N or full stop plays the music nearby and then the next track, comma or B goes back a track, P plays and pauses, L day or night, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
         onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
@@ -2255,7 +2299,7 @@ export default function PlayaWin() {
         </div>
 
         <div className="pl-side">
-          <button type="button" className="pl-mini" onClick={toggleMap} aria-label="open the city map (M)">
+          <button type="button" className="pl-mini" onClick={toggleMap} aria-label="open the city map (G)">
             <canvas ref={mini} aria-hidden="true" />
           </button>
           <div className="pl-tools">
@@ -2292,6 +2336,16 @@ export default function PlayaWin() {
           // a car radio's faceplate on a desk (asked 2026-11-04, from Collin: "the buttons and the legend could probably look more like a car radio. and we
           // could show the song that's playing"): its display with what is playing and from where, the keys as keycaps under it, the buttons along its foot
           <div className="pl-deck">
+          {/* the driving keys as a controller's pad at the radio's left (asked 2026-11-04): up, left, right and down, held as the keys are, lit while down */}
+          <div className="pl-dpad" role="group" aria-label="drive: W A S D or the arrows">
+            {([["w", "ArrowUp", "up", "▲", "W"], ["a", "ArrowLeft", "left", "◀", "A"], ["d", "ArrowRight", "right", "▶", "D"], ["s", "ArrowDown", "down", "▼", "S"]] as const).map(([k, arrow, dir, glyph, cap]) => (
+              <span key={k} className={`pl-dpad-${dir}${lit[k] || lit[arrow] ? " pl-key-lit" : ""}`} role="button" tabIndex={-1} aria-label={`${dir} (${cap})`}
+                onPointerDown={(e) => { e.preventDefault(); pressKey(k, true); const up = () => { pressKey(k, false); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); }; window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up); }}>
+                <b>{glyph}</b><small>{cap}</small>
+              </span>
+            ))}
+          </div>
+          <div className="pl-deck-main">
           {(() => {
             const amb = hud.hearKey ? playable(hud.hearKey) : [], at = now?.playing ? now : null;
             const song = at ? at.title : amb.length ? amb[(setOf[hud.hearKey] ?? nextSetIndex(hud.hearKey)) % amb.length].title : "";
@@ -2304,20 +2358,15 @@ export default function PlayaWin() {
             );
           })()}
           <dl className="pl-keys" aria-label="the keys">
-            <div><dt>W A S D</dt><dd>drive</dd></div>
-            <div><dt>space</dt><dd>drift</dd></div>
-            <div><dt>E</dt><dd>enter · exit</dd></div>
-            <div><dt>V</dt><dd>video</dd></div>
-            <div><dt>R</dt><dd>rides</dd></div>
-            <div><dt>C</dt><dd>camera</dd></div>
-            <div><dt>M</dt><dd>map</dd></div>
-            <div><dt>T</dt><dd>trip</dd></div>
-            <div><dt>P</dt><dd>play · pause</dd></div>
-            <div><dt>, B</dt><dd>back</dd></div>
-            <div><dt>. N</dt><dd>next</dd></div>
-            <div><dt>L</dt><dd>day · night</dd></div>
-            <div><dt>1-8</dt><dd>tracks</dd></div>
+            {LEGEND.map((it) => (
+              // a key you can press here too (asked 2026-11-04): held down it is held, as on the keyboard; it lights up RGB while its key is down
+              <div key={it.cap} className={it.keys.some((k) => lit[k]) ? "pl-key-lit" : undefined} role="button" tabIndex={-1} aria-label={`${it.text} (${it.cap})`}
+                onPointerDown={(e) => { e.preventDefault(); pressKey(it.send, true); const up = () => { pressKey(it.send, false); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); }; window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up); }}>
+                <dt>{it.cap}</dt><dd>{it.text}</dd>
+              </div>
+            ))}
           </dl>
+          </div>
           </div>
         )}
         {touchUi && !keysUi && phase === "play" && (
@@ -2342,7 +2391,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>R rides: choose a ride · M map · T trip · C chase camera (drag with the right mouse button to turn it) · L day or night</li><li>E enter or exit an art car or the plane · V play a video nearby · ride along on an art car from its panel</li><li>the music: N or . plays what is nearby, then the next track · , or B the one before, then stops · P play or pause · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>R rides: choose a ride · G map · M back to the music · T trip · C chase camera (drag with the right mouse button to turn it) · L day or night</li><li>E enter or exit an art car or the plane · V play a video nearby · ride along on an art car from its panel</li><li>the music: N or . plays what is nearby, then the next track · , or B the one before, then stops · P play or pause · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
