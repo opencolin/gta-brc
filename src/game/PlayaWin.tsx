@@ -1360,6 +1360,8 @@ const EJECT_PROMPT_ALT = 150;
 const STUCK_SECONDS = 3;
 /** Whether the chase view's screen-space target ring is showing (paintOverlay's hysteresis). */
 let ringShown = true;
+/** The arrow's size (asked 2026-11-04): full while the target is off the screen or behind you, under half once it is in view ahead, easing between the two. */
+let arrowSize = 1;
 function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec, up?: number) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
   const t = g.t, storm = stormLevel(g.storm);
   // the dust storm: a whiteout that closes in around the car. In the chase view the 3D scene already greys itself with the storm (to a dark dust-blue by night), so by
@@ -1384,9 +1386,10 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
   // an arrow pointing to the target: on a ring round the ride, not out at the edge (2026-10-22)
   if (tg) {
     // big and easy to see (asked 2026-11-03): about 2.5 times the old one, a white halo round a navy edge, nudging toward the target as it pulses
-    const arrow = (x: number, y: number, a: number) => {
-      const nudge = 4 * Math.max(0, Math.sin(t * 6));
-      ctx.save(); ctx.translate(x + Math.cos(a) * nudge, y + Math.sin(a) * nudge); ctx.rotate(a);
+    const arrow = (x: number, y: number, a: number, big: boolean) => {
+      arrowSize += ((big ? 1 : 0.4) - arrowSize) * 0.15;
+      const nudge = 4 * arrowSize * Math.max(0, Math.sin(t * 6));
+      ctx.save(); ctx.translate(x + Math.cos(a) * nudge, y + Math.sin(a) * nudge); ctx.rotate(a); ctx.scale(arrowSize, arrowSize);
       ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(-24, -28); ctx.lineTo(-10, 0); ctx.lineTo(-24, 28); ctx.closePath();
       ctx.lineJoin = "round"; ctx.shadowColor = "rgba(27, 31, 59, .45)"; ctx.shadowBlur = 10;
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.stroke(); ctx.shadowBlur = 0;
@@ -1416,12 +1419,12 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
       const sx = s.x, sy = s.y, off = sx < m || sx > w - m || sy < m || sy > h - m;
       const a = Math.atan2(sy - h / 2, sx - w / 2);
       let k = Math.min((w / 2 - ma) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - ma) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(110, Math.min(w, h) * 0.3));
-      if (!off) k = Math.min(k, Math.max(60, Math.hypot(sx - w / 2, sy - h / 2) - 70));
-      arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a);
+      if (!off) k = Math.min(k, Math.max(60, Math.hypot(sx - w / 2, sy - h / 2) - 40));
+      arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a, off);
     } else if (yaw !== null) {
       // behind the 3D camera: the arrow rides the bottom edge, to the side of the screen the target is on, pointing round behind you
       const rel = wrapAngle(Math.atan2(tg.at.x - g.car.x, -(tg.at.y - g.car.y)) - yaw); // the target's bearing from the ride, relative to where the camera looks (+ is to the right)
-      arrow(w / 2 + Math.sin(rel) * (w / 2 - ma * 2), h - ma * 2, Math.atan2(-Math.cos(rel), Math.sin(rel)));
+      arrow(w / 2 + Math.sin(rel) * (w / 2 - ma * 2), h - ma * 2, Math.atan2(-Math.cos(rel), Math.sin(rel)), true);
     }
   }
 }
