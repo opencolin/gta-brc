@@ -25,7 +25,7 @@ export type RideMeshes = {
   models: Record<string, THREE.Group>;
   /** the rides that move their bones (riders.ts: the bikes, the unicycle, the tuk-tuk, the RV), by the same ids, and the last frame's clock and heading */
   rigs: Record<string, Rig>;
-  motion: { t: number; h: number };
+  motion: { t: number; h: number; /** the plane: its height last frame, and the pitch and bank it has eased to */ alt: number; pitch: number; bank: number };
   /** a ride's brake light, lit when you brake */
   brakes: THREE.Mesh[];
   /** the plane's propeller, spun with the game clock */
@@ -111,7 +111,7 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   const angels = new THREE.InstancedMesh(new THREE.PlaneGeometry(68, 44).rotateX(-Math.PI / 2), registerGround(new THREE.MeshBasicMaterial({ map: angelTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal })), 64);   // a flat drawing in the playa: dimmed and lit as the ground is
   angels.count = 0; angels.frustumCulled = false; angels.renderOrder = LAYER.decal; group.add(angels);
   scene.add(group);
-  return { group, models, rigs, motion: { t: 0, h: 0 }, brakes, props, plane2, padPlane, planeShadows, shadow, angels, bail: { t0: -1, was: false, fall, hang, canopy, swing } };
+  return { group, models, rigs, motion: { t: 0, h: 0, alt: 0, pitch: 0, bank: 0 }, brakes, props, plane2, padPlane, planeShadows, shadow, angels, bail: { t0: -1, was: false, fall, hang, canopy, swing } };
 }
 
 const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", rv: "rv", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
@@ -128,7 +128,20 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
   const flying = g.vehicle === "plane" || g.chute;
   // up there the plane and the chute are drawn bigger, so they still read from the camera (chaseCam.ts airScale, which frames them by it)
   const grow = flying ? airScale(g.alt) : 1;
-  if (m) { m.visible = true; m.position.set(g.car.x, flying ? g.alt : lift, g.car.y); m.rotation.y = yawOf(g.car.h); m.scale.setScalar(grow); }
+  if (m) { m.visible = true; m.position.set(g.car.x, flying ? g.alt : lift, g.car.y); m.rotation.set(0, yawOf(g.car.h), 0, "YXZ"); m.scale.setScalar(grow); }
+  // the plane flies as a plane (asked 2026-11-04: "add pitch/yaw to the plane so it's more realistic"): its nose up as it climbs and down as it dives, by the
+  // angle of its path, and banked into a turn by how fast it turns, easing into each; level on the ground
+  {
+    const dt = g.t - r.motion.t, mo = r.motion;
+    if (dt > 0 && dt < 0.3) {
+      const air = which === "plane" && g.alt > 0, spd = Math.max(1, Math.hypot(g.car.vx, g.car.vy)), dh = Math.atan2(Math.sin(g.car.h - mo.h), Math.cos(g.car.h - mo.h));
+      const pitch = air ? Math.max(-0.4, Math.min(0.32, Math.atan2((g.alt - mo.alt) / dt, spd))) : 0, bank = air ? Math.max(-0.7, Math.min(0.7, (dh / dt) * 0.6)) : 0;
+      const k = 1 - Math.exp(-dt * 3);
+      mo.pitch += (pitch - mo.pitch) * k; mo.bank += (bank - mo.bank) * k;
+    }
+    mo.alt = g.alt;
+    if (m && which === "plane") { m.rotation.x = mo.pitch; m.rotation.z = -mo.bank; }
+  }
   if (which === "chute") bailingOut(r, g, m!, grow);
   else r.bail.was = false;
   for (const b of r.brakes) b.visible = view.brake;

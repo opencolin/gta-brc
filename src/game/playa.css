@@ -44,6 +44,14 @@
 .pl .pl-now { margin: 2px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; max-width: 30ch; font-size: var(--t-caption); line-height: var(--lh-ui); }
 .pl .pl-now b { color: var(--pl-gold); font-weight: var(--w-strong); }
 .pl .pl-now span { opacity: .8; }
+/* bigger and easier to read on a desk (asked 2026-11-04, from Collin, with a screenshot): the address large, the rest a size up, the events with room between them,
+   and the box a little darker so the text stands off the playa; a phone keeps its own sizes */
+.pl:not([data-phone]) .pl-where { gap: 4px; padding: 10px 14px; border-radius: 8px; background: rgba(27, 31, 59, .82); }
+.pl:not([data-phone]) .pl-addr { font-size: 30px; line-height: 1.1; }
+.pl:not([data-phone]) .pl-speed, .pl:not([data-phone]) .pl-count { font-size: 16px; line-height: 1.35; }
+.pl:not([data-phone]) .pl-speed b { font-size: 26px; }
+.pl:not([data-phone]) .pl-now { gap: 6px; max-width: 34ch; margin-top: 6px; font-size: 15px; line-height: 1.3; }
+.pl:not([data-phone]) .pl-now span { opacity: .9; }
 
 /* the minimap and the tools under it, top right */
 .pl .pl-side { position: relative; justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
@@ -434,3 +442,6 @@
 .pl[data-phone] .pl-prompt-card { font-size: 26px; padding: 12px 20px; }
 @keyframes pl-prompt { 50% { transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .pl .pl-prompt-card { animation: none; } }
+/* the music line in the location box, a size up with it on a desk (asked 2026-11-04) */
+.pl:not([data-phone]) .pl-hear { gap: 6px; font-size: 15px; }
+.pl:not([data-phone]) .pl-hear-btn { min-width: 28px; min-height: 24px; font-size: 13px; }
