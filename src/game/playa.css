@@ -501,3 +501,6 @@
 .pl:not([data-phone]) .pl-tools .pl-btn[aria-pressed="true"] { color: var(--pl-pink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -3px 0 var(--pl-pink), 0 3px 0 #0b0c10, 0 0 12px rgba(255, 107, 154, .45); }
 /* the ride button says the ride's name on a desk, "ride" on a phone (asked 2026-11-04: no "ride:") */
 .pl:not([data-phone]) .pl-ride-word { display: none; }
+/* no buttons on a desk (asked 2026-11-04: "let's get rid of all these buttons"): the keys do it all, the radio's legend says which; a touch screen keeps them */
+.pl:not([data-phone]):not([data-touch]) .pl-tools > :not(.pl-found) { display: none; } /* the Gate's dust angel and bell, and the plane on its pad, stay */
+.pl:not([data-phone]):not([data-touch]) .pl-deck { padding-bottom: 14px; }

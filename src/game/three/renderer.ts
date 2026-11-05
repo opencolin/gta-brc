@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { vehicleOf, type Game } from "@/lib/playa";
+import { drivenKey, vehicleOf, type Game } from "@/lib/playa";
+import { BIG_747 } from "./cars";
 import type { Vec } from "@/lib/brc";
 import { camAt, camAvoid, camGoal, camStep, camYaw, type CamState, type CamTarget } from "@/lib/chaseCam";
 import type { RenderPerf, Renderer, ViewState } from "../view";
@@ -37,7 +38,9 @@ const nearPlane = (eyeY: number, toRide: number, alt: number) => (alt < 30 ? 1 :
 /** What the camera needs from the game. */
 const camTargetOf = (g: Game): CamTarget => {
   const v = vehicleOf(g);
-  return { x: g.car.x, y: g.car.y, h: g.car.h, vx: g.car.vx, vy: g.car.vy, alt: g.alt, len: v.len, maxSpeed: v.maxSpeed, chute: g.chute, plane: g.vehicle === "plane" };
+  // at the wheel of Big Imagination's 747, drawn four times its size (cars.ts BIG_747), the camera pulls back as far as that (asked 2026-11-04): it is about 64 ft long as built
+  const len = g.vehicle === "found" && drivenKey() === "mutant:big-imagination-747" ? 52 * BIG_747 : v.len;
+  return { x: g.car.x, y: g.car.y, h: g.car.h, vx: g.car.vx, vy: g.car.vy, alt: g.alt, len, maxSpeed: v.maxSpeed, chute: g.chute, plane: g.vehicle === "plane" };
 };
 
 /**

@@ -1750,15 +1750,17 @@ export default function PlayaWin() {
    */
   const musicKey = (e: KeyboardEvent): boolean => {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, digit = /^[1-8]$/.test(k) ? Number(k) - 1 : -1;
-    // the music (asked 2026-11-04): N or . the next track, P or , the one before; 1-8 a track
-    const next = k === "n" || k === ".", prev = k === "p" || k === ",";
-    if (!next && !prev && digit < 0) return false;
+    // the music (asked 2026-11-04): N or . the next track, , the one before, P plays and pauses; 1-8 a track
+    const next = k === "n" || k === ".", prev = k === "," || k === "b", pp = k === "p"; // and B back (asked 2026-11-04)
+    if (!next && !prev && !pp && digit < 0) return false;
     if (rides || (e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']")) return false;   // the garage has its own keys, and text is text
     e.preventDefault();
     const n = nowRef.current, playing = !!n?.playing, place = hud.hearKey || parked || n?.key || "";
     const say = (t: Track) => { flash.current = { text: `♪ ${t.title}`, until: game.current.t + 2.2 }; };
     const play = (key: string, t: Track) => { pick(key, t); setLounge(true); say(t); };
     if (digit >= 0) { const t = soundOf(place).tracks[digit]; if (t) play(place, t); return true; }
+    // P: a set or video you picked pauses and plays again; the road's own music, with nothing picked, goes quiet and comes back (the sound switch)
+    if (pp) { if (n) window.dispatchEvent(new Event("pl-playpause")); else { toggleSound(); flash.current = { text: soundRef.current ? "♪ on" : "♪ paused", until: game.current.t + 1.5 }; } return true; }
     if (next || !playing) { // nothing playing, either one starts what is nearby
       const key = playing ? n!.key : place, tracks = soundOf(key).tracks;
       if (!tracks.length) return true;
@@ -2098,6 +2100,7 @@ export default function PlayaWin() {
     if (!down) return;
     else if (musicKey(e)) { /* used */ }
     else if (e.key === "m" || e.key === "M") { e.preventDefault(); toggleMap(); }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); toggleNight(); } // day or night (asked 2026-11-04: the buttons are gone on a desk, N is the next track)
     else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrip(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); toggleView(); }
     // dev only (stripped from the production build): 9 prints the chase view's draw calls, triangles and frame times to the console (P is the music's)
@@ -2190,7 +2193,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, R the rides, M the map, C the chase camera or top-down (drag with the right mouse button to turn it), E enters or exits an art car or the plane, V plays a video nearby, N or full stop plays the music nearby and then the next track, P or comma goes back a track, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, R the rides, M the map, C the chase camera or top-down (drag with the right mouse button to turn it), E enters or exits an art car or the plane, V plays a video nearby, N or full stop plays the music nearby and then the next track, comma or B goes back a track, P plays and pauses, L day or night, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
         onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
@@ -2309,8 +2312,10 @@ export default function PlayaWin() {
             <div><dt>C</dt><dd>camera</dd></div>
             <div><dt>M</dt><dd>map</dd></div>
             <div><dt>T</dt><dd>trip</dd></div>
-            <div><dt>, P</dt><dd>previous</dd></div>
+            <div><dt>P</dt><dd>play · pause</dd></div>
+            <div><dt>, B</dt><dd>back</dd></div>
             <div><dt>. N</dt><dd>next</dd></div>
+            <div><dt>L</dt><dd>day · night</dd></div>
             <div><dt>1-8</dt><dd>tracks</dd></div>
           </dl>
           </div>
@@ -2337,7 +2342,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>R rides: choose a ride · M map · T trip · C chase camera (drag with the right mouse button to turn it) · the sun and moon button for day or night</li><li>E enter or exit an art car or the plane · V play a video nearby · ride along on an art car from its panel</li><li>the music: N or . plays what is nearby, then the next track · P or , the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>R rides: choose a ride · M map · T trip · C chase camera (drag with the right mouse button to turn it) · L day or night</li><li>E enter or exit an art car or the plane · V play a video nearby · ride along on an art car from its panel</li><li>the music: N or . plays what is nearby, then the next track · , or B the one before, then stops · P play or pause · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>

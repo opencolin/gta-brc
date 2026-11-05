@@ -144,6 +144,12 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   onDrive?: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  // P plays and pauses what the panel plays (asked 2026-11-04): PlayaWin sends "pl-playpause", answered here, where the player is
+  const nowPP = useRef(now); nowPP.current = now;
+  useEffect(() => {
+    const on = () => { const n = nowPP.current; if (n) post(frame.current?.contentWindow, n.url, n.playing ? "pause" : "play"); };
+    window.addEventListener("pl-playpause", on); return () => window.removeEventListener("pl-playpause", on);
+  }, []);
   const list = useRef<HTMLUListElement>(null);
   const key = (open ? parked ?? now?.key : now?.key) ?? null;
   // an art car is not a place you park at (asked 2026-10-26): you are beside it, riding on it, or at its wheel
