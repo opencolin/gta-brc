@@ -1202,7 +1202,9 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const b of vis) for (const it of b.items) if (seen(it.x, it.y, it.w + it.l)) drawStruct(ctx, it, night, z, font);
   // the sound camps: their bays, then their stages
   const spots = SPOTS.filter((sp) => seen(sp.mid.x, sp.mid.y, 260));
-  for (const sp of spots) if (!sp.bay.ring) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
+  // the parking only near you (asked 2026-11-04), as in 3D
+  const nearBay = (sp: Spot) => Math.hypot(sp.mid.x - g.car.x, sp.mid.y - g.car.y) < 650 || g.parking.at === sp.key;
+  for (const sp of spots) if (!sp.bay.ring && nearBay(sp)) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
   for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) drawStage(ctx, sp, t, night); // a piece is its own stage (drawArt)
   for (const sp of spots) drawCrowd(ctx, sp, t, night, g.car);
   for (const { key, at } of parkedCarList()) if (seen(at.x, at.y, 120)) drawCarCrowd(ctx, key, at, t, night, g.car);
@@ -1232,7 +1234,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
   if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_FENCE_R + 20)) drawTemple(ctx, night);
   for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t, night);
-  for (const sp of spots) if (sp.bay.ring) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t); // the rings round the Man, the temples and the art, over their bases (2026-11-04)
+  for (const sp of spots) if (sp.bay.ring && nearBay(sp)) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t); // the rings round the Man, the temples and the art, over their bases (2026-11-04)
   for (const a of ART_2026_SPOTS) if (seen(a.x, a.y, 14)) drawArt2026(ctx, a, t, night);
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
@@ -2214,8 +2216,8 @@ export default function PlayaWin() {
   const acts = (cls: string) => <>
     {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className={cls} onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
     {parked?.startsWith("mutant:") && !aboard && vehicle !== "found" && <>
-      <button type="button" className={`${cls} pl-found`} onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
-      {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className={`${cls} pl-found`} onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
+      <button type="button" className={`${cls} pl-found pl-carbtn`} onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
+      {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className={`${cls} pl-found pl-carbtn`} onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
     </>}
     {hud.pad && <button type="button" className={`${cls} pl-found`} onClick={takeOff}>✈ take the plane</button>}
     {hud.gate && <>

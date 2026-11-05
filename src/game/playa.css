@@ -533,3 +533,5 @@
 }
 /* Z hides the minimap and brings it back (asked 2026-11-04) */
 .pl[data-nomini] .pl-mini { display: none; }
+/* no ride and drive buttons by an art car on a desk (asked 2026-11-04): E takes its wheel, its panel's button rides along */
+.pl:not([data-phone]):not([data-touch]) .pl-tools .pl-carbtn { display: none; }

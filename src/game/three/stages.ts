@@ -7,7 +7,6 @@ import { PYRAMIDS, pyramidOf } from "@/lib/pyramidStage";
 import { PALETTE, cang } from "@/lib/view3d";
 import { glowing } from "./camps";
 import { pTexture } from "./decals";
-import { basic } from "./materials";
 import { buildPyramid, type PyramidMeshes } from "./pyramidStage";
 
 /**
@@ -31,6 +30,31 @@ function bayShape(sp: Spot): THREE.Shape {
   return s;
 }
 
+/**
+ * The parking shows only near you (asked 2026-11-04: "make the pink parking areas only show up when nearby"): every bay's fill, outline and P fade out between
+ * NEAR_FULL and NEAR_GONE feet from your ride, in the shader, so the bays stay one mesh each.
+ */
+const NEAR_FULL = 450, NEAR_GONE = 650;
+const uNear = { value: new THREE.Vector3() };
+function fadeNear<M extends THREE.Material>(m: M): M {
+  m.transparent = true;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uNear = uNear;
+    sh.vertexShader = "varying vec3 vNearW;\n" + sh.vertexShader.replace("#include <project_vertex>", `#include <project_vertex>
+  vec4 nearW = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+    nearW = instanceMatrix * nearW;
+  #endif
+  vNearW = (modelMatrix * nearW).xyz;`);
+    sh.fragmentShader = "uniform vec3 uNear;\nvarying vec3 vNearW;\n" + sh.fragmentShader.replace("#include <fog_fragment>", `#include <fog_fragment>
+  float nearK = 1.0 - smoothstep(${NEAR_FULL.toFixed(1)}, ${NEAR_GONE.toFixed(1)}, distance(vNearW.xz, uNear.xz));
+  if (nearK <= 0.002) discard;
+  gl_FragColor.a *= nearK;`);
+  };
+  m.customProgramCacheKey = () => `near-${m.type}`;
+  return m;
+}
+
 const FACING = (sp: Spot) => Math.atan2(sp.mid.y - sp.stage.y, sp.mid.x - sp.stage.x);
 
 export function buildStages(scene: THREE.Scene): StageMeshes {
@@ -44,16 +68,16 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   for (const { sp, geo } of all) (sp.kind === "fence" || sp.kind === "art" ? bays.open : bays.road).push(geo.clone());
   const wash = (base: number, first: number) => mix(mix(base, 0xff6b9a, first), 0xff6b9a, 0.22);   // fill, then the pink .22 over it: drawBay's two fills
   const bayMesh = (geos: THREE.BufferGeometry[], color: number) => {
-    const m = new THREE.Mesh(mergeGeometries(geos)!, basic(color, { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.mark }));
+    const m = new THREE.Mesh(mergeGeometries(geos)!, fadeNear(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.mark })));
     m.rotation.x = Math.PI / 2; m.position.y = 0.3; m.renderOrder = LAYER.mark; geos.forEach((g) => g.dispose()); return m;
   };
   group.add(bayMesh(bays.road, wash(0xefe2c6, 0)), bayMesh(bays.open, wash(0xe6d3ae, 0.18)));
   // the dashed outline, drawn as a solid pink line round every bay
   const lines: THREE.Vector3[] = [];
   for (const { sp } of all) { const pts = bayShape(sp).getPoints(8); for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; lines.push(new THREE.Vector3(p.x, 0.35, p.y), new THREE.Vector3(q.x, 0.35, q.y)); } }
-  group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lines), new THREE.LineBasicMaterial({ color: PALETTE.pink })));
+  group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lines), fadeNear(new THREE.LineBasicMaterial({ color: PALETTE.pink }))));
   // the P at each bay's middle
-  const pMat = new THREE.MeshBasicMaterial({ map: pTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.bayP });
+  const pMat = fadeNear(new THREE.MeshBasicMaterial({ map: pTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.bayP }));
   const ps = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), pMat, SPOTS.length);
   const d = new THREE.Object3D();
   SPOTS.forEach((sp, i) => { d.position.set(sp.mid.x, 0.4, sp.mid.y); d.scale.set(26, 1, 26); d.updateMatrix(); ps.setMatrixAt(i, d.matrix); });
@@ -103,6 +127,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   return {
     group,
     update(g, t) {
+      uNear.value.set(g.car.x, 0, g.car.y);
       for (const p of pyramids) p.update(g, t);
       artPlaces.update(g.car.x, g.car.y);
       // the art places' crystals turn slowly and bob, together

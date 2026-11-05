@@ -1,7 +1,7 @@
 import { quality } from "./quality";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { AROUND, MAP_BOX, cityImage, paintWelcome, surroundImage } from "@/game/citymap";
+import { AROUND, MAP_BOX, cityImage, surroundImage, welcomeTorches } from "@/game/citymap";
 import { ARCS, ARC_R, FENCE, FENCE_R, GATE, WELCOME, WIDE_RADIALS, polar } from "@/lib/brc";
 import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
@@ -126,17 +126,31 @@ function buildLabels(group: THREE.Group, maxAnisotropy: number): void {
 }
 
 /**
- * "WELCOME HOME" on the playa between the airport and K (asked 2026-11-03), crisper than the map's baked copy under it: one canvas on one
- * quad, laid flat at the marks' layer and turned as the map turns it (brc.ts WELCOME), its top toward the Man for a plane flying in.
+ * "WELCOME HOME" on the playa between the airport and K (asked 2026-11-03), spelt out in flaming torches since 2026-11-04 (asked): a pole and a bowl at each
+ * of citymap.ts welcomeTorches' points (one instanced mesh), and on it a flame (another) that flickers in the shader, each to its own beat, bright enough at
+ * night that the glow blooms it. Two draw calls; `tick` moves the flames' clock.
  */
-function buildWelcome(group: THREE.Group, maxAnisotropy: number): void {
-  const { at, rot, w, h } = WELCOME, PX = 2048 / w;
-  const c = document.createElement("canvas"); c.width = 2048; c.height = Math.round(h * PX);
-  const x = c.getContext("2d")!; x.scale(PX, PX); x.translate(w / 2, h / 2); paintWelcome(x);
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAnisotropy;
-  const q = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).rotateY(-rot).translate(at.x, 0, at.y);   // rotateY(-θ) on (x, z) is the canvas's rotate(θ) on (x, y)
-  const m = new THREE.Mesh(q, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.mark }));
-  m.position.y = LAYER_Y.mark; m.renderOrder = LAYER.mark; group.add(m);
+function buildWelcome(group: THREE.Group): { tick(t: number): void } {
+  const pts = welcomeTorches(), n = pts.length;
+  const pole = mergeGeometries([new THREE.CylinderGeometry(0.45, 0.6, 13, 5).translate(0, 6.5, 0), new THREE.CylinderGeometry(1.5, 0.8, 1.6, 6).translate(0, 13.6, 0)])!;
+  const poles = new THREE.InstancedMesh(pole, new THREE.MeshLambertMaterial({ color: 0x4a3526 }), n);
+  const flameGeo = mergeGeometries([new THREE.ConeGeometry(2, 9, 6).translate(0, 4.5, 0), new THREE.SphereGeometry(2.05, 6, 4).translate(0, 0.3, 0)])!.translate(0, 14.2, 0);
+  const uT = { value: 0 };
+  const flameMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.55, 0.16).multiplyScalar(2.4) });
+  flameMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uT = uT;
+    sh.vertexShader = "uniform float uT;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
+  float ph = instanceMatrix[3].x * 0.13 + instanceMatrix[3].z * 0.07;
+  float fl = 0.75 + 0.35 * sin(uT * 9.0 + ph) * sin(uT * 4.3 + ph * 1.7);
+  float up = max(0.0, transformed.y - 14.2);
+  transformed.y = 14.2 + up * fl;
+  transformed.x += sin(uT * 6.0 + ph) * up * 0.08;`);
+  };
+  const flames = new THREE.InstancedMesh(flameGeo, flameMat, n);
+  const d = new THREE.Object3D();
+  pts.forEach((p, i) => { d.position.set(p.x, 0, p.y); d.rotation.y = (i * 2.39) % (Math.PI * 2); d.updateMatrix(); poles.setMatrixAt(i, d.matrix); flames.setMatrixAt(i, d.matrix); });
+  for (const m of [poles, flames]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); group.add(m); }
+  return { tick: (t) => { uT.value = t; } };
 }
 
 /** The canvas drawn smaller onto one of `size` pixels square (null stays null). */
@@ -236,6 +250,6 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
 
   scene.add(group);
   buildLabels(group, maxAnisotropy);
-  buildWelcome(group, maxAnisotropy);
-  return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; fly.update(cam); } };
+  const welcome = buildWelcome(group);
+  return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; fly.update(cam); welcome.tick(performance.now() / 1000); } };
 }

@@ -143,12 +143,39 @@ function paint(x: CanvasRenderingContext2D, size: number) {
   x.save(); x.translate(WELCOME.at.x, WELCOME.at.y); x.rotate(WELCOME.rot); paintWelcome(x); x.restore();
   x.setTransform(1, 0, 0, 1, 0, 0);
 }
-/** "WELCOME HOME" (brc.ts WELCOME) in two lines, pink edged in navy, centred on the origin in feet with its top up; ground.ts paints its own copy with this. */
-export function paintWelcome(x: CanvasRenderingContext2D): void {
+/** "WELCOME HOME" (brc.ts WELCOME) in two lines, centred on the origin in feet with its top up, in `fill` (the letters' shape, for the torches). */
+function letters(x: CanvasRenderingContext2D, fill: string): void {
   const { w, h } = WELCOME;
-  x.textAlign = "center"; x.textBaseline = "middle"; x.lineJoin = "round"; x.lineWidth = h * 0.045; x.font = `900 ${h * 0.42}px system-ui, sans-serif`;
-  for (const [t, y] of [["WELCOME", -h * 0.24], ["HOME", h * 0.26]] as const) {
-    x.strokeStyle = P.navy; x.strokeText(t, 0, y, w * 0.95); x.fillStyle = P.pink; x.fillText(t, 0, y, w * 0.95);
+  x.textAlign = "center"; x.textBaseline = "middle"; x.font = `900 ${h * 0.42}px system-ui, sans-serif`; x.fillStyle = fill;
+  for (const [t, y] of [["WELCOME", -h * 0.24], ["HOME", h * 0.26]] as const) x.fillText(t, 0, y, w * 0.95);
+}
+/** How far apart the torches stand, ft. */
+const TORCH_STEP = 24;
+let TORCHES: { x: number; y: number }[] | null = null;
+/**
+ * "WELCOME HOME" spelt out in flaming torches (asked 2026-11-04: "let's make the Welcome Home sign made out of lots of flaming fire torches"): the letters
+ * drawn small and every TORCH_STEP feet inside them a torch, staggered a little row to row; where each stands on the playa (brc.ts WELCOME's middle and turn).
+ */
+export function welcomeTorches(): { x: number; y: number }[] {
+  if (TORCHES) return TORCHES;
+  const { w, h, at, rot } = WELCOME, k = 1 / 4, c = document.createElement("canvas"); c.width = Math.ceil(w * k); c.height = Math.ceil(h * k);
+  const x = c.getContext("2d")!; x.scale(k, k); x.translate(w / 2, h / 2); letters(x, "#fff");
+  const px = x.getImageData(0, 0, c.width, c.height).data, out: { x: number; y: number }[] = [], co = Math.cos(rot), si = Math.sin(rot);
+  for (let j = 0, v = -h / 2 + TORCH_STEP / 2; v < h / 2; v += TORCH_STEP * 0.87, j++) for (let u = -w / 2 + (j % 2 ? TORCH_STEP / 2 : 0); u < w / 2; u += TORCH_STEP) {
+    const ix = Math.floor((u + w / 2) * k), iy = Math.floor((v + h / 2) * k);
+    if (px[(iy * c.width + ix) * 4 + 3] < 128) continue;
+    out.push({ x: at.x + u * co - v * si, y: at.y + u * si + v * co });
+  }
+  return (TORCHES = out);
+}
+/** The sign on the map: its torches, small flames in the letters' shape (centred on the origin, as WELCOME's frame). */
+export function paintWelcome(x: CanvasRenderingContext2D): void {
+  const { at, rot } = WELCOME, co = Math.cos(-rot), si = Math.sin(-rot);
+  x.fillStyle = "rgba(60, 40, 30, .18)"; letters(x, "rgba(60, 40, 30, .18)"); // the scorched ground under them
+  for (const p of welcomeTorches()) {
+    const dx = p.x - at.x, dy = p.y - at.y, u = dx * co - dy * si, v = dx * si + dy * co;
+    x.fillStyle = "#ff8a2a"; x.beginPath(); x.arc(u, v, 7, 0, Math.PI * 2); x.fill();
+    x.fillStyle = "#ffd27a"; x.beginPath(); x.arc(u, v, 3.5, 0, Math.PI * 2); x.fill();
   }
 }
 const clockLabel = (min: number) => `${Math.floor(min / 60) || 12}:${String(min % 60).padStart(2, "0")}`;
