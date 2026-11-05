@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ARC_R, RADIALS, blockBounds, clockToAngle, polar } from "./brc.ts";
 import { solidAt } from "./playa.ts";
-import { CAM, camAvoid, camGoal, camStep, camYaw, newCam } from "./chaseCam.ts";
+import { CAM, airScale, camAvoid, camGoal, camStep, camYaw, newCam } from "./chaseCam.ts";
 
 const near = (a, b, eps = 0.1) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const bike = (o = {}) => ({ x: 0, y: 0, h: 0, vx: 0, vy: 0, alt: 0, len: 16, maxSpeed: 147, chute: false, plane: false, ...o });
@@ -46,15 +46,18 @@ test("orbit turns the eye round the ride and leaves the look point ahead", () =>
   near(g.look.z, -28);
 });
 
-test("in the air the camera trails further and higher, and looks at the ride itself", () => {
+test("in the air the camera trails further and higher, close enough that the ride still reads, and looks at the ride itself", () => {
   const plane = { len: 30, maxSpeed: 480, plane: true, alt: 1000 };
+  // at 1,000 ft the plane is drawn 1.8 times its size (54 ft), so it frames as a 54 ft ride, plus 0.03·alt back and 0.06·alt up
+  near(airScale(0), 1); near(airScale(300), 1.4); near(airScale(1000), 1.8);
   const g = camGoal(bike(plane));
-  near(g.eye.z, 92 + 250); near(g.eye.y, 1000 + 48 + 500);
-  near(g.look.z, 0, 1e-9); near(g.look.y, 1010);
-  assert.ok(g.eye.y >= 0.5 * 1000, "at least 0.5·alt up");
-  // the chute is in the air too
-  const c = camGoal(bike({ chute: true, alt: 400 }));
-  assert.ok(c.eye.y >= 0.5 * 400 && c.eye.z > 55.6 + 0.25 * 400 - 1);
+  near(g.eye.z, 2.6 * 54 + 14 + 30); near(g.eye.y, 1000 + 1.3 * 54 + 9 + 60);
+  near(g.look.z, 0, 1e-9); near(g.look.y, 1018);
+  const d = Math.hypot(g.eye.z, g.eye.y - 1000);
+  assert.ok(d < 250 && 54 / d > 0.22, `the plane fills a fair part of the view: ${(54 / d).toFixed(3)} rad at ${d.toFixed(0)} ft`);
+  // the chute is in the air too, and grows the same way
+  const c = camGoal(bike({ chute: true, alt: 400 })), cl = 16 * airScale(400);
+  near(c.eye.z, 2.6 * cl + 14 + 12); near(c.eye.y, 400 + 1.3 * cl + 9 + 24);
   // a plane still on the runway is a ride on the ground
   const pad = camGoal(bike({ ...plane, alt: 0 }));
   near(pad.eye.z, 92); near(pad.look.z, -(30 + 12));

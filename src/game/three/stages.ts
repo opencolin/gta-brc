@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { MODELLED, buildArtPlaces } from "./artPlaces";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { SPOTS, type Game, type Spot } from "@/lib/playa";
+import { ART_2026_SPOTS, SPOTS, type Game, type Spot } from "@/lib/playa";
 import { LAYER, hslHex } from "@/lib/scene3d";
 import { PYRAMID } from "@/lib/pyramidStage";
 import { PALETTE, cang } from "@/lib/view3d";
@@ -84,6 +84,9 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   // an art place's marker: a small crystal in its colour hovering 18 ft up, glowing at night, that you drive under (asked 2026-11-03: the 50 ft stones
   // were big obstacles); it turns slowly (update below)
   const stoneMesh = inst(new THREE.OctahedronGeometry(1), glowing({}, "glow-stone", 0.6), stones.length, (i, o, c) => { const s = stones[i], r = STONE_R; o.position.set(s.stage.x, STONE_Y, s.stage.y); o.scale.set(r, r * 1.5, r); o.rotation.y = -(FACING(s) - Math.PI / 2); c.setHex(hslHex(s.hue, 75, 55), THREE.SRGBColorSpace); });
+  // 2026's other art (asked 2026-11-04): a 10 ft post with a crystal in the piece's hue on it, glowing at night, two draw calls for all of them
+  inst(new THREE.CylinderGeometry(0.6, 0.9, 10, 6), white, ART_2026_SPOTS.length, (i, o, c) => { const a = ART_2026_SPOTS[i]; o.position.set(a.x, 5, a.y); c.setHex(0x3a3550, THREE.SRGBColorSpace); });
+  inst(new THREE.OctahedronGeometry(1), glowing({}, "glow-stone", 0.6), ART_2026_SPOTS.length, (i, o, c) => { const a = ART_2026_SPOTS[i]; o.position.set(a.x, 13, a.y); o.scale.set(3, 4.5, 3); o.rotation.y = a.hue; c.setHex(hslHex(a.hue, 80, 58), THREE.SRGBColorSpace); });
   // the fence's pyramid
   inst(new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), white, fences.length, (i, o, c) => { const s = fences[i]; o.position.set(s.stage.x, 15, s.stage.y); o.scale.set(s.stage.r, 30, s.stage.r); c.setHex(0x2a2440, THREE.SRGBColorSpace); });
 

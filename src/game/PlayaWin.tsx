@@ -1,12 +1,13 @@
 "use client";
 import "./playa.css";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { useIsMobile } from "@/lib/mobile";
 import { useBoardFocus } from "./useBoardFocus";
 import { AmbientVoices, ClipPeek, Lounge, clipsOnly, nextSetIndex, playable, soundOf, startSetFor, type Now, type Track } from "./PlayaLounge";
 import { ART_CARS, drawGoldenTicket } from "./artcars";
 import { ART_PIECES } from "./artpieces";
 import { GARAGE_RIDES, RidePicker } from "./RidePicker";
+import { SKY_KEY } from "@/lib/flyover";
 import { UNLOCK_KEY, nextUnlock, unlockedRides } from "@/lib/unlocks";
 import { LED_DAY, PYRAMID, ledPhase, ledRgb } from "@/lib/pyramidStage";
 import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
@@ -16,11 +17,11 @@ import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
 import {
-  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, PLAZAS, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
+  AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, FLY_RANCH, PLAZAS, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
-  AGAVE, AGAVE_ADDRESS, ART, MUTANTS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
+  AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, MUTANTS, MVS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
   atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
@@ -360,6 +361,49 @@ function drawEBike(ctx: CanvasRenderingContext2D, t: number, night: number, brak
 }
 
 /** Another art car: a fish, in its own colour, its outline lit as EL wire at night. */
+/**
+ * One of 2026's other mutant vehicles (asked 2026-11-04), from above, nose up, in a shape for its form: a boat, a winged thing, a creature,
+ * a flower, a train, a house, or a deck on wheels for the rest; in its hue, its edge lit at night.
+ */
+function drawMv(ctx: CanvasRenderingContext2D, n: Npc, t: number, night: number) {
+  const L = NPC_R.mv, hue = n.hue, body = hsl(hue, 70, 60), dark = hsl(hue, 60, 32);
+  ctx.fillStyle = "rgba(27, 31, 59, .18)"; ctx.beginPath(); ctx.ellipse(3, 4, L * 0.6, L, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  switch (n.form) {
+    case "ship": ctx.moveTo(0, -L * 1.1); ctx.quadraticCurveTo(L * 0.6, -L * 0.3, L * 0.5, L * 0.9); ctx.lineTo(-L * 0.5, L * 0.9); ctx.quadraticCurveTo(-L * 0.6, -L * 0.3, 0, -L * 1.1); break;
+    case "wing": case "air": {
+      const f = n.form === "wing" ? Math.sin(t * 5 + hue) * 0.25 : 0;
+      ctx.ellipse(0, 0, L * 0.3, L, 0, 0, Math.PI * 2);
+      for (const sx of [-1, 1]) { ctx.moveTo(sx * L * 0.25, -L * 0.3); ctx.lineTo(sx * L * (1.15 - f), -L * (0.1 + f)); ctx.lineTo(sx * L * (0.9 - f), L * 0.35); ctx.lineTo(sx * L * 0.25, L * 0.3); }
+      break;
+    }
+    case "land": case "myth": case "robot":
+      ctx.ellipse(0, L * 0.15, L * 0.5, L * 0.8, 0, 0, Math.PI * 2); ctx.moveTo(L * 0.3, -L * 0.75); ctx.arc(0, -L * 0.75, L * 0.3, 0, Math.PI * 2);
+      for (const [sx, sy] of [[-1, -0.3], [1, -0.3], [-1, 0.6], [1, 0.6]]) ctx.rect(sx * L * 0.5 - (sx < 0 ? L * 0.2 : 0), sy * L, L * 0.2, L * 0.25);
+      break;
+    case "plant": for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2 + t * 0.3; ctx.moveTo(Math.cos(a) * L * 0.9 + L * 0.35, Math.sin(a) * L * 0.9); ctx.arc(Math.cos(a) * L * 0.9, Math.sin(a) * L * 0.9, L * 0.35, 0, Math.PI * 2); } ctx.moveTo(L * 0.55, 0); ctx.arc(0, 0, L * 0.55, 0, Math.PI * 2); break;
+    case "train": ctx.roundRect(-L * 0.4, -L * 1.1, L * 0.8, L * 0.95, 4); ctx.roundRect(-L * 0.4, L * 0.05, L * 0.8, L * 0.95, 4); break;
+    default: ctx.roundRect(-L * 0.5, -L, L, L * 2, n.form === "bus" ? 3 : 7);
+  }
+  ctx.fillStyle = body; ctx.fill("nonzero");
+  ctx.strokeStyle = night > 0.3 ? hsl((hue + 40) % 360, 100, 70) : dark; ctx.lineWidth = night > 0.3 ? 2.5 : 1.2; ctx.stroke();
+  // what rides on top: a sail, a house's ridge, a deck with a dome, the creature's eyes
+  ctx.fillStyle = n.form === "building" ? dark : hsl((hue + 160) % 360, 70, 62);
+  if (n.form === "ship") { ctx.beginPath(); ctx.moveTo(0, -L * 0.6); ctx.lineTo(L * 0.4, L * 0.3); ctx.lineTo(0, L * 0.3); ctx.closePath(); ctx.fill(); }
+  else if (n.form === "building") ctx.fillRect(-1.5, -L * 0.9, 3, L * 1.8);
+  else if (n.form === "land" || n.form === "myth" || n.form === "robot") { ctx.fillStyle = C.navy; ctx.beginPath(); ctx.arc(-L * 0.12, -L * 0.85, 1.6, 0, Math.PI * 2); ctx.arc(L * 0.12, -L * 0.85, 1.6, 0, Math.PI * 2); ctx.fill(); }
+  else if (n.form !== "plant" && n.form !== "wing" && n.form !== "air") { ctx.beginPath(); ctx.arc(0, 0, L * 0.3, 0, Math.PI * 2); ctx.fill(); }
+}
+/** One of 2026's other art pieces (asked 2026-11-04): a low plinth with a diamond in its hue on it, turning slowly. */
+function drawArt2026(ctx: CanvasRenderingContext2D, a: { x: number; y: number; hue: number }, t: number, night: number) {
+  ctx.save(); ctx.translate(a.x, a.y);
+  ctx.fillStyle = "rgba(120, 95, 60, .25)"; ctx.beginPath(); ctx.arc(3, 4, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#e8dcc4"; ctx.strokeStyle = "rgba(27, 31, 59, .5)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.rotate(t * 0.4 + a.hue);
+  ctx.fillStyle = hsl(a.hue, 80, night > 0.3 ? 66 : 58); ctx.strokeStyle = hsl(a.hue, 70, 32); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
 function drawFish(ctx: CanvasRenderingContext2D, hue: number, t: number, night: number) {
   const L = NPC_R.artcar;
   ctx.fillStyle = hsl(hue, 70, 62);
@@ -527,6 +571,28 @@ function drawAirport(ctx: CanvasRenderingContext2D, t: number, night: number, pa
   ctx.fillStyle = "#4a3b10"; ctx.font = "600 60px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("88NV · Black Rock City Airport", -600, -620);
   ctx.restore();
   if (padPlane) { ctx.save(); ctx.translate(AIRPORT.pad.x, AIRPORT.pad.y); ctx.rotate(AIRPORT.h); drawPlaneShadow(ctx, 0); drawPlane(ctx, t, night); ctx.restore(); }
+}
+/**
+ * Fly Geyser at Fly Ranch from above (asked 2026-11-04), past the fence at 8:44 (brc.ts FLY_RANCH), laid out as the 3D model is (three/flyRanch.ts):
+ * reeds round the wetland and its reservoir, the pool, the pale mound, the rust-rimmed terraces, the three banded cones and their spray; named.
+ */
+function drawFlyRanch(ctx: CanvasRenderingContext2D, t: number, night: number) {
+  const { at } = FLY_RANCH, rnd = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  const water = night > 0.3 ? "#9fe8f5" : "#5fb7c9", disc = (x: number, y: number, r: number, c: string) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+  ctx.save(); ctx.translate(at.x, at.y); ctx.rotate(Math.atan2(-at.x, at.y));
+  for (let k = 0; k < 44; k++) { const a = (k / 44) * Math.PI * 2 + rnd(k + 200) * 0.2, d = 210 + rnd(k + 240) * 140; disc(Math.cos(a) * d, Math.sin(a) * d, 8 + rnd(k + 320) * 6, rnd(k + 360) < 0.5 ? "#5f7d3a" : "#8a9a4a"); }
+  disc(60, 290, 90, night > 0.3 ? "#7fd0e6" : "#3f8fa6");
+  disc(0, 0, 156, water); disc(0, 0, 118, "#d2692e"); disc(0, 0, 110, "#c9a27a");
+  for (let k = 0; k < 16; k++) { const a = (k / 16) * Math.PI * 2 + rnd(k) * 0.3, d = 128 + rnd(k + 40) * 60, r = 16 + rnd(k + 80) * 14; disc(Math.cos(a) * d, Math.sin(a) * d, r + 3, "#d2692e"); disc(Math.cos(a) * d, Math.sin(a) * d, r - 3, water); }
+  const BANDS = ["#a8321e", "#e0752d", "#d9a441", "#4e7f34", "#c0522a", "#6f8f3a"];
+  for (const [x, y, r, seed] of [[0, -10, 34, 0], [-42, 28, 24, 2], [38, 34, 18, 4]] as const) {
+    for (let k = 0; k < 6; k++) disc(x, y, r * (1 - k * 0.14), k === 5 ? "#d8cfc0" : BANDS[(k + seed) % BANDS.length]);
+    ctx.fillStyle = night > 0.3 ? "rgba(238, 249, 255, .95)" : "rgba(238, 249, 255, .8)"; // the spray, pulsing
+    for (let k = 0; k < 4; k++) { const a = seed + k * 1.7, d = r * (0.6 + 0.25 * Math.sin(t * 3 + k)); ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.restore();
+  ctx.fillStyle = night > 0.3 ? "#fbf7ef" : "#4a3b10"; ctx.font = "600 60px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("Fly Ranch · Fly Geyser", at.x, at.y + 440);
 }
 /** The crowd at a sound camp (asked 2026-10-23): a party round the front of the stage, hugging it, clear of the bay. Each person
  * stands in their own spot (seeded by the camp's key), dancing: bobbing to the beat, arms up on the drop, a few just
@@ -895,6 +961,13 @@ function drawCity(ctx: CanvasRenderingContext2D, w: number, h: number, labels: b
     ctx.fillStyle = hsl(a.hue, 85, 60);
     ctx.beginPath(); ctx.moveTo(a.x, a.y - d); ctx.lineTo(a.x + d, a.y); ctx.lineTo(a.x, a.y + d); ctx.lineTo(a.x - d, a.y); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
+  // 2026's other art (asked 2026-11-04): small diamonds, named on hover
+  ctx.lineWidth = 12;
+  for (const a of ART_2026_SPOTS) {
+    const d = labels ? 60 : 90;
+    ctx.fillStyle = hsl(a.hue, 80, 62);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - d); ctx.lineTo(a.x + d, a.y); ctx.lineTo(a.x, a.y + d); ctx.lineTo(a.x - d, a.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   if (labels) {
     ctx.fillStyle = C.navy; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.font = `500 ${11 / s}px system-ui, sans-serif`;
     for (const a of ART) ctx.fillText(a.name.replace(/^the /, ""), a.x, a.y + 200);
@@ -954,12 +1027,17 @@ function mapSpotAt(w: number, h: number, x: number, y: number, t: number): { nam
   };
   for (const sp of SPOTS) consider(sp.stage, sp.camp?.address ? `${sp.name} · ${sp.camp.address}` : sp.name);
   for (const m of MUTANTS) consider(npcAt(m, t), `${m.name} · art car`);
+  for (const a of ART_2026_SPOTS) consider(a, a.artist ? `${a.name} · art by ${a.artist}` : `${a.name} · art`);
+  for (const m of MVS) consider(npcAt(m, t), `${m.name} · art car`);
   const b = best as { name: string; x: number; y: number } | null;
   return b ? { name: b.name, x: b.x, y: b.y } : null;
 }
 function drawMapMarks(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, t: number) {
   const { s, ox, oy } = mapFit(w, h);
   const at = (p: Vec) => ({ x: ox + p.x * s, y: oy + p.y * s });
+  // 2026's other art cars, where they are now: little dots under the famous ones (asked 2026-11-04)
+  ctx.strokeStyle = "rgba(27, 31, 59, .7)"; ctx.lineWidth = 0.75;
+  for (const m of MVS) { const q = at(npcAt(m, g.t)); ctx.fillStyle = hsl(m.hue, 85, 60); ctx.beginPath(); ctx.arc(q.x, q.y, w > 400 ? 2.2 : 1.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   // the famous art cars, where they are now
   for (const m of MUTANTS) {
     const q = at(npcAt(m, g.t));
@@ -974,6 +1052,17 @@ function drawMapMarks(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     }
     ctx.fillStyle = hsl(m.hue, 90, 60);
     ctx.beginPath(); ctx.rect(q.x - 3, q.y - 3, 6, 6); ctx.fill(); ctx.stroke();
+  }
+  // Fly Ranch (asked 2026-11-04): a geyser's dot and its name, held at the map's edge, pointing out, when it is past it
+  {
+    const q = at(FLY_RANCH.at), m = 14, x = Math.min(w - m, Math.max(m, q.x)), y = Math.min(h - m, Math.max(m, q.y)), out = x !== q.x || y !== q.y, k = w > 400 ? 1.4 : 1;
+    ctx.fillStyle = "#e0752d"; ctx.strokeStyle = C.navy; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 4.5 * k, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#5fb7c9"; ctx.beginPath(); ctx.arc(x, y, 2 * k, 0, Math.PI * 2); ctx.fill();
+    if (out) { const a = Math.atan2(q.y - y, q.x - x); ctx.fillStyle = C.navy; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * 10 * k, y + Math.sin(a) * 10 * k); ctx.lineTo(x + Math.cos(a + 2.4) * 6 * k, y + Math.sin(a + 2.4) * 6 * k); ctx.lineTo(x + Math.cos(a - 2.4) * 6 * k, y + Math.sin(a - 2.4) * 6 * k); ctx.closePath(); ctx.fill(); }
+    ctx.font = `600 ${Math.round(9 * k)}px system-ui, sans-serif`; ctx.textBaseline = "middle"; ctx.textAlign = x < w / 2 ? "left" : "right";
+    const lx = x + (x < w / 2 ? 8 : -8) * k, ly = y < 24 ? y + 12 * k : y - 12 * k;
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(251, 247, 239, .85)"; ctx.strokeText("Fly Ranch", lx, ly); ctx.fillStyle = C.navy; ctx.fillText("Fly Ranch", lx, ly);
   }
   const tg = missionTarget(g.mission, g.t);
   if (tg) {
@@ -1089,12 +1178,14 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   if (seen(0, 0, 120)) { ctx.save(); drawMan(ctx, night); ctx.restore(); }
   if (seen(TEMPLE.x, TEMPLE.y, TEMPLE_FENCE_R + 20)) drawTemple(ctx, night);
   for (const a of ART) if (seen(a.x, a.y, a.r + 10)) drawArt(ctx, a, t, night);
+  for (const a of ART_2026_SPOTS) if (seen(a.x, a.y, 14)) drawArt2026(ctx, a, t, night);
   // the fence
   ctx.strokeStyle = C.fence; ctx.lineWidth = 6; ctx.setLineDash([16, 10]);
   ctx.beginPath(); FENCE.forEach((p) => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
   // the airport past it
   if (seen(AIRPORT.at.x, AIRPORT.at.y, 2900)) drawAirport(ctx, t, night, g.vehicle !== "plane");
   if (seen(GATE.at.x, GATE.at.y, 7000)) drawGate(ctx, t, night, atGate(g));
+  if (seen(FLY_RANCH.at.x, FLY_RANCH.at.y, 600)) drawFlyRanch(ctx, t, night);
   for (const a of g.angels) if (seen(a.x, a.y, 40)) drawDustAngel(ctx, a.x, a.y);
 
   // street signs at the corners in view
@@ -1111,6 +1202,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   // names on the open playa
   ctx.fillStyle = C.navy;
   for (const a of ART) if (seen(a.x, a.y, a.r + 40)) ctx.fillText(a.name, a.x, a.y + a.r + 16 / z);
+  // 2026's other pieces: named near you, so a crowded patch of playa is not all labels
+  for (const a of ART_2026_SPOTS) if (seen(a.x, a.y, 60) && Math.hypot(a.x - g.car.x, a.y - g.car.y) < 600) ctx.fillText(a.name, a.x, a.y + 14 + 12 / z);
   if (seen(AGAVE.dome.x, AGAVE.dome.y, 140)) { ctx.fillStyle = "#b83a66"; ctx.fillText("Agave Lounge", AGAVE.dome.x, AGAVE.dome.y - AGAVE.dome.r - 14 / z); }
   for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) { // a piece is named with the art above
     const label = sp.name, tw = ctx.measureText(label).width + 10 / z;
@@ -1145,13 +1238,13 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const n of g.npcs) { if (n.key && n.key === mine) continue; const p = npcAt(n, t); if (seen(p.x, p.y, 40)) npcs.push({ n, p }); }
   for (const { n, p } of npcs) {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.h);
-    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
+    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "mv") drawMv(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
     ctx.restore();
   }
-  for (const { n, p } of npcs) if (n.kind === "mutant" && n.name) {
-    const tw = ctx.measureText(n.name).width + 10 / z;
-    ctx.fillStyle = "rgba(27, 31, 59, .85)"; ctx.fillRect(p.x - tw / 2, p.y - NPC_R.mutant - 26 / z, tw, 18 / z);
-    ctx.fillStyle = C.gold; ctx.fillText(n.name, p.x, p.y - NPC_R.mutant - 17 / z);
+  for (const { n, p } of npcs) if ((n.kind === "mutant" || (n.kind === "mv" && Math.hypot(p.x - g.car.x, p.y - g.car.y) < 500)) && n.name) { // 2026's other cars are named near you
+    const tw = ctx.measureText(n.name).width + 10 / z, r = NPC_R[n.kind];
+    ctx.fillStyle = "rgba(27, 31, 59, .85)"; ctx.fillRect(p.x - tw / 2, p.y - r - 26 / z, tw, 18 / z);
+    ctx.fillStyle = n.kind === "mv" ? C.white : C.gold; ctx.fillText(n.name, p.x, p.y - r - 17 / z);
   }
   // you
   if (g.angelT > 0) { // lying in the dust at the Gate, making an angel (asked 2026-10-26)
@@ -1197,12 +1290,13 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     lx.fillStyle = beam; lx.beginPath(); lx.moveTo(-8, -VEHICLES[g.vehicle].len / 2); lx.lineTo(-80, -210); lx.lineTo(80, -210); lx.lineTo(8, -VEHICLES[g.vehicle].len / 2); lx.closePath(); lx.fill();
     lx.restore();
     pool(g.car.x, g.car.y, 70, 0.9);
-    for (const { n, p } of npcs) pool(p.x, p.y, n.kind === "mutant" ? 130 : n.kind === "artcar" ? 60 : n.kind === "walker" ? 9 : 16, n.kind === "mutant" ? 0.95 : 0.7);
+    for (const { n, p } of npcs) pool(p.x, p.y, n.kind === "mutant" ? 130 : n.kind === "mv" ? 80 : n.kind === "artcar" ? 60 : n.kind === "walker" ? 9 : 16, n.kind === "mutant" ? 0.95 : 0.7);
     for (const sp of spots) pool(sp.stage.x, sp.stage.y, sp.stage.r * 2.8, 0.95);
     if (seen(0, 0, 400)) pool(0, 0, 340, 0.95);
     if (seen(TEMPLE.x, TEMPLE.y, 300)) pool(TEMPLE.x, TEMPLE.y, 260, 0.9);
     if (seen(AGAVE.dome.x, AGAVE.dome.y, 260)) { pool(AGAVE.dome.x, AGAVE.dome.y, 200, 0.95); pool(AGAVE.moon.x, AGAVE.moon.y, 70, 0.8); }
     if (seen(CENTER_CAMP.x, CENTER_CAMP.y, 300)) pool(CENTER_CAMP.x, CENTER_CAMP.y, 240, 0.85);
+    if (seen(FLY_RANCH.at.x, FLY_RANCH.at.y, 300)) pool(FLY_RANCH.at.x, FLY_RANCH.at.y, 260, 0.9); // Fly Geyser's pools, lit (asked 2026-11-04)
     for (const a of ART) if (seen(a.x, a.y, 220)) pool(a.x, a.y, a.r * 2.6, 0.95);
     for (const b of vis) for (const it of b.items) {
       if (!seen(it.x, it.y, 60)) continue;
@@ -1224,13 +1318,15 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
     ctx.fillStyle = cone; ctx.beginPath(); ctx.moveTo(-7, -VEHICLES[g.vehicle].len / 2); ctx.lineTo(-70, -190); ctx.lineTo(70, -190); ctx.lineTo(7, -VEHICLES[g.vehicle].len / 2); ctx.closePath(); ctx.fill();
     ctx.restore();
     glow(g.car.x, g.car.y, 46, `hsla(${(t * 120) % 360}, 100%, 60%, A)`, 0.45 * night);
-    for (const { n, p } of npcs) glow(p.x, p.y, n.kind === "mutant" ? 120 : n.kind === "artcar" ? 60 : n.kind === "walker" ? 10 : 18, `hsla(${n.hue}, 100%, 60%, A)`, (n.kind === "mutant" ? 0.75 : 0.5) * night);
+    for (const { n, p } of npcs) glow(p.x, p.y, n.kind === "mutant" ? 120 : n.kind === "mv" ? 70 : n.kind === "artcar" ? 60 : n.kind === "walker" ? 10 : 18, `hsla(${n.hue}, 100%, 60%, A)`, (n.kind === "mutant" ? 0.75 : 0.5) * night);
     for (const sp of spots) if (sp.kind !== "agave") glow(sp.stage.x, sp.stage.y, sp.stage.r * 3.2, `hsla(${(sp.hue + t * 30) % 360}, 100%, 60%, A)`, 0.6 * night);
     if (seen(0, 0, 400)) glow(0, 0, 320, "rgba(125, 249, 255, A)", 0.55 * night);
     if (seen(TEMPLE.x, TEMPLE.y, 300)) glow(TEMPLE.x, TEMPLE.y, 240, "rgba(255, 190, 120, A)", 0.4 * night);
     if (seen(AGAVE.dome.x, AGAVE.dome.y, 220)) glow(AGAVE.dome.x, AGAVE.dome.y, 170, `hsla(${330 + 20 * Math.sin(t)}, 100%, 62%, A)`, 0.6 * night);
     if (seen(CENTER_CAMP.x, CENTER_CAMP.y, 300)) glow(CENTER_CAMP.x, CENTER_CAMP.y, 220, "rgba(255, 210, 140, A)", 0.4 * night);
+    if (seen(FLY_RANCH.at.x, FLY_RANCH.at.y, 300)) glow(FLY_RANCH.at.x, FLY_RANCH.at.y, 240, "rgba(125, 220, 255, A)", 0.45 * night);
     for (const a of ART) if (seen(a.x, a.y, 200)) glow(a.x, a.y, a.r * 2.4, `hsla(${a.hue + ((t * 40) % 60)}, 100%, 60%, A)`, 0.55 * night);
+    for (const a of ART_2026_SPOTS) if (seen(a.x, a.y, 40)) glow(a.x, a.y, 30, `hsla(${a.hue}, 100%, 60%, A)`, 0.5 * night);
     for (const b of vis) for (const it of b.items) {
       if (!seen(it.x, it.y, 50)) continue;
       if (it.kind === "arch") glow(it.x, it.y, 26, `hsla(${it.hue}, 100%, 62%, A)`, 0.6 * night);
@@ -1254,10 +1350,14 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
 
 /**
  * What is drawn over the finished picture, in screen pixels (the caller has set the screen transform): the dust storm's whiteout and
- * streaks, and the arrow to a pager target that is off the screen. Top-down and the chase camera share it. `proj` turns a world point
+ * streaks, and the arrow to a pager target (always, on or off the screen). Top-down and the chase camera share it. `proj` turns a world point
  * into screen pixels, or null when it is behind the 3D camera; `yaw` is that camera's heading (null in top-down), which points the arrow
  * round behind you when the target is.
  */
+/** How high the plane is before the big "Push E to eject" shows (asked 2026-11-04). */
+const EJECT_PROMPT_ALT = 150;
+/** How long pushing on without moving counts as stuck, in seconds (the "Press T to get superpowers" prompt). */
+const STUCK_SECONDS = 3;
 /** Whether the chase view's screen-space target ring is showing (paintOverlay's hysteresis). */
 let ringShown = true;
 function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, proj: (p: Vec, up?: number) => { x: number; y: number } | null, tg: ReturnType<typeof missionTarget>, yaw: number | null = null) {
@@ -1281,7 +1381,7 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     ctx.stroke();
   }
 
-  // an arrow pointing to a target off the screen: on a ring round the ride, not out at the edge (2026-10-22)
+  // an arrow pointing to the target: on a ring round the ride, not out at the edge (2026-10-22)
   if (tg) {
     // big and easy to see (asked 2026-11-03): about 2.5 times the old one, a white halo round a navy edge, nudging toward the target as it pulses
     const arrow = (x: number, y: number, a: number) => {
@@ -1312,12 +1412,12 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
           ctx.fillStyle = `rgba(255, 107, 154, ${0.15 + 0.15 * pulse})`; ctx.fill();
         }
       }
-      const sx = s.x, sy = s.y;
-      if (sx < m || sx > w - m || sy < m || sy > h - m) {
-        const a = Math.atan2(sy - h / 2, sx - w / 2);
-        const k = Math.min((w / 2 - ma) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - ma) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(110, Math.min(w, h) * 0.3));
-        arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a);
-      }
+      // always shown (asked 2026-11-04), not only while the target is off the screen; on the screen it stops short of the target so it never covers it
+      const sx = s.x, sy = s.y, off = sx < m || sx > w - m || sy < m || sy > h - m;
+      const a = Math.atan2(sy - h / 2, sx - w / 2);
+      let k = Math.min((w / 2 - ma) / Math.max(1e-6, Math.abs(Math.cos(a))), (h / 2 - ma) / Math.max(1e-6, Math.abs(Math.sin(a))), Math.max(110, Math.min(w, h) * 0.3));
+      if (!off) k = Math.min(k, Math.max(60, Math.hypot(sx - w / 2, sy - h / 2) - 70));
+      arrow(w / 2 + Math.cos(a) * k, h / 2 + Math.sin(a) * k, a);
     } else if (yaw !== null) {
       // behind the 3D camera: the arrow rides the bottom edge, to the side of the screen the target is on, pointing round behind you
       const rel = wrapAngle(Math.atan2(tg.at.x - g.car.x, -(tg.at.y - g.car.y)) - yaw); // the target's bearing from the ride, relative to where the camera looks (+ is to the right)
@@ -1325,6 +1425,38 @@ function paintOverlay(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
     }
   }
 }
+/**
+ * A new job (asked 2026-11-04): its line large in the middle of the screen for a moment, then flown up into the pager, which glows as it
+ * lands. `pager` is where it flies to; `onDone` unmounts it. With reduced motion it only fades.
+ */
+function JobCard({ job, pager, onDone }: { job: { text: string; n: number }; pager: RefObject<HTMLDivElement | null>; onDone: () => void }) {
+  const card = useRef<HTMLDivElement>(null);
+  const done = useRef(onDone); done.current = onDone;
+  useEffect(() => {
+    const c = card.current; if (!c) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const pop = c.animate([{ opacity: 0, transform: "scale(.85)" }, { opacity: 1, transform: "scale(1)" }], { duration: still ? 1 : 260, easing: "cubic-bezier(.2, 1.4, .4, 1)" });
+    let fly: Animation | null = null;
+    const id = setTimeout(() => {
+      const p = pager.current;
+      if (!p || still) { fly = c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: "forwards" }); fly.onfinish = () => done.current(); return; }
+      const a = c.getBoundingClientRect(), b = p.getBoundingClientRect();
+      const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2), k = Math.min(1, b.width / a.width, b.height / a.height * 1.6);
+      fly = c.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(${k})`, opacity: 0.25 }], { duration: 650, easing: "cubic-bezier(.55, 0, .7, .2)", fill: "forwards" });
+      fly.onfinish = () => {
+        p.animate([{ boxShadow: "0 0 0 0 rgba(255, 107, 154, .9)", transform: "scale(1.04)" }, { boxShadow: "0 0 0 14px rgba(255, 107, 154, 0)", transform: "scale(1)" }], { duration: 500, easing: "ease-out" });
+        done.current();
+      };
+    }, 2500);
+    return () => { clearTimeout(id); pop.cancel(); fly?.cancel(); };
+  }, [job.n, pager]);
+  return (
+    <div className="pl-job" aria-hidden="true">
+      <div className="pl-job-card" ref={card}><small>new job</small>{job.text}</div>
+    </div>
+  );
+}
+
 const dprOf = (ctx: CanvasRenderingContext2D) => (ctx.canvas as HTMLCanvasElement & { _dpr?: number })._dpr ?? 1;
 
 /* ── the window ─────────────────────────────────────────────────────────── */
@@ -1342,7 +1474,7 @@ function onNowNear(evs: readonly PlacedEvent[], p: Vec, day: string, hour: numbe
   }
   return out.sort((a, b) => a.d - b.d).slice(0, 3).map(({ d: _d, ...e }) => e);
 }
-type Hud = { /** the burn's day and time (getlost.ts burnTime) */ when: string; /** events on now near you (asked 2026-11-03) */ onNow: { key: string; name: string; host: string; till: string }[]; address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean };
+type Hud = { /** the burn's day and time (getlost.ts burnTime) */ when: string; /** events on now near you (asked 2026-11-03) */ onNow: { key: string; name: string; host: string; till: string }[]; address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean; /** the big prompt in the middle (asked 2026-11-04): W to start on the pad, E to eject in the air, E to drive the art car you are beside, T for superpowers when you are stuck */ prompt: "" | "start" | "eject" | "drive" | "stuck" };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -1417,8 +1549,16 @@ export default function PlayaWin() {
   const [map, setMap] = useState(false);
   const [layout, setLayout] = useState(false);
   const [coarse, setCoarse] = useState(false);
-  const [hud, setHud] = useState<Hud>({ when: "", onNow: [], address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false });
+  const [hud, setHud] = useState<Hud>({ when: "", onNow: [], address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false, prompt: "" });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
+  // a new job's card in the middle of the screen, on its way to the pager (asked 2026-11-04)
+  const [job, setJob] = useState<{ text: string; n: number } | null>(null);
+  const jobN = useRef(0), pagerEl = useRef<HTMLDivElement>(null);
+  const jobDone = useCallback(() => setJob(null), []);
+  /** whether you have got going yet: until then a big "Push W to start" (asked 2026-11-04) */
+  const rolled = useRef(false);
+  // seconds you have been pushing on and going nowhere (asked 2026-11-04): stuck that long, the prompt says T gives you superpowers (the trip, which nothing stops)
+  const stuck = useRef(0);
   const setPhase = (p: Phase) => { phaseRef.current = p; setPhaseState(p); };
   const touchUi = mobile || coarse;
   // a desktop (a mouse or trackpad, not a phone) drives with the keys: no stick or drift pad, a legend of the keys in their corner instead (asked 2026-10-27)
@@ -1460,7 +1600,10 @@ export default function PlayaWin() {
   };
   // a URL that names an art car puts you in its driver's seat (asked 2026-10-23): burningman.chat/dragonlady starts you
   // at the wheel of the Dragon Lady, where it was; one with no drawing of its own starts you on the bike beside it
+  const startedAt = useRef(false);
   useEffect(() => {
+    // once (asked 2026-11-04): run twice, as React's strict mode does, the second found a parked car (Dragomi, the Golden Ticket) already taken off its spot and put you on its route far away
+    if (startedAt.current) return; startedAt.current = true;
     const key = startKey(typeof location === "undefined" ? "" : location.pathname.slice(1)) ?? "airport";
     if (key === "airport") { takeOff(); return; } // the airport (the default since 2026-10-26, and /88nv): at the controls on the pad
     if (!key?.startsWith("mutant:")) return;
@@ -1480,7 +1623,7 @@ export default function PlayaWin() {
   const [parked, setParked] = useState<string | null>(null);
   /** riding along on the art car you parked beside (lib/games/playa.ts hopOn) */
   const [aboard, setAboard] = useState(false);
-  // the airport (asked 2026-10-22): E on the pad takes the plane; R in the air bails out under a chute, on the ground steps out
+  // the airport (asked 2026-10-22): E on the pad takes the plane; E (or R) in the air ejects you under a chute (asked 2026-11-04), on the ground steps out
   const takeOff = () => { const g = game.current; if (takePlane(g)) { setVehicleState("plane"); setRides(false); flash.current = { text: "at the controls. gas to roll; past 30 mph it lifts", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); } };
   const ridealong = () => {
     const g = game.current;
@@ -1645,10 +1788,16 @@ export default function PlayaWin() {
         for (let i = 0; i < n; i++) {
           for (const e of stepGame(g, inp, hStep)) {
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
-            else if (e === "takeoff") flash.current = { text: "wheels up. gas climbs, brake dives, R bails out", until: g.t + 3 };
+            else if (e === "takeoff") {
+              flash.current = { text: "wheels up. gas climbs, brake dives, E ejects", until: g.t + 3 };
+              // videos of flying over the city go with the flight (asked 2026-11-04): the panel opens on them, the first one playing
+              const first = soundOf(SKY_KEY).tracks[0];
+              setParked(SKY_KEY); setLounge(true); if (first) pick(SKY_KEY, first);
+            }
             else if (e === "landed") {
-              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : "touchdown. choose your ride", until: g.t + 2.5 };
-              if (g.vehicle !== "plane") setTimeout(() => { const gg = game.current; if (!gg.chute && gg.alt === 0) setRides(true); }, 700); // down under the chute, on the ground: the garage opens (asked 2026-10-26)
+              setParked((p) => (p === SKY_KEY ? null : p));   // down: the flight's videos are no longer where you are (one playing goes on in the panel)
+              // down under the chute you are on the bike; the garage no longer opens by itself (asked 2026-11-04), V opens it
+              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! V for the garage", until: g.t + 2.5 };
             }
             else if (e === "delivered") {
               flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
@@ -1665,6 +1814,7 @@ export default function PlayaWin() {
             }
             else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
             else if (e === "picked") flash.current = { text: "on board!", until: g.t + 1.5 };
+            else if (e === "start") setJob({ text: pagerLine(g.mission), n: ++jobN.current });
             else if (e === "park" && g.parking.at) onPark.current(g.parking.at);
             else if (e === "leave") onLeave.current();
           }
@@ -1672,6 +1822,9 @@ export default function PlayaWin() {
       }
       // the camera: trails the car and leads it along its velocity, and pulls back with speed
       const spd = speedOf(g.car);
+      const pushing = inp.gas || inp.brake || (!!inp.stick && inp.stick.k > 0.3);
+      if (phaseRef.current !== "play" || g.ghost || g.vehicle === "plane" || g.chute || g.aboard || spd > 8) stuck.current = 0;
+      else if (pushing && spd < 3) stuck.current += dt;
       // close in, so the art car reads big in the middle (it still pulls back with speed)
       // portrait (asked 2026-10-22): a tall, narrow view pulls back a little and puts you in the lower
       // third, looking up the road the way you are pointed, so there is somewhere to go on the screen
@@ -1742,6 +1895,7 @@ export default function PlayaWin() {
       clock += dt;
       if (now - hudAt > 100) {
         const m = g.mission;
+        if (spd > 3) rolled.current = true; // under way: the prompt to start is done with
         const fl = flash.current.until > g.t ? flash.current.text : "";
         // the camps you hear from the road: rising as you ride up to one, then kept playing after you leave, until
         // another takes over; silent while paused, muted, or a set you picked in the panel plays
@@ -1779,6 +1933,7 @@ export default function PlayaWin() {
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
           hear: target && target.vol > 4 ? soundOf(target.key).name : soon ? soundOf(soon).name : "", hearKey: target && target.vol > 4 ? target.key : soon ?? "", hearSoon: !(target && target.vol > 4) && !!soon,
           alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g), gate: atGate(g),
+          prompt: stuck.current > STUCK_SECONDS ? "stuck" : g.vehicle !== "plane" ? (g.vehicle !== "found" && !g.chute && g.parking.at?.startsWith("mutant:") && ART_CARS[g.parking.at.slice(7)] ? "drive" : "") : g.alt <= 0 && !rolled.current ? "start" : g.alt >= EJECT_PROMPT_ALT ? "eject" : "",
         });
         const mc = mini.current, mx = mc?.getContext("2d");
         if (mc && mx && mc.width > 0) {
@@ -1894,8 +2049,9 @@ export default function PlayaWin() {
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane") ridealong(); else if (!g.chute && g.alt === 0) setRides((r) => !r); }
-    // E: at the wheel of an art car it parks it and puts you on the bike (asked 2026-10-26: it used to take the wheel again); beside one it takes the wheel; at the airport, the plane
-    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (g.vehicle === "found") { e.preventDefault(); ridealong(); } else if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
+    // E: at the wheel of an art car it parks it and puts you on the bike (asked 2026-10-26: it used to take the wheel again); beside one it takes the wheel; at the airport, the plane;
+    // in the plane it ejects you under the chute, as R does (asked 2026-11-04)
+    else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (g.vehicle === "found" || g.vehicle === "plane") { e.preventDefault(); ridealong(); } else if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
     else if (e.key === "Escape") { if (layout) setLayout(false); else if (map) setMap(false); }
     else if (e.key === "Enter" && !onButton && phaseRef.current !== "play") { e.preventDefault(); go(); }
   };  const onKeyRef = useRef(onKey); onKeyRef.current = onKey;
@@ -1979,10 +2135,22 @@ export default function PlayaWin() {
         <canvas ref={glCanvas} className="pl-canvas pl-canvas-3d" aria-hidden="true" hidden={view !== "chase"} />
         <canvas ref={canvas} className="pl-canvas" aria-hidden="true" />
 
+        {job && <JobCard job={job} pager={pagerEl} onDone={jobDone} />}
+        {/* big and clear in the middle (asked 2026-11-04): what to press to get going on the pad, to eject once up in the plane, and to drive the art car you are beside; not over a new job's card */}
+        {phase === "play" && hud.prompt && !job && !rides && !map && (
+          <div className="pl-prompt" role="status">
+            <div className="pl-prompt-card">{hud.prompt === "start"
+              ? touchUi ? <>push the stick <b>up</b> to start</> : <>Push <kbd>W</kbd> to start</>
+              : hud.prompt === "stuck" ? touchUi ? <>stuck? tap the <b>mushroom</b> for superpowers</> : <>Press <kbd>T</kbd> to get superpowers</>
+              : hud.prompt === "drive" ? touchUi ? <>tap <b>drive</b> to take the wheel</> : <>Press <kbd>E</kbd> to drive the art car</>
+              : touchUi ? <>tap <b>bail out</b> to eject</> : <>Push <kbd>E</kbd> to eject</>}</div>
+          </div>
+        )}
+
         {/* the top: the pager across, then the where-and-points box left and the minimap and buttons right, each
             below the pager however many lines it takes (asked 2026-10-22: a long job overlapped the box) */}
         <div className="pl-top" ref={top}>
-        <div className="pl-pager" aria-live="polite">
+        <div className={job ? "pl-pager pl-pager-wait" : "pl-pager"} ref={pagerEl} aria-live="polite">
           <span className="pl-pager-txt">{hud.pager}</span>
           {hud.time != null && <b className={hud.time < 10 ? "pl-late" : undefined}>{fmt(hud.time)}</b>}
           {/* skip this job for the next one (asked 2026-11-03) */}
@@ -2050,8 +2218,8 @@ export default function PlayaWin() {
           <dl className="pl-keys" aria-label="the keys">
             <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
-            <div><dt>E</dt><dd>drive an art car · take the plane</dd></div>
-            <div><dt>R</dt><dd>ride along · bail out · the garage</dd></div>
+            <div><dt>E</dt><dd>drive an art car · the plane · eject</dd></div>
+            <div><dt>R</dt><dd>ride along · the garage</dd></div>
             <div><dt>V</dt><dd>garage</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
             <div><dt>, .</dt><dd>turn the view</dd></div>
@@ -2085,7 +2253,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · R bails out with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>

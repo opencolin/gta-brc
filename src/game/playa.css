@@ -19,11 +19,13 @@
 .pl .pl-top > * { pointer-events: auto; }
 .pl .pl-pager {
   grid-column: 1 / -1; justify-self: start; max-width: 100%; display: flex; align-items: center; gap: 12px; /* as wide as the job, not the screen (asked 2026-10-22) */
-  padding: 6px 12px; border-radius: 6px; background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
-  font-family: var(--mono); font-size: var(--t-secondary); line-height: var(--lh-secondary); min-height: 34px;
+  padding: 10px 16px; border-radius: 8px; background: var(--pl-glass); color: var(--pl-ink); border: 2px solid var(--pl-pink);
+  font-family: var(--mono); font-size: 18px; line-height: 1.35; min-height: 48px; /* the job, bigger (asked 2026-11-03) */
 }
 .pl .pl-pager-txt { flex: 1; min-width: 0; }
-.pl .pl-pager b { font-family: var(--font-display, var(--font)); font-size: var(--t-heading); font-variant-numeric: tabular-nums; color: var(--pl-gold); }
+.pl .pl-pager b { font-family: var(--font-display, var(--font)); font-size: 26px; font-variant-numeric: tabular-nums; color: var(--pl-gold); }
+.pl[data-phone] .pl-pager { padding: 7px 12px; font-size: 15px; min-height: 40px; }
+.pl[data-phone] .pl-pager b { font-size: 21px; }
 .pl .pl-pager b.pl-late { color: var(--pl-pink); }
 
 /* where you are and how fast */
@@ -207,7 +209,7 @@
 /* the lounge: parked at a sound camp, its sets and SoundCloud's player; folds to a bar when you drive off.
    Bottom left on a desk, between the HUD and the thumbs on a phone, never over the whole game. */
 .pl .pl-lounge {
-  position: absolute; left: 8px; bottom: 8px; z-index: 4; width: min(360px, calc(100% - 16px)); max-height: calc(100% - 220px);
+  position: absolute; left: 8px; bottom: 8px; z-index: 4; width: min(320px, calc(100% - 16px)); max-height: calc(100% - 220px); /* 360 until 2026-11-04 (asked: a little less wide) */
   display: flex; flex-direction: column; border-radius: 10px; overflow: hidden;
   background: rgba(27, 31, 59, .96); color: var(--pl-ink); border: 2px solid var(--pl-pink); box-shadow: 0 0 28px rgba(255, 107, 154, .35);
 }
@@ -270,7 +272,7 @@
 .pl .pl-amb > .pl-amb-box { position: absolute; left: 0; top: 0; width: 300px; height: 120px; border: 0; opacity: 0; clip-path: inset(0 0 calc(100% - 1px) calc(100% - 1px)); }
 /* the camp you are hearing: its player in plain sight, where the lounge sits when you park */
 .pl .pl-amb > .pl-amb-on {
-  top: auto; left: 8px; bottom: 8px; z-index: 4; width: min(360px, calc(100% - 16px)); height: 120px; opacity: 1; clip-path: none; pointer-events: auto;
+  top: auto; left: 8px; bottom: 8px; z-index: 4; width: min(320px, calc(100% - 16px)); height: 120px; opacity: 1; clip-path: none; pointer-events: auto;
   border: 2px solid var(--pl-pink); border-radius: 10px; background: rgba(27, 31, 59, .96); box-shadow: 0 0 28px rgba(255, 107, 154, .35);
 }
 /* a video plays where the SoundCloud player would, at its own 16:9 */
@@ -327,16 +329,24 @@
 .pl .pl-peek-label { width: 100%; padding: 4px 8px; color: #ffffff; font-family: var(--font); font-size: var(--t-caption); font-weight: 600; line-height: var(--lh-ui); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pl[data-phone] .pl-peek { width: 170px; }
 .pl .pl-lg-clip { flex: none; margin-left: auto; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .12); color: var(--pl-gold); font-size: var(--t-caption); line-height: var(--lh-ui); }
-/* a clip (mostly phone video, often upright) gets room on a desk: a wider panel, a tall player it can fill (asked 2026-10-22) */
-.pl:not([data-phone]) .pl-lounge.pl-lounge-clip:not([data-mini]) { width: min(480px, calc(100% - 16px)); max-height: calc(100% - 120px); }
+/* a clip (mostly phone video, often upright) gets room on a desk: a tall player it can fill (asked 2026-10-22); the player is in the screen's
+   bottom right corner since 2026-11-03, so the panel keeps its width (it was 480 px for a clip) */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-clip:not([data-mini]) { max-height: calc(100% - 120px); }
 .pl:not([data-phone]) .pl-lounge:not([data-mini]) .pl-lg-player.pl-lg-clip-player { aspect-ratio: auto; height: min(56vh, 520px); }
-/* the panel made big: the whole screen (asked 2026-10-22: half, then three quarters, then all of it), its video filling what the list leaves */
-.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) { top: 0; left: 0; right: 0; bottom: 0; width: auto; max-height: none; z-index: 30; border-radius: 0; }
-.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-body { flex: 0 1 auto; min-height: 0; overflow: auto; }
-/* the player takes whatever height the sets' list leaves: the video, or SoundCloud's artwork player */
-.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-player:not(.pl-lg-stacked) { flex: 1 1 auto; min-height: 40vh; height: auto; aspect-ratio: auto; }
-/* every SoundCloud set as its own player, stacked (asked 2026-10-22); the one playing is outlined */
-.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]):has(.pl-lg-stack) .pl-lg-body { flex: 1 1 auto; }
+/* what plays: no box of its own, so the player is one of the panel's rows as before (PlayaLounge's pl-lg-main) */
+.pl .pl-lg-main { display: contents; }
+/* the panel made big: the whole screen (asked 2026-10-22: half, then three quarters, then all of it). Since 2026-10-31 (asked) two columns: down the
+   left a nav of the head, the blurb, the hop buttons and the sets, which scroll on their own; the rest of the screen is what plays, the video as big
+   as fits (YouTube's frame keeps its 16:9 inside it, never cropped), or SoundCloud's artwork player, or every SoundCloud set stacked */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) { top: 0; left: 0; right: 0; bottom: 0; width: auto; max-height: none; z-index: 30; border-radius: 0; flex-direction: row; background: var(--pl-navy); }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-body { flex: 0 0 clamp(320px, 26vw, 380px); box-sizing: border-box; min-height: 0; overflow-y: auto; padding: 12px 12px 10px; border-right: 1px solid rgba(255, 255, 255, .14); }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-list { flex: 1 1 auto; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-title { white-space: normal; overflow: visible; }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-main { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; background: #000000; }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-player:not(.pl-lg-stacked) { flex: 1 1 auto; min-height: 0; height: auto; aspect-ratio: auto; }
+/* every SoundCloud set as its own player, stacked (asked 2026-10-22); the one playing is outlined; in the big panel they fill the right and scroll */
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-stack { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; background: var(--pl-navy); }
+.pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]) .pl-lg-main:empty { background: var(--pl-navy); }
 .pl .pl-lg-stack { display: flex; flex-direction: column; gap: 8px; }
 .pl .pl-lg-player.pl-lg-stacked { flex: none; height: 166px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; }
 .pl .pl-lg-player.pl-lg-stacked[data-now] { border-color: var(--pl-pink); }
@@ -358,7 +368,7 @@
 
 /* with the big map up the mini player sits bottom left on every screen (asked 2026-10-22), clear of the map's buttons on the right */
 .pl[data-map] .pl-lounge[data-mini], .pl[data-map] .pl-amb > .pl-amb-on {
-  top: auto; right: auto; left: 8px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100% - 16px)); z-index: 41;
+  top: auto; right: auto; left: 8px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: min(320px, calc(100% - 16px)); z-index: 41;
 }
 .pl[data-map] .pl-tools { visibility: hidden; }
 .pl[data-phone][data-map] .pl-map-x { bottom: calc(18px + var(--pl-player-h, 0px) + env(safe-area-inset-bottom, 0px)); } /* above the player on a phone */
@@ -380,5 +390,46 @@
   border-radius: 10px; overflow: hidden; border: 2px solid var(--pl-pink); box-shadow: 0 8px 28px rgba(0, 0, 0, .55); background: #000;
 }
 .pl:not([data-phone]) .pl-lounge.pl-lounge-wide:not([data-mini]):has(.pl-lg-video) .pl-lg-stack { padding-bottom: calc(min(560px, 42vw) * 9 / 16 + 32px); }
+/* the panel at its usual size with a video playing (asked 2026-11-03): the video in the bottom right corner of the screen, not over the sets in
+   the panel; an upright clip stands as tall as it did */
+.pl:not([data-phone]) .pl-lounge:not([data-mini]):not(.pl-lounge-wide) .pl-lg-player.pl-lg-video {
+  position: fixed; right: 16px; bottom: 16px; z-index: 6; width: min(480px, 36vw); height: auto; aspect-ratio: 16 / 9; flex: none;
+  border-radius: 10px; overflow: hidden; border: 2px solid var(--pl-pink); box-shadow: 0 8px 28px rgba(0, 0, 0, .55); background: #000;
+}
+.pl:not([data-phone]) .pl-lounge:not([data-mini]):not(.pl-lounge-wide) .pl-lg-player.pl-lg-video.pl-lg-clip-player { width: auto; height: min(56vh, 520px); aspect-ratio: 9 / 16; }
+/* the video alone over the whole screen, without the sets (asked 2026-11-04): its button in the video's top right, and the panel above the HUD while it
+   fills the screen; YouTube's frame keeps its 16:9 (or an upright clip its 9:16) inside the black. Over every size the player takes, hence !important */
+.pl .pl-lg-player.pl-lg-video { position: relative; }
+.pl .pl-lg-max { position: absolute; top: 8px; right: 8px; z-index: 3; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; background: rgba(27, 31, 59, .8); color: #ffffff; font-size: var(--t-heading); }
+.pl .pl-lounge.pl-lounge-full { z-index: 45 !important; }
+.pl .pl-lounge .pl-lg-player.pl-lg-video.pl-lg-full {
+  position: fixed !important; inset: 0 !important; margin: 0 !important; width: auto !important; height: auto !important; max-width: none !important; max-height: none !important; aspect-ratio: auto !important;
+  z-index: 45 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #000 !important;
+}
+.pl .pl-lg-player.pl-lg-full .pl-yt, .pl .pl-lg-player.pl-lg-full iframe { width: 100%; height: 100%; }
+.pl .pl-lg-player.pl-lg-full .pl-lg-max { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 44px; height: 44px; }
 /* the pager's skip button (asked 2026-11-03): small, at the end of the job's line */
 .pl .pl-pager .pl-skip { min-height: 24px; padding: 1px 8px; font-size: var(--t-caption); flex: none; }
+
+/* a new job (asked 2026-11-04): its card in the middle of the screen, then flown into the pager (PlayaWin's JobCard); the pager's own line waits, keeping its width, until it lands */
+.pl .pl-job { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+.pl .pl-job-card {
+  max-width: min(560px, 100%); padding: 18px 26px; border-radius: 12px; background: var(--pl-glass); color: var(--pl-ink); border: 3px solid var(--pl-pink);
+  font-family: var(--mono); font-size: 26px; line-height: 1.3; text-align: center; box-shadow: 0 10px 40px rgba(27, 31, 59, .35); transform-origin: center;
+}
+.pl .pl-job-card small { display: block; margin-bottom: 6px; font-family: var(--font-display, var(--font)); font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--pl-pink); }
+.pl[data-phone] .pl-job-card { padding: 14px 18px; font-size: 19px; }
+.pl .pl-pager-wait .pl-pager-txt { visibility: hidden; }
+/* the big prompt in the middle (asked 2026-11-04): "Push W to start" on the pad, "Push E to eject" up in the plane; a little above the middle, clear of the ride */
+.pl .pl-prompt { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px 16px 18vh; pointer-events: none; }
+.pl .pl-prompt-card {
+  padding: 16px 30px; border-radius: 14px; background: var(--pl-glass); border: 3px solid var(--pl-pink); color: var(--pl-ink); text-align: center;
+  font-family: var(--font-display, var(--font)); font-size: 40px; line-height: 1.2; box-shadow: 0 10px 40px rgba(27, 31, 59, .35); animation: pl-prompt 1.4s ease-in-out infinite;
+}
+.pl .pl-prompt-card kbd, .pl .pl-prompt-card b {
+  display: inline-block; min-width: 1.3em; padding: 0 .25em; margin: 0 .1em; border-radius: 8px; background: var(--pl-pink); color: var(--pl-navy); font: inherit; font-weight: 700;
+  box-shadow: 0 4px 0 var(--pl-navy);
+}
+.pl[data-phone] .pl-prompt-card { font-size: 26px; padding: 12px 20px; }
+@keyframes pl-prompt { 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .pl .pl-prompt-card { animation: none; } }

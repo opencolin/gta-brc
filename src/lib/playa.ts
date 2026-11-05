@@ -20,7 +20,8 @@ import {
 } from "./brc.ts";
 import { planAt, planCity, realCamps, structPush, type BlockPlan } from "./camps.ts";
 import { EVENT_RIDES } from "./camps2026.ts";
-import { dayName, hourLabel } from "./getlost.ts";
+import { dayName, hourLabel, toGame } from "./getlost.ts";
+import { ART_2026, CARS_2026, type CarForm } from "./playa2026.ts";
 import { SOUND_CAMPS, campTracks, type SoundCamp } from "./soundcamps.ts";
 
 /** Where Agave Lounge camps: the Esplanade at 8:30, its dome facing the open playa. */
@@ -469,13 +470,17 @@ export function collide(c: Car, v: Vehicle = CAR): number {
 /* ── the others on the road ─────────────────────────────────────────────── */
 
 type NpcBase = {
-  kind: "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "artcar" | "mutant" | "ambulance" | "rv"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
+  kind: "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "artcar" | "mutant" | "mv" | "ambulance" | "rv"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
+  /** a 2026 mutant vehicle's shape (MVS) */
+  form?: CarForm;
   /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line, `rank` its place in the pack */
   lead?: Npc; lag?: number; side?: number; rank?: number;
+  /** someone on foot who jumped out of your way (dodgeWalkers): from `x0`, `y0` to `x`, `y` feet off their route, leaping at game time `t0` */
+  dodge?: { x0: number; y0: number; x: number; y: number; t0: number } | null;
 };
 /** `line`: from `from` to `to` and round again from `from` (the Exodus queue), `phase` feet along it */
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" }) | (NpcBase & { path: "line"; from: Vec; to: Vec });
-export const NPC_R = { bike: 7, ebike: 7, tuktuk: 10, unicycle: 5, walker: 5, artcar: 24, mutant: 32, ambulance: 14, rv: 14 } as const;
+export const NPC_R = { bike: 7, ebike: 7, tuktuk: 10, unicycle: 5, walker: 5, artcar: 24, mutant: 32, mv: 18, ambulance: 14, rv: 14 } as const;
 /** Someone on a bike of some sort, for the warnings. */
 export const onBike = (n: Npc) => n.kind === "bike" || n.kind === "ebike" || n.kind === "tuktuk" || n.kind === "unicycle";
 /** Room a biker riding with an art car keeps from it: wide enough to ride between them. */
@@ -596,7 +601,23 @@ export function stepPack(g: Game, dt: number) {
     if (d < clear) { if (d < 1e-6) { const f = fwd(car.h); dx = -f.x; dy = -f.y; d = 1; } a.x = car.x + (dx / d) * clear; a.y = car.y + (dy / d) * clear; }
   }
 }
+/**
+ * People on foot jump out of your way (asked 2026-11-04: instead of being bumped): a quick leap aside off their route (DODGE.leap seconds,
+ * facing where they jump), a while standing clear, then a stroll back onto it.
+ */
+export const DODGE = { leap: 0.3, hold: 2.5, back: 2 } as const;
+const ease = (x: number) => x * x * (3 - 2 * x);
 export function npcAt(n: Npc, t: number): { x: number; y: number; h: number } {
+  const p = routeAt(n, t), d = n.dodge;
+  if (!d) return p;
+  const u = t - d.t0;
+  if (u < 0) return p;
+  if (u < DODGE.leap + DODGE.hold) { const k = ease(Math.min(1, u / DODGE.leap)); return { x: p.x + d.x0 + (d.x - d.x0) * k, y: p.y + d.y0 + (d.y - d.y0) * k, h: u < DODGE.leap * 2 ? Math.atan2(d.x - d.x0, -(d.y - d.y0)) : p.h }; }
+  const k = Math.max(0, 1 - ease(Math.min(1, (u - DODGE.leap - DODGE.hold) / DODGE.back)));
+  return { x: p.x + d.x * k, y: p.y + d.y * k, h: p.h };
+}
+/** Where someone is on their route at time `t` (npcAt adds a walker's jump out of the way). */
+function routeAt(n: Npc, t: number): { x: number; y: number; h: number } {
   if (driven.key && n.key === driven.key) { const p = drivenAt(t); if (p) return p; }
   if (n.key) { const pk = parkedCars.get(n.key); if (pk) return pk; }
   if (n.lead) {
@@ -667,6 +688,24 @@ function moreRides(): Npc[] {
   for (let i = 0; i < 12; i++) out.push(playa("ebike", 30, 20, blue));
   return out;
 }
+/**
+ * The rest of 2026's mutant vehicles (asked 2026-11-04, from Burning Man's 2026 listing): each of playa2026.ts's cars by its own name, in a
+ * shape for its form, roaming the open playa at a walking pace, two in three circling the Man inside the Esplanade and the rest sweeping the
+ * deep playa out past the Temple. From a generator of their own, so everyone else's routes for a seed are unchanged.
+ */
+export const MVS: readonly Npc[] = (() => {
+  const rand = seeded(20261104);
+  return CARS_2026.map((c, i): Npc => {
+    const base = { kind: "mv" as const, key: `mv:${c.uid}`, name: c.name, form: c.form, speed: (rand() < 0.5 ? -1 : 1) * (6 + rand() * 7), hue: Math.floor(rand() * 360) };
+    if (i % 3 < 2) return { ...base, path: "loop", r: 600 + rand() * (ARC_R[0] - 900), phase: rand() * 720 };
+    const r = ARC_R[0] + 500 + rand() * 5500, half = 60 + rand() * 40;
+    return { ...base, path: "arc", r, from: -half, to: half, phase: rand() * half * 2 };
+  });
+})();
+/** The rest of 2026's art (asked 2026-11-04): playa2026.ts's pieces where they stand, a hue each for its marker. You drive through them. */
+export type Art2026Spot = Vec & { uid: string; name: string; artist?: string; hue: number };
+export const ART_2026_SPOTS: readonly Art2026Spot[] = ART_2026.flatMap((a, i) => { const p = toGame(a); return p ? [{ ...p, uid: a.uid, name: a.name, artist: a.artist, hue: (i * 137) % 360 }] : []; });
+
 /**
  * Exodus (asked 2026-11-02): a long line of RVs leaving the burn, nose to tail in two lanes from the city's last street out
  * Gate Road (4:30) and through the Gate between its booths, crawling at about 4 mph; each comes round to the city end again.
@@ -772,7 +811,7 @@ export function makeNpcs(rand: () => number): Npc[] {
       out.push({ kind: "bike", path: "loop", r: lead.r, speed: lead.speed, phase: 0, hue: Math.floor(rand() * 360), lead, lag: 1.2 + j * 0.55 + rand() * 0.5, side: (rand() - 0.5) * 90, rank: j });
     }
   }
-  out.push(...moreRides(), ...EXODUS);
+  out.push(...moreRides(), ...EXODUS, ...MVS);
   // Center Camp sits across the Esplanade, A and B (the 2026 city, asked 2026-11-03): a ride on one of those arcs keeps to one side of it and turns back at its edge
   for (const n of out) if (n.path === "arc" && !n.lead && n.from <= 360 && n.to >= 360) {
     const gap = arcGap(n.r);
@@ -897,6 +936,8 @@ export function timeFor(from: Vec, job: Job, t = 0): number {
 export type MissionEvent = "start" | "picked" | "delivered" | "failed";
 /** The skydive: the height (feet) the jump is on from, and the job's clock. */
 export const SKYDIVE_ALT = 400, SKYDIVE_TIME = 240;
+/** How fast the ground comes up under the parachute, ft/s: about 8 s down from the jump's 400 ft (24 ft/s until 2026-11-04, asked: a little too long). */
+export const CHUTE_SINK = 48;
 export const SKYDIVE_JOB = JOBS.findIndex((j) => j.kind === "skydive");
 /** The job after the jump: Polo & Pan in the Golden Ticket. */
 export const POLO_JOB = JOBS.findIndex((j) => j.who === "Polo & Pan");
@@ -994,8 +1035,8 @@ export function pagerLine(m: Mission): string {
   }
   if (job.kind === "skydive") {
     const ft = Math.round(m.progress / CITY_SCALE);
-    if (m.phase === "pickup") return m.moop0 ? `climb to ${SKYDIVE_ALT} ft over the city, then R bails out: land by Agave Lounge` : "get to the airport and take the plane (E on the pad)";
-    if (m.phase === "dropoff") return `bail out (R) and steer the chute to Agave Lounge · ${ft} ft from the dome`;
+    if (m.phase === "pickup") return m.moop0 ? `climb to ${SKYDIVE_ALT} ft over the city, then E ejects you: land by Agave Lounge` : "get to the airport and take the plane (E on the pad)";
+    if (m.phase === "dropoff") return `eject (E) and steer the chute to Agave Lounge · ${ft} ft from the dome`;
     if (m.phase === "done") return `you landed ${ft} ft from the dome. the camp cheers and pours you a mezcal`;
     return ft ? `you came down ${ft} ft from Agave Lounge. the mezcal is still there if you ride over` : "the jump was the point: you landed the plane instead";
   }
@@ -1065,6 +1106,8 @@ export function stepParking(pk: Parking, car: { x: number; y: number; speed: num
 
 export type Storm = { phase: "clear" | "rising" | "storm" | "falling"; t: number; hold: number };
 export const STORM_RAMP = 3;
+/** When the first dust storm comes, seconds into the game: five to seven minutes (asked 2026-11-04: 50 to 90 s was too early); the ones after it come 70 to 140 s apart. */
+export const FIRST_STORM = { from: 300, to: 420 };
 /** How thick the dust is, 0 to 1. */
 export function stormLevel(s: Storm): number {
   if (s.phase === "rising") return Math.min(1, s.t / STORM_RAMP);
@@ -1129,6 +1172,27 @@ function stepDay(g: Game, dt: number): void {
   if (g.dayT >= w.to) g.dayWarp = null;
 }
 
+/**
+ * Anyone on foot in your path jumps out of the way: someone ahead of you (within the next DODGE_LOOK seconds at your speed, or close by),
+ * nearer your line than they could stand, leaps aside, square to your way and to the side they were already on, far enough to stand clear.
+ */
+const DODGE_LOOK = 0.9, DODGE_CLEAR = 10;
+export function dodgeWalkers(g: Game, v: Vehicle): void {
+  const spd = speedOf(g.car);
+  if (spd < 4) return;
+  const fx = g.car.vx / spd, fy = g.car.vy / spd, look = Math.max(40, spd * DODGE_LOOK);
+  for (const n of g.npcs) {
+    if (n.kind !== "walker" || (n.dodge && g.t - n.dodge.t0 < DODGE.leap + DODGE.hold)) continue;
+    const p = npcAt(n, g.t), dx = p.x - g.car.x, dy = p.y - g.car.y;
+    const ahead = dx * fx + dy * fy;
+    if (ahead < -NPC_R.walker || ahead > look) continue;
+    const side = dx * -fy + dy * fx, clear = v.wid / 2 + NPC_R.walker + DODGE_CLEAR;   // + to your right
+    if (Math.abs(side) >= clear) continue;
+    const s = side >= 0 ? 1 : -1, r = routeAt(n, g.t), x0 = p.x - r.x, y0 = p.y - r.y, jump = clear - Math.abs(side) + 4;   // from where they stand, even on their way back
+    n.dodge = { x0, y0, x: x0 - fy * s * jump, y: y0 + fx * s * jump, t0: g.t };
+  }
+}
+
 /* ── the whole game ─────────────────────────────────────────────────────── */
 
 /** A small seeded generator (mulberry32), so a run replays. */
@@ -1187,6 +1251,9 @@ export function startKey(path: string): string | null {
     const a = ART.find((x) => hit(key(x.id)) || hit(key(x.name)));
     if (a) return `art:${a.name}`;
   }
+  // any of 2026's camps by its whole name (asked 2026-11-04: burningman.chat/celestialteagarden), when no sound camp, art car or piece has it
+  const r = realCamps().find((x) => key(x.name) === slug);
+  if (r) return `real:${r.uid}`;
   return null;
 }
 /** Where and which way to start for a place key: beside an art car (to its right, heading its way), parked in a camp's
@@ -1198,6 +1265,15 @@ function startPose(key: string | null): { at: Vec; h: number } {
   if (key.startsWith("mutant:")) { const p = npcAt(mutantOf(key)!, 0), r = right(p.h); return { at: { x: p.x + r.x * 30, y: p.y + r.y * 30 }, h: p.h }; }
   // a camp: parked in its bay, so its music is playing from the start (the panel opens as you stop there)
   if (key.startsWith("camp:")) { const sp = spotOf(key)!; return { at: sp.mid, h: sp.arc ? (sp.curbMin / 720) * Math.PI * 2 + Math.PI / 2 : Math.atan2(sp.stage.y - sp.mid.y, sp.stage.x - sp.mid.x) + Math.PI / 2 }; }
+  // one of 2026's camps: on its street 90 ft short of it, facing clockwise along it so it is just ahead (on its own spot, facing out, when its address is no street)
+  if (key.startsWith("real:")) {
+    const c = realCamps().find((x) => x.uid === key.slice(5));
+    if (c) {
+      const { min } = toPolar(c.at), street = /(?:^|& )([A-K]|Esplanade)(?: ·|$| &)/.exec(c.address ?? "")?.[1];
+      if (street) { const r = ARC_R[arcIndex(street)], m = min - (90 / r) * (720 / (Math.PI * 2)); return { at: polar(m, r), h: clockToAngle(m) + Math.PI / 2 }; }
+      return { at: c.at, h: clockToAngle(min) };
+    }
+  }
   if (key.startsWith("art:")) { // in the piece's bay if it has one (its panel opens as you stop), else far enough back that the whole piece is on screen ahead
     const a = ART.find((x) => x.name === key.slice(4))!, sp = spotOf(`camp:${a.id}`);
     const d = Math.hypot(a.x, a.y) || 1, k = (d - a.r - 170) / d, at = sp ? sp.mid : { x: a.x * k, y: a.y * k };
@@ -1211,11 +1287,14 @@ export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null
   const rand = seeded(seed);
   // the Golden Ticket is parked at Agave Lounge (asked 2026-10-26), on the Esplanade a little past the camp's bay, until someone drives it off
   { const a = clockToAngle(AGAVE.curbMin), tx = Math.cos(a), ty = Math.sin(a); parkedCars.set("mutant:golden-ticket", { x: AGAVE.curb.x + tx * 165, y: AGAVE.curb.y + ty * 165, h: a + Math.PI / 2 }); } // 165 ft along: out of parking reach (MUTANT_PARK_R) of where you start, so its panel does not open on its own
+  // Dragomi is parked at Celestial Tea Garden, 8:45 & E, mountain side (asked 2026-11-04): on E, along the camp's curb, a little clockwise of the camp's middle (526.3),
+  // so burningman.chat/celestialteagarden, starting on E 90 ft short of the camp, has it just ahead
+  { const min = 526.8, a = clockToAngle(min), p = polar(min, ARC_R[arcIndex("E")] + arcWidth(arcIndex("E")) / 2 - 16); parkedCars.set("mutant:dragomi", { x: p.x, y: p.y, h: a + Math.PI / 2 }); }
   const start = startPose(at);
   return {
     t: 0, car: newCar(start.at, start.h), vehicle, mission: newMission(seed), npcs: makeNpcs(rand),
     moop: Array.from({ length: MOOP_N }, () => moopSpot(rand)), moopCount: 0,
-    storm: { phase: "clear", t: 0, hold: 50 + rand() * 40 }, dayT: (at?.startsWith("mutant:") || at === "man" ? 0.62 : 0.1) * DAY_SECONDS, dust: [], /* starting at an art car (burningman.chat/goldenticket, /dragonlady) or at the Man (/theman) it is night, when the art cars and his fire are at their best (asked 2026-10-27) */ bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
+    storm: { phase: "clear", t: 0, hold: FIRST_STORM.from + rand() * (FIRST_STORM.to - FIRST_STORM.from) }, dayT: (at?.startsWith("mutant:") || at === "man" ? 0.62 : 0.1) * DAY_SECONDS, dust: [], /* starting at an art car (burningman.chat/goldenticket, /dragonlady) or at the Man (/theman) it is night, when the art cars and his fire are at their best (asked 2026-10-27) */ bumps: 0, hitCool: 0, aboard: null, ghost: false, pinned: 0, slip: 0, warn: 0, warnText: "",
     parking: newParking(), alt: 0, chute: false, plane: null, angels: [], angelT: 0,
     rand,
   };
@@ -1317,7 +1396,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
     let vx = c.vx * (1 - 1.4 * dt) + ax * 90 * dt, vy = c.vy * (1 - 1.4 * dt) + ay * 90 * dt;
     const sp = Math.hypot(vx, vy); if (sp > 45) { vx *= 45 / sp; vy *= 45 / sp; }
     g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h: sp > 5 ? Math.atan2(vx, -vy) : c.h };
-    g.alt = Math.max(0, g.alt - 24 * dt);
+    g.alt = Math.max(0, g.alt - CHUTE_SINK * dt);
     if (g.alt === 0) { g.chute = false; g.car = { ...g.car, vx: 0, vy: 0 }; collide(g.car, VEHICLES.bike); ev.push("landed"); }
   } else {
     g.car = carStep(g.car, input, dt, g.vehicle === "plane" && g.alt > 0 ? 40 : gripAt(g.car), v);
@@ -1355,21 +1434,23 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   // through everyone for a second instead of being shoved back and forth on the spot.
   if (driven.key && g.vehicle === "found") noteDriven(g.t, g.car);
   stepPack(g, dt);
-  // the art car you drive is you: no bumping into yourself
+  // people on foot jump out of your way instead of being bumped (asked 2026-11-04)
+  if (!riding && !airborne) dodgeWalkers(g, v);
+  // the art car you drive is you: no bumping into yourself; nor into anyone on foot, who has jumped clear (they still have you slow down)
   const others = riding || g.ghost || airborne ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
   // a close call is not a bump (asked 2026-10-27): you touch someone only inside seven tenths of their circle, with no margin, and only a firm knock counts
   const reach = (n: Npc) => NPC_R[n.kind] * 0.7 + v.wid / 2 + 1;
-  const touching = others.filter((n) => { const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < reach(n); }).length;
+  const touching = others.filter((n) => { if (n.kind === "walker") return false; const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < reach(n); }).length;
   for (const n of others) {
     const p = npcAt(n, g.t);
     const dx = g.car.x - p.x, dy = g.car.y - p.y, d = Math.hypot(dx, dy), min = reach(n);
-    if (d < min && g.slip <= 0) {
+    if (d < min && g.slip <= 0 && n.kind !== "walker") {
       const push = d > 1e-6 ? { depth: min - d, nx: dx / d, ny: dy / d } : { depth: min, nx: 0, ny: 1 };
       const hit = bounce(g.car, push, v.restitution);
       if (g.hitCool <= 0 && hit > 22) {
         g.hitCool = 1.5;
         g.mission.gifts = Math.max(0, g.mission.gifts - 1);
-        g.warn = 3; g.warnText = n.kind === "walker" ? "you bumped someone on foot. 5 mph near people!" : onBike(n) ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
+        g.warn = 3; g.warnText = onBike(n) ? "you bumped a biker. 5 mph near people!" : `you bumped ${n.name ?? "an art car"}. 5 mph, please`;
         ev.push("hit");
       }
     } else if (d >= min && d < 130 && spd > 45 && g.warn <= 0) {

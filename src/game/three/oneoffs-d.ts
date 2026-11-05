@@ -1,5 +1,6 @@
 import type { Critter } from "./critters";
 import { discow } from "./discow";
+import { dragomi } from "./dragomi";
 import { eyeOfHorus } from "./eyeOfHorus";
 import { luna } from "./luna";
 import { slug } from "./slug";
@@ -10,4 +11,5 @@ export const ONEOFFS_D: Record<string, () => Critter> = {
   "the-slug": slug,
   "luna-the-artcrane": luna,
   discow,
+  dragomi,
 };

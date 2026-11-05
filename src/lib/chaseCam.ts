@@ -20,29 +20,36 @@ export const CAM = {
   pullMax: 0.35,                      // pulls back this much further at top speed
   aheadK: 1.0, aheadMin: 12,          // looks this far ahead of the ride: aheadK · length + aheadMin
   velLead: 0.35,                      // and further along its velocity (seconds' worth)
+  airBack: 0.03, airUp: 0.06,         // in the air: this much further back and up per foot of height (it was 0.25 and 0.5, and the plane was a speck at 1,000 ft: asked 2026-10-31)
+  airGrow: 0.8, airGrowAlt: 600,      // and the plane or the chute is drawn bigger with height, up to 1 + airGrow times at airGrowAlt ft and above
 } as const;
+
+/** How much bigger the plane or the chute is drawn at this height: 1 on the ground, growing to 1 + airGrow at airGrowAlt and over, so it still reads from the camera up there. */
+export const airScale = (alt: number) => 1 + CAM.airGrow * Math.max(0, Math.min(1, alt / CAM.airGrowAlt));
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /**
  * Where the camera wants to be for this target, before smoothing: behind by backK·len+backMin (× 1+pullMax·speed/maxSpeed),
  * up by upK·len+upMin, turned by `orbit` round the ride; looking at a point aheadK·len+aheadMin ahead plus velLead·velocity,
- * at a third of the ride's length up. In the air (the plane or the chute, once it is off the ground) the camera trails
- * further, measured from the ride's own height: back + 0.25·alt, up + 0.5·alt, and it looks at the ride itself.
+ * at a third of the ride's length up. In the air (the plane or the chute) the ride is drawn airScale(alt) times its size, so
+ * its length counts that much more, and the camera trails a little further, measured from the ride's own height:
+ * back + airBack·alt, up + airUp·alt, looking at the ride itself.
  */
 export function camGoal(t: CamTarget, orbit = 0): CamGoal {
   const speed = Math.hypot(t.vx, t.vy), run = clamp01(speed / Math.max(1, t.maxSpeed));
   // 0 on the ground, 1 well up; the look point eases from ahead of the ride to the ride itself so take-off does not snap the view
   const air = t.plane || t.chute ? clamp01(t.alt / 30) : 0;
-  const back = (CAM.backK * t.len + CAM.backMin) * (1 + CAM.pullMax * run) + 0.25 * t.alt;
-  const up = CAM.upK * t.len + CAM.upMin + 0.5 * t.alt;
+  const len = t.plane || t.chute ? t.len * airScale(t.alt) : t.len;
+  const back = (CAM.backK * len + CAM.backMin) * (1 + CAM.pullMax * run) + CAM.airBack * t.alt;
+  const up = CAM.upK * len + CAM.upMin + CAM.airUp * t.alt;
   const ho = t.h + orbit;
-  const ahead = (CAM.aheadK * t.len + CAM.aheadMin) * (1 - air);
+  const ahead = (CAM.aheadK * len + CAM.aheadMin) * (1 - air);
   const lead = CAM.velLead * (1 - air);
   const fx = Math.sin(t.h), fy = -Math.cos(t.h);   // the ride's heading (fwd in view3d.ts)
   return {
     eye: { x: t.x - Math.sin(ho) * back, y: t.alt + up, z: t.y + Math.cos(ho) * back },
-    look: { x: t.x + fx * ahead + t.vx * lead, y: t.alt + t.len / 3, z: t.y + fy * ahead + t.vy * lead },
+    look: { x: t.x + fx * ahead + t.vx * lead, y: t.alt + len / 3, z: t.y + fy * ahead + t.vy * lead },
     fov: CAM.fovMin + (CAM.fovMax - CAM.fovMin) * run,
   };
 }

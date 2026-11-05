@@ -5,6 +5,7 @@ import { AROUND, MAP_BOX, cityImage, paintWelcome, surroundImage } from "@/game/
 import { ARCS, ARC_R, FENCE, FENCE_R, GATE, WELCOME, WIDE_RADIALS, polar } from "@/lib/brc";
 import { FENCE_PATCH, LAYER, LAYER_Y, MAP_PLAYA, airportLayout, fenceGap, fencePosts, fenceSegments, gateLayout, groundFlats, skyline, type Flat } from "@/lib/scene3d";
 import { PALETTE, yawOf } from "@/lib/view3d";
+import { buildFlyRanch } from "./flyRanch";
 import { basic, hex, instanced, lambert, mergedParts, placed, registerGround, type Part } from "./materials";
 
 export type GroundMeshes = { group: THREE.Group; /** keeps what rides with the camera (the mountains) on it */ update: (cam: THREE.Vector3) => void };
@@ -227,11 +228,14 @@ export function buildGround(scene: THREE.Scene, maxAnisotropy = 1): GroundMeshes
   }
   group.add(mergedParts(gateParts));
 
+  // Fly Geyser at Fly Ranch, past the fence at 8:44 (asked 2026-11-04), one mesh
+  const fly = buildFlyRanch(group);
+
   // the mountains ring the horizon and ride with the camera, so they never come nearer
   const ring = mountains(); group.add(ring);
 
   scene.add(group);
   buildLabels(group, maxAnisotropy);
   buildWelcome(group, maxAnisotropy);
-  return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; } };
+  return { group, update: (cam) => { ring.position.x = cam.x; ring.position.z = cam.z; fly.update(cam); } };
 }

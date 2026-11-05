@@ -378,10 +378,36 @@ export function drawGoldenTicket(ctx: Ctx, t: number, night: number, brake = fal
   if (night > 0.3) { for (let y = -7; y < 9; y += 1.6) { ctx.fillStyle = hsl((y * 22 + t * 240) % 360, 100, 65); ctx.fillRect(-5.6, y, 1, 1); ctx.fillRect(4.6, y, 1, 1); } ctx.fillStyle = "#fff3b0"; ctx.fillRect(-2, -10.5, 1.4, 1); ctx.fillRect(0.6, -10.5, 1.4, 1); } // the LED strips and headlights
   if (brake) { ctx.fillStyle = "#ff2d55"; ctx.fillRect(-4.5, 9, 2, 1); ctx.fillRect(2.5, 9, 2, 1); }
 }
+/**
+ * Dragomi (asked 2026-11-04): AudioPixel's origami dragon on a flatbed, from above: the head's block of triangular panels over the cab and its snout's chevrons
+ * ahead, the zigzag of panels down both sides to the tail, the canopy, the fan of wings at the back corner and the two poofers; the panels light at night, the
+ * colour sweeping through them, and now and then the poofers fire.
+ */
+function dragomi(c: Ctx, t: number, night: number) {
+  wheels(c, 11, [-22, 12, 20]);
+  c.fillStyle = "#4a4038"; rr(c, -10.5, -16, 21, 46, 2); c.fill(); // the bed
+  const lit = night > 0.3, pc = (k: number) => (lit ? hsl((t * 22 + k) % 360, 100, 62) : "#f1f3f7");
+  // the head: triangles over a dark frame, and the snout's two chevrons ahead of it
+  c.fillStyle = "#23252f"; rr(c, -9.5, -26, 19, 18, 1); c.fill();
+  glow(c, night, hsl((t * 22) % 360, 100, 60), 14);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const x = -9 + i * 6, y = -25.5 + j * 5.8; c.fillStyle = pc(i * 12 + j * 8); c.beginPath(); if ((i + j) % 2) { c.moveTo(x + 0.6, y + 0.6); c.lineTo(x + 5.4, y + 0.6); c.lineTo(x + 0.6, y + 5.2); } else { c.moveTo(x + 5.4, y + 0.6); c.lineTo(x + 5.4, y + 5.2); c.lineTo(x + 0.6, y + 5.2); } c.fill(); }
+  c.fillStyle = "#23252f"; c.beginPath(); c.moveTo(-7, -26); c.lineTo(0, -39); c.lineTo(7, -26); c.closePath(); c.fill();
+  c.fillStyle = pc(30); c.beginPath(); c.moveTo(-6, -26.5); c.lineTo(0, -37.5); c.lineTo(6, -26.5); c.lineTo(3.2, -26.5); c.lineTo(0, -32); c.lineTo(-3.2, -26.5); c.closePath(); c.fill();
+  // the body: a zigzag of panels down each side to the tail
+  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) { const y = -8 + k * 6.3; c.fillStyle = pc(120 + k * 15); c.beginPath(); c.moveTo(s * 10.6, y); c.lineTo(s * (k % 2 ? 7.6 : 9.4), y + 3); c.lineTo(s * 10.6, y + 6); c.closePath(); c.fill(); }
+  noGlow(c);
+  c.fillStyle = "#e9e2d0"; rr(c, -8.5, -5.5, 17, 23, 1); c.fill(); c.strokeStyle = "#8a8f99"; c.lineWidth = 0.6; c.stroke(); // the canopy
+  c.fillStyle = "#1b1c22"; c.fillRect(-7.7, 24.5, 3.4, 3); c.fillRect(4.3, 24.5, 3.4, 3); // the speakers
+  // the fan of wings, opening from the back corner, a warm light at each tip
+  for (let k = 0; k < 5; k++) { const a = Math.PI / 2 + 0.25 + k * 0.32, ex = -7.5 - Math.sin(a - Math.PI / 2) * 10, ey = 22 + Math.cos(a - Math.PI / 2) * 10 - 10 + k * 2.2; c.fillStyle = "rgba(223,227,234,.9)"; c.beginPath(); c.moveTo(-7.5, 22); c.lineTo(ex - 1.5, ey); c.lineTo(ex + 1.5, ey + 2); c.closePath(); c.fill(); glow(c, night, "#ffc070", 8); c.fillStyle = "#ffc070"; disc(c, ex, ey + 1, 0.8); c.fill(); noGlow(c); }
+  // the poofers, and their fire now and then at night
+  for (const [x, y] of [[3, -3], [-3, 7]] as const) { c.fillStyle = "#5a5f69"; disc(c, x, y, 1.2); c.fill(); if (lit && Math.sin(t * 1.1) > 0.55) { glow(c, night, "#ff8a2a", 18); c.fillStyle = hsl(30 + Math.sin(t * 19) * 8, 100, 60, 0.9); disc(c, x, y, 3.2 + Math.sin(t * 13) * 0.6); c.fill(); noGlow(c); } }
+}
+
 export const ART_CARS: Record<string, (c: Ctx, t: number, night: number) => void> = {
   ...PLATFORM_CARS, // the rest, built on the city games' base vehicles (artplatforms.ts)
   "robot-heart": robotHeart, "mayan-warrior": mayanWarrior, "titanics-end": titanicsEnd, "el-pulpo-mecanico": elPulpo,
   "big-imagination-747": jumbo, "lonely-submarine": submarine, "heavy-meta": heavyMeta, kalliope, "golden-gate-art-car": goldenGate,
   axolotl, baaahs, funkadelephant, "whomp-wagon": whompWagon, dragonfly, nudibranch, technogecko: technoGecko, "the-scarab": scarab,
-  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane, "dragon-lady": dragonLady, "discow": discow, "golden-ticket": (c, t, n) => drawGoldenTicket(c, t, n),
+  "disco-doge": discoDoge, "eye-of-horus": eyeOfHorus, "the-slug": slug, "luna-the-artcrane": lunaCrane, "dragon-lady": dragonLady, "discow": discow, dragomi, "golden-ticket": (c, t, n) => drawGoldenTicket(c, t, n),
 };

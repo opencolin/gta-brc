@@ -42,10 +42,10 @@ test("the ground's layers are ordered: blocks under streets under plazas, each w
   assert.equal(flats.filter((f) => f.kind === "strip").length, 4);
 });
 
-test("campPrisms: about 61,000 pieces for the 36,375 structures, all with a size and a sector", () => {
+test("campPrisms: about 61,000 pieces for the 36,732 structures, all with a size and a sector", () => {
   const prisms = campPrisms(plans);
   const structs = plans.reduce((n, p) => n + p.structs.length, 0);
-  assert.equal(structs, 36375);
+  assert.equal(structs, 36732);   // 36,375 until the tea houses took their lots, 36,344 until camps shared lots (2026-11-04)
   assert.ok(prisms.length >= 40000, `${prisms.length} prisms`);
   for (const p of prisms) {
     assert.ok(p.sy > 0 && p.sx > 0 && p.sz > 0, `${p.kind} has a size`);
@@ -277,7 +277,7 @@ test("the part of the fence inside the airport's wedge is what fenceGap says, an
   near([...gap, ...kept].reduce((t, s) => t + len(s), 0), perimeter, 1e-6);
 });
 
-test("the crowds: 34 at Agave within 21 ft of the dome's rim on the bay's side, the generator PlayaWin's drawCrowd uses, about 2,860 in all", () => {
+test("the crowds: 34 at Agave within 21 ft of the dome's rim on the bay's side, the generator PlayaWin's drawCrowd uses, about 2,960 in all", () => {
   const agave = SPOTS.find((s) => s.key === "agave"), crowd = crowdSpots(agave), dir = Math.atan2(agave.mid.y - agave.stage.y, agave.mid.x - agave.stage.x);
   assert.equal(crowd.length, 34);
   for (const p of crowd) {
@@ -293,7 +293,7 @@ test("the crowds: 34 at Agave within 21 ft of the dome's rim on the bay's side, 
   const a = dir + (rnd() - 0.5) * 3.2, d = AGAVE.dome.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360);
   near(crowd[0].a, a, 1e-12); near(crowd[0].x, AGAVE.dome.x + Math.cos(a) * d, 1e-9); assert.equal(crowd[0].hue, hue);
   const total = SPOTS.reduce((n, s) => n + crowdSpots(s).length, 0);
-  assert.ok(total > 2800 && total < 2900, `${total} people in all`);
+  assert.ok(total > 2900 && total < 3000, `${total} people in all`);
   assert.equal(crowdSpots(SPOTS.find((s) => s.camp?.piece)).length, 8);
   assert.deepEqual(crowdSpots(agave), crowdSpots(agave), "the same people every time");
 });

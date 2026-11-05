@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ARCS, ARC_R, CITY_SCALE, ROAD_W, RADIALS, WIDE_RADIALS, CITY_FROM, CITY_TO, CENTER_CAMP, TEMPLE, FENCE, FENCE_R, PLAZAS,
+  ARCS, ARC_R, CITY_SCALE, FLY_RANCH, ROAD_W, RADIALS, WIDE_RADIALS, CITY_FROM, CITY_TO, CENTER_CAMP, TEMPLE, FENCE, FENCE_R, PLAZAS,
   polar, toPolar, clockLabel, parseClock, pointAt, parseAddress, surfaceAt, blockPush, addressOf, fenceDepth, ringOf,
 } from "./brc.ts";
 
@@ -107,4 +107,11 @@ test("the fence is a pentagon around the whole city", () => {
   const f = fenceDepth({ x: 9000 * CITY_SCALE * 1.2, y: 0 });
   assert.ok(f.depth < 0);
   assert.ok(f.nx < 0, "the inward normal points back toward the Man");
+});
+
+test("Fly Ranch (asked 2026-11-04): in its real direction, north-west, past the fence and clear of the city's grid", () => {
+  near(toPolar(FLY_RANCH.at).min, FLY_RANCH.min, 1e-3);
+  assert.ok(FLY_RANCH.min > 510 && FLY_RANCH.min < 540, "about 8:45, where north-north-west lies");
+  assert.ok(fenceDepth(FLY_RANCH.at).depth < -3000, "well past the fence");
+  assert.ok(Math.hypot(FLY_RANCH.at.x, FLY_RANCH.at.y) < 14000 * CITY_SCALE, "and nearer than the real 8.4 miles");
 });

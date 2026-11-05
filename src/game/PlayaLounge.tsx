@@ -1,4 +1,5 @@
 "use client";
+import { FLYOVER, SKY_KEY } from "@/lib/flyover";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { SETS } from "@/lib/agave";
 import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, mediaProgress, playerSrc, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
@@ -25,6 +26,7 @@ export type Now = { key: string; url: string; title: string; auto: boolean; play
 
 /** The name, line and sets for a place key: "agave", "camp:<id>", "mutant:<id>". */
 export function soundOf(key: string): { name: string; blurb: string; tracks: Track[]; site?: string } {
+  if (key === SKY_KEY) return { name: "Flying over Burning Man", blurb: "the city from the air: planes, drones and a wingsuit over Black Rock City", tracks: [...FLYOVER] };   // the plane (asked 2026-11-04)
   if (key === "agave") {
     return { name: "Agave Lounge", blurb: "the camp's own DJ sets, recorded in the dome", tracks: SETS.map((s) => ({ url: s.url, title: `${s.artist}: ${s.title}` })) };
   }
@@ -127,7 +129,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const list = useRef<HTMLUListElement>(null);
   const key = (open ? parked ?? now?.key : now?.key) ?? null;
   // an art car is not a place you park at (asked 2026-10-26): you are beside it, riding on it, or at its wheel
-  const here = !key?.startsWith("mutant:") ? "now parked at" : vehicle === "found" ? "at the wheel of" : aboard ? "riding along on" : "now beside";
+  const here = key === SKY_KEY ? "up in the plane:" : !key?.startsWith("mutant:") ? "now parked at" : vehicle === "found" ? "at the wheel of" : aboard ? "riding along on" : "now beside";
   const nowUrl = useRef(""); nowUrl.current = now?.url ?? "";
   const nowAuto = useRef(false); nowAuto.current = !!now?.auto;
   const nowPlaying = useRef(false); nowPlaying.current = !!now?.playing;
@@ -136,6 +138,8 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const pickUrl = useRef((url: string) => {});
   /** the panel and its video filling the screen (asked 2026-10-22) */
   const [wide, setWide] = useState(false);
+  /** the video alone filling the screen, without the sets (asked 2026-11-04) */
+  const [full, setFull] = useState(false);
   // a video that ends or can't play here moves on to the place's next set, so YouTube's end and error screens never show
   const next = useRef(() => {}); next.current = () => {
     if (!now) return;
@@ -176,6 +180,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   // big: every SoundCloud set gets its own player in a stack, so no one has to pick from the list; the videos stay in it
   const scTracks = s.tracks.filter((t) => !isVideo(t.url));
   const stacked = wide && open && scTracks.length > 1;
+  const theatre = full && open && !!now && isVideo(now.url);
   const listed = stacked ? s.tracks.filter((t) => isVideo(t.url)) : s.tracks;
   const nav = (e: KeyboardEvent) => {
     const items = [...(list.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
@@ -185,7 +190,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
       items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
     }
   };
-  const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onCollapse(); } };
+  const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (theatre) setFull(false); else onCollapse(); } };
 
   // a phone's dock (asked 2026-10-27): the panel's own actions, short, one each side of the fold arrow: hop off or ride along on the left, drive on the right (the buttons in the body are those a desktop keeps)
   const atWheel = vehicle === "found" && key.startsWith("mutant:"), beside = vehicle !== "found" && !!parked?.startsWith("mutant:") && parked === key;
@@ -193,7 +198,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const dockRight = beside && onDrive ? { label: "drive", go: onDrive } : null;
 
   return (
-    <section className={`pl-lounge${now && s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lounge-clip" : ""}${wide ? " pl-lounge-wide" : ""}`} data-mini={open ? undefined : ""} aria-label={open ? `${parked === key ? here : "playing from"} ${s.name}` : "now playing"} onKeyDown={esc}>
+    <section className={`pl-lounge${now && s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lounge-clip" : ""}${wide ? " pl-lounge-wide" : ""}${theatre ? " pl-lounge-full" : ""}`} data-mini={open ? undefined : ""} aria-label={open ? `${parked === key ? here : "playing from"} ${s.name}` : "now playing"} onKeyDown={esc}>
       {open ? (
         <div className="pl-lg-body">
           <div className="pl-lg-head">
@@ -240,16 +245,6 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
               );
             })}
           </ul>}
-          {stacked && (
-            <div className="pl-lg-stack">
-              {scTracks.map((t) => (
-                <div key={t.url} className="pl-lg-player pl-lg-stacked" data-now={now?.url === t.url ? "" : undefined}>
-                  <iframe title={`${s.name}: ${t.title}, on SoundCloud`} allow="autoplay" src={playerSrc(t.url, false, false)}
-                    ref={(f) => { if (f) stack.current.set(t.url, f); else stack.current.delete(t.url); }} />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       ) : (
         <div className="pl-lg-bar">
@@ -260,13 +255,30 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           <button type="button" className="pl-lg-btn" onClick={onClose} aria-label="stop the music">×</button>
         </div>
       )}
+      {/* what plays: a wrapper with no box of its own (display: contents), so the player sits in the panel's column as it always has; the panel
+          made big on a desktop (asked 2026-10-31) turns it into the right-hand side, the sets' list down the left as a nav */}
+      <div className="pl-lg-main">
+      {stacked && (
+        <div className="pl-lg-stack">
+          {scTracks.map((t) => (
+            <div key={t.url} className="pl-lg-player pl-lg-stacked" data-now={now?.url === t.url ? "" : undefined}>
+              <iframe title={`${s.name}: ${t.title}, on SoundCloud`} allow="autoplay" src={playerSrc(t.url, false, false)}
+                ref={(f) => { if (f) stack.current.set(t.url, f); else stack.current.delete(t.url); }} />
+            </div>
+          ))}
+        </div>
+      )}
       {now && !(stacked && !isVideo(now.url)) && (
-        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lg-clip-player" : ""}`}>
-          {isVideo(now.url) ? (
+        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${s.tracks.find((x) => x.url === now.url)?.clip ? " pl-lg-clip-player" : ""}${theatre ? " pl-lg-full" : ""}`}>
+          {isVideo(now.url) ? (<>
             <VideoShell ios={ios} url={now.url} title={now.title} playing={now.playing} onToggle={() => post(frame.current?.contentWindow, now.url, now.playing ? "pause" : "play")}>
               <iframe key={`${now.url}|${now.auto}`} ref={frame} tabIndex={-1} title={`${s.name}: ${now.title}, on YouTube`} allow="autoplay; encrypted-media"
                 src={playerSrc(now.url, now.auto, false)} onLoad={(e) => hello(e.currentTarget, now.url)} />
             </VideoShell>
+            {/* the video alone over the whole screen, and back (asked 2026-11-04) */}
+            <button type="button" className="pl-lg-btn pl-lg-max" onClick={() => setFull((f) => !f)} aria-pressed={theatre}
+              aria-label={theatre ? "make the video smaller" : "make the video fill the screen"} title={theatre ? "smaller (Esc)" : "fill the screen"}>{theatre ? "⤡" : "⤢"}</button>
+          </>
           ) : (
             // an iPhone (2026-10-22): the widget's own autoplay is refused there and it then pauses the set the tap started a
             // moment later, so on iOS the frame loads quiet and only the play posted on "ready" starts it
@@ -275,6 +287,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
           )}
         </div>
       )}
+      </div>
       {/* a phone (asked 2026-10-27): the panel's own buttons are one bar pinned at its bottom, above Safari's toolbar (the safe-area inset), where the thumb is: the down arrow folds the
           panel to its bar, and the head's – (and the widen button) are gone there; the sets scroll above it. A desktop has no dock: the head's buttons are the buttons. */}
       {open && <div className="pl-lg-dock">

@@ -4,9 +4,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
-  newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
+  MVS, ART_2026_SPOTS, newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
   newMission, stepMission, skipMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, warpDay, WARP_SECONDS, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, blockBounds, toPolar, clockToAngle } from "./brc.ts";
@@ -178,8 +178,19 @@ test("tuk-tuks, unicycles and fat-tyre e-bikes ride the streets too, without cha
   for (const n of npcs.filter((n) => n.kind === "unicycle")) assert.ok(Math.abs(n.speed) < Math.min(...npcs.filter((b) => b.kind === "ebike").map((b) => Math.abs(b.speed))), "a unicycle is slower than any e-bike");
   // the new rides come after everyone else and from a generator of their own: the rest of the list is as it was
   const first = npcs.findIndex((n) => n.kind === "tuktuk");
-  assert.ok(npcs.slice(first).every((n) => n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "ebike" || n.kind === "rv"));
+  assert.ok(npcs.slice(first).every((n) => n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "ebike" || n.kind === "rv" || n.kind === "mv"));
   assert.deepEqual(makeNpcs(seeded(3)).slice(0, first).map((n) => n.hue), npcs.slice(0, first).map((n) => n.hue));
+});
+
+test("2026's other art cars roam the open playa by name, and its other art stands at its real places, none already the game's", () => {
+  assert.ok(MVS.length >= 400 && new Set(MVS.map((m) => m.key)).size === MVS.length, "a car each, once");
+  const famous = new Set(MUTANTS.map((m) => m.name.toLowerCase()));
+  for (const m of MVS) {
+    assert.ok(m.name && m.form && !famous.has(m.name.toLowerCase()), m.name);
+    for (const t of [0, 300, 4000]) { const p = npcAt(m, t), r = Math.hypot(p.x, p.y); assert.ok(Number.isFinite(r) && (r < ARC_R[0] - 200 || r > ARC_R[0] + 300) && r < FENCE_R, `${m.name} keeps to the open playa`); }
+  }
+  assert.ok(ART_2026_SPOTS.length >= 250);
+  for (const a of ART_2026_SPOTS) assert.ok(Number.isFinite(a.x) && Number.isFinite(a.y) && !ART.some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 40), a.name);
 });
 
 test("Exodus: RVs nose to tail in two lanes out Gate Road, between the Gate's booths, never on top of each other", () => {
@@ -224,6 +235,7 @@ test("storms rise, hold and blow over; night comes and goes; the toggle flips it
   let peak = 0;
   for (let i = 0; i < 60 * 60; i++) { stepStorm(s, DT, rand); seen.add(s.phase); peak = Math.max(peak, stormLevel(s)); }
   assert.deepEqual([...seen].sort(), ["clear", "falling", "rising", "storm"]);
+  for (let k = 0; k < 20; k++) { const h = newGame(k).storm.hold; assert.ok(h >= FIRST_STORM.from && h <= FIRST_STORM.to && h >= 300, "no dust storm in the first five minutes"); }
   assert.equal(peak, 1);
   assert.equal(nightLevel(0), 0);
   assert.equal(nightLevel(DAY_SECONDS * 0.7), 1);
@@ -669,7 +681,8 @@ test("the plane: taken at the pad, it lifts past takeoff speed, flies through an
   let landed = false;
   for (let i = 0; i < 60 * 60 && !landed; i++) landed = stepGame(g, { ...NO_INPUT, right: true }, DT).includes("landed");
   assert.ok(landed, "you touched down"); assert.equal(g.chute, false); assert.equal(g.alt, 0); assert.equal(g.vehicle, "bike");
-  assert.ok(alt / 24 < 60 * 60 * DT, "a chute from that height lands inside a minute");
+  assert.ok(alt / CHUTE_SINK < 60 * 60 * DT, "a chute from that height lands inside a minute");
+  assert.ok(SKYDIVE_ALT / CHUTE_SINK <= 10, "the jump's fall is short: ten seconds at most");
   for (let i = 0; i < 60 * 25; i++) stepGame(g, NO_INPUT, DT); // half a minute on, the plane has flown well off or is gone
   assert.ok(g.plane === null || Math.hypot(g.plane.x - planeStart.x, g.plane.y - planeStart.y) > 2000, "the plane flew off or is gone");
 });
@@ -688,6 +701,10 @@ test("a URL path starts you at a place (asked 2026-10-23): dragonlady beside the
   assert.equal(startKey("titanic"), "mutant:titanics-end", "the start of a name is enough");
   assert.equal(startKey("goldenticket"), "mutant:golden-ticket", "the camp's own art car is on the playa (2026-10-26)");
   { const g0 = newGame(1); const gt = npcAt(mutantOf("mutant:golden-ticket"), 0); const d = Math.hypot(gt.x - AGAVE.curb.x, gt.y - AGAVE.curb.y); assert.ok(d < 220 && d > 120, `parked at Agave Lounge, out of parking reach of the start (${Math.round(d)})`); assert.equal(solidAt(gt), null, "on the street"); void g0; }
+  // Dragomi parked at Celestial Tea Garden, 8:45 & E (asked 2026-11-04): /dragomi at its wheel, /celestialteagarden on E in front of the camp, beside it
+  assert.equal(startKey("dragomi"), "mutant:dragomi");
+  { const k = startKey("celestialteagarden"); assert.match(k ?? "", /^real:/, "a 2026 camp by its whole name"); const g = newGame(1, "bike", k), dg = npcAt(mutantOf("mutant:dragomi"), 0);
+    const d = Math.hypot(dg.x - g.car.x, dg.y - g.car.y); assert.ok(d < 140, `the start is just short of Dragomi (${Math.round(d)} ft)`); assert.equal(solidAt(dg), null, "Dragomi is on the street"); assert.equal(solidAt(g.car), null, "and so are you"); }
   assert.equal(startKey("mayan"), "mutant:mayan-warrior"); assert.equal(startKey("orb"), "art:The Orb");
   assert.equal(startKey("the-orb"), "art:The Orb");
   assert.equal(startKey("agave"), "agave"); assert.equal(startKey("temple"), "temple");
@@ -744,7 +761,7 @@ test("the skydive (asked 2026-10-26): taking the plane makes it the job; high en
   assert.match(pagerLine(g.mission), /climb to 400 ft/);
   const m = g.mission, car = { x: AGAVE.dome.x + 60, y: AGAVE.dome.y, speed: 0 };
   assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: SKYDIVE_ALT }), "picked"); assert.equal(m.phase, "dropoff");
-  assert.match(pagerLine(m), /bail out/);
+  assert.match(pagerLine(m), /eject/);
   assert.equal(missionTarget(m, 0).label.slice(0, 5), "Agave");
   const g1 = m.gifts;
   assert.equal(stepMission(m, car, 0.1, { t: 0, moop: 0, alt: 0, landed: true }), "delivered"); assert.ok(m.gifts > g1);
@@ -853,4 +870,24 @@ test("skipping a job briefs another, with no gifts and no failure (asked 2026-11
   let started = null;
   for (let i = 0; i < 10 && !started; i++) started = stepMission(m, car, 0.1);
   assert.equal(started, "start", "the next job is on within a second");
+});
+
+test("people on foot jump out of your way instead of being bumped (asked 2026-11-04)", () => {
+  const g = newGame(3, undefined, "agave");
+  const w = g.npcs.find((n) => n.kind === "walker" && n.path === "loop");
+  // ride straight at them at 30 mph from 150 ft, and hold the gas
+  const p0 = npcAt(w, g.t), h = 0.7, f = { x: Math.sin(h), y: -Math.cos(h) };
+  g.car = { ...g.car, x: p0.x - f.x * 150, y: p0.y - f.y * 150, h, vx: f.x * 44, vy: f.y * 44 };
+  g.ghost = false; g.npcs.splice(0, g.npcs.length, w);
+  let closest = Infinity, hit = false, gifts = g.mission.gifts;
+  for (let i = 0; i < 60 * 5; i++) {
+    const ev = stepGame(g, { ...NO_INPUT, gas: true }, DT); if (ev.includes("hit")) hit = true;
+    const p = npcAt(w, g.t); closest = Math.min(closest, Math.hypot(p.x - g.car.x, p.y - g.car.y));
+  }
+  assert.ok(w.dodge, "they jumped"); assert.equal(hit, false, "no bump"); assert.equal(g.mission.gifts, gifts, "no gift lost");
+  assert.ok(closest > 8, `they were clear of you as you passed (${closest.toFixed(1)} ft)`);
+  for (let u = 0; u < DODGE.leap + DODGE.hold + DODGE.back; u += 0.05) { const t = w.dodge.t0 + u, q = npcAt(w, t), r = npcAt({ ...w, dodge: null }, t); assert.ok(Math.hypot(q.x - r.x, q.y - r.y) < 40, "they stay a step or two off their route"); }
+  // and later they are back on their way
+  const back = w.dodge.t0 + DODGE.leap + DODGE.hold + DODGE.back + 0.1, r = npcAt({ ...w, dodge: null }, back), q = npcAt(w, back);
+  assert.ok(Math.hypot(q.x - r.x, q.y - r.y) < 0.01, "back on their route");
 });

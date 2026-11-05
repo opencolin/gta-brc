@@ -118,8 +118,22 @@ const PLANS = new Map<string, BlockPlan[]>();
 /** A real camp takes a lot only this close to its address (game feet): in a full block the last ones go unsigned rather than far off. */
 const NEAR_LOT = 350;
 let REAL: RealCamp[] | null = null;
-/** The 2026 camps placed on the game's streets (getlost.ts campAt): stepped into the block each fronts. */
-export const realCamps = (): readonly RealCamp[] => REAL ??= CAMPS_2026.map((c) => ({ ...c, at: campAt(c)! }));
+/**
+ * The 2026 camps placed on the game's streets (getlost.ts campAt): stepped into the block each fronts. One that faces a plaza, sits on a road
+ * or out on the playa (66 of them) is stepped to the nearest block ground within 400 ft instead (asked 2026-11-04: every camp on the map).
+ */
+export const realCamps = (): readonly RealCamp[] => REAL ??= CAMPS_2026.map((c) => { const at = campAt(c)!; return { ...c, at: surfaceAt(at).kind === "block" ? at : blockNear(at) ?? at }; });
+function blockNear(p: Vec): Vec | null {
+  for (let d = 20; d <= 400; d += 20) for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * Math.PI * 2, q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d };
+    if (surfaceAt(q).kind === "block") return q;
+  }
+  return null;
+}
+/** How many real camps may share a lot (asked 2026-11-04): a full block's last camps split a lot rather than go unsigned. */
+const SHARE = 3;
+/** ...and look this far (game feet) for a lot to take or share. */
+const FAR_LOT = 420;
 
 /**
  * Every block's camps. `avoid` keeps the things out of circles (the sound camps' stages and
@@ -147,7 +161,7 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
         : [{ front: true, w0: 0, w1: depth }];
       let lotSeed = seed * 31;
       // first the lots, then which real camp takes which (nearest pairs first), then each lot laid out
-      const lots: { f: Frame; U: number; W: number; seed: number; camp?: Camp2026 }[] = [];
+      const lots: { f: Frame; U: number; W: number; seed: number; camp?: Camp2026; more?: Camp2026[] }[] = [];
       for (const row of rows) {
         const W = row.w1 - row.w0;
         // the row's edge at its narrow end (the inner one), measured along the arc, with the radials' half widths off
@@ -174,13 +188,24 @@ export function planCity(avoid: readonly Avoid[] = [], potties: readonly number[
       const pairs = mine.flatMap((c) => lots.map((l, li) => ({ c, li, d: Math.hypot(c.at.x - l.f.o.x, c.at.y - l.f.o.y) }))).sort((p, q) => p.d - q.d || (p.c.uid < q.c.uid ? -1 : 1));
       const taken = new Set<string>();
       for (const p of pairs) if (p.d < NEAR_LOT && !taken.has(p.c.uid) && !lots[p.li].camp) { lots[p.li].camp = p.c; taken.add(p.c.uid); }
-      for (const { f, U, W, seed: ls, camp } of lots) {
+      // the rest take an empty lot in their block a little further off, then share the nearest lot that has room, wherever it is in the block (the lot is cut in two or three across its width below)
+      for (const p of pairs) if (p.d < FAR_LOT && !taken.has(p.c.uid) && !lots[p.li].camp) { lots[p.li].camp = p.c; taken.add(p.c.uid); }
+      for (const p of pairs) { const l = lots[p.li]; if (p.d < FAR_LOT && !taken.has(p.c.uid) && l.camp && (l.more?.length ?? 0) < SHARE - 1) { (l.more ??= []).push(p.c); taken.add(p.c.uid); } }
+      const laid = lots.flatMap((l) => {
+        if (!l.more) return [l];
+        const all = [l.camp, ...l.more], u = l.U / all.length;
+        return all.map((camp, j) => ({ ...l, U: u - (j < all.length - 1 ? 8 : 0), seed: l.seed * 7 + j, camp, f: { ...l.f, o: put(l.f, -l.U / 2 + u * (j + 0.5), 0) } }));
+      });
+      for (const { f, U, W, seed: ls, camp } of laid) {
         for (const s of layLot(U, W, ls, rnd, camp)) {
-          const p = put(f, s.lx, s.ly);
           const rad = s.round ? s.w / 2 : Math.hypot(s.w, s.l) / 2;
-          if (avoid.some((v) => Math.hypot(p.x - v.x, p.y - v.y) < v.r + rad)) continue;
-          // keep everything inside its block, clear of the streets
-          if (surfaceAt(p).kind !== "block") continue;
+          // keep everything inside its block, clear of the streets and the stages; a real camp's sign looks along its lot for a spot first (asked 2026-11-04)
+          const ok = (q: Vec) => !avoid.some((v) => Math.hypot(q.x - v.x, q.y - v.y) < v.r + rad) && surfaceAt(q).kind === "block";
+          const tries = s.uid ? [0, 0.5, 1, 1.5, 2].flatMap((k) => [[s.lx - k * (s.lx + U / 2 - 20) / 2, s.ly], [s.lx - k * (s.lx + U / 2 - 20) / 2, s.ly - W / 2]]) : [[s.lx, s.ly]];
+          const home = s.uid ? (camp as RealCamp).at : null; // and not too far from its address
+          const at = tries.map(([x, y]) => put(f, x, y)).find((q) => ok(q) && (!home || Math.hypot(q.x - home.x, q.y - home.y) < 470));
+          if (!at) continue;
+          const p = at;
           const st: Struct = { kind: s.kind, x: p.x, y: p.y, rot: f.rot + s.r, w: s.w, l: s.l, hue: s.hue, solid: s.solid, ...(s.round ? { round: true } : {}), ...(s.label ? { label: s.label } : {}), ...(s.n ? { n: s.n } : {}), ...(s.uid ? { uid: s.uid } : {}) };
           if (s.solid && !fits(st)) continue;
           plan.structs.push(st);

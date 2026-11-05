@@ -153,6 +153,14 @@ export const GATE = (() => {
  */
 export const WELCOME = { at: polar(252, 6330 * S), rot: clockToAngle(252) + Math.PI, w: 2000, h: 1000 };
 
+/**
+ * Fly Ranch and Fly Geyser (asked 2026-11-04): Burning Man Project's land north of the playa. The geyser (40.859 N, 119.332 W) is 44,000 real
+ * feet (8.4 miles) from the Man at 8:44 on the city's clock (12:00 points 45° east of north, so north is 10:30): 66,000 ft in the game's
+ * scale, past the fog and the camera's reach. It stands in its real direction but pulled in to `r`, 3,400 ft past the fence (as far out as
+ * the airport), where it shows through the day's fog from the city's back streets. The fence is closed there: you see it, or fly to it.
+ */
+export const FLY_RANCH = { min: 524, r: FENCE_R * 1.1, at: polar(524, FENCE_R * 1.1), realFt: 44000 };
+
 /** How far a point is inside the fence (negative: outside), and the inward normal of the nearest side. */
 export function fenceDepth(p: Vec): { depth: number; nx: number; ny: number } {
   let best = { depth: Infinity, nx: 0, ny: 0 };

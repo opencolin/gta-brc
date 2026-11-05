@@ -29,7 +29,7 @@ npm run dev -- --port 5177       # dev server (the app's preview config "gta-brc
 
 ### 0.3 Rules that are not negotiable
 
-1. **The 2D simulation stays the single source of truth.** Nothing in `src/lib/playa.ts`, `brc.ts`, `camps.ts`, `soundcamps.ts` changes its behaviour for this work. The 3D mode is a renderer over the same `Game` object, driven by the same `Input`, with the same jobs, parking, music and HUD. If a step seems to need a simulation change, stop and say so.
+1. **The 2D simulation stays the single source of truth.** Nothing in `src/lib/playa.ts`, `brc.ts`, `camps.ts`, `soundcamps.ts` changes its behaviour for this work. The 3D mode is a renderer over the same `Game` object, driven by the same `Input`, with the same jobs, parking, music and HUD. If a step seems to need a simulation change, stop and say so. (Waived 2026-10-31 for Phase 9 only, section 12: your ride's motion on the ground, its collisions and the props move into a Rapier world in both views.)
 2. **Top-down stays the default.** `?view=chase` (or the stored choice) switches; with no param and nothing stored, it is top-down.
 3. **three.js is the renderer**, as an npm dependency bundled by Vite, pinned exactly: `three@0.186.1` and `@types/three@0.186.0` (checked on npm 2026-10-26). No CDN, no react-three-fiber.
 4. **Lazy.** The 3D code is a dynamic `import()` so the top-down bundle does not grow. Check with `npm run build`: `dist/assets/index-*.js` must stay within 30 KB gzip of what it is before phase 0 (today about 183 KB gzip, 613 KB raw; measure it yourself before phase 0 with `gzip -c dist/assets/index-*.js | wc -c`); the three chunk is separate.
@@ -588,7 +588,7 @@ Write each as one small function `(scene, a: ArtPiece) => THREE.Group` in `place
 - README (if there is one) gets a line: `?view=chase` for the chase camera.
 - Gate, push, confirm live, then open `https://burningman.chat/?view=chase` and `https://burningman.chat/dragonlady?view=chase` on a phone and a laptop and write down what you saw in the final report.
 
-Total: about 70 hours, in this order (plus phase 7, real models, in section 10: about 14 more). Each phase is usable on its own behind `?view=chase`.
+Total: about 70 hours, in this order (plus phase 7, real models, in section 10: about 14 more, phase 8, feel, in section 11: about 20 more, and phase 9, Rapier physics, in section 12: about 40 more). Each phase is usable on its own behind `?view=chase`.
 
 ---
 
@@ -669,6 +669,29 @@ Asked 2026-10-26: "let's get those real models of the Man or the Temple and thos
 | generic fill (CC0, no search needed) | Kenney Car Kit / City Kit (kenney.nl), Quaternius vehicles and people (quaternius.com), poly.pizza with the **CC0** filter: RVs, vans, bicycles, a geodesic dome, a tuk-tuk |
 
 Expect few hits for the specific pieces; most will be fan models of the Man and a temple or two. That is fine: the Man and the Temple are the two the plan most wants.
+
+**Other sources (suggested 2026-10-31) and what 10.1 lets through.** The licence rule does not change with the site: CC0, CC BY or CC BY-SA, read on the model's own page, and the slug written in the manifest.
+
+| source | what is there | verdict |
+|---|---|---|
+| Sketchfab | community models and photo scans from the event | the main source; filter Downloadable + CC0/BY/BY-SA as above. Many of the event's scans (all of user toeppen's lamps, the Electric Mushroom, the dragon) are **BY-NC-SA: not allowed** |
+| Free3D | `.blend`/`.obj`/`.fbx` uploads | per model; most are "Personal Use" only, which **cannot ship**; take only one whose page says royalty-free *and* allows redistribution in a product, and keep a copy of that page's licence text in the manifest notes |
+| ArtStation | portfolios of sculpts and concepts | portfolio pieces have no download or licence: **no**. Its Marketplace is paid, with a licence that does not allow redistributing the file in a public folder: **no** |
+| STLFinder / Yeggi | search engines over Thingiverse, Cults3D, Printables | use them to find things, then judge the model on the site it lives on: Thingiverse and Printables let the maker pick a CC licence (take only CC0/BY/BY-SA; BY-NC is common there and is out); Cults3D is mostly paid or its own licence: **no**. Printable models are untextured, often dense, and sized for a printer: decimate, colour by part, rescale (10.4) |
+| MakerWorld | wearables and costume props for printing | out of scope (we draw no costumes), and its default licence is MakerWorld's own, not CC: **no** unless a model says CC0/BY/BY-SA |
+
+**Found on Sketchfab and allowed (CC BY, downloadable; checked through the Data API 2026-10-31; open each page before fetching, a licence can change):**
+
+| model | faces | licence | fit |
+|---|---|---|---|
+| [Burning Man 2025 - Temple of the Deep](https://sketchfab.com/3d-models/burning-man-2025-temple-of-the-deep-f4188d3829b946d9ab5511c8a32dc2da) by salva.maiorano | 2,488 | CC BY | light enough to use as it is; but it is 2025's temple and the game's is the Temple of the Moon (`templeMoon.ts`, `TEMPLE-2026.md`): **ask Collin** whether a past temple belongs on the playa (say, as an art piece) or not at all |
+| [Burning Man 2018 and 2020](https://sketchfab.com/3d-models/burning-man-2018-and-2020-4d3be60878a947ec8d5ecbfdf7bdab7b) by miguelangelo2k | 9,720 | CC BY | look first: if it is the Man, it is the 7.2 candidate (compare with the Man of `theMan.ts`) |
+| [Galaxia temple - Burning Man fest, 3D scan](https://sketchfab.com/3d-models/galaxia-temple-burning-man-fest-3d-scan-329a1204959548368d6d24d412ccdf42) by Sircher | 314,433 | CC BY | 2018's temple; a scan: decimate to under 30k and bake its texture to 1024 (10.4); same question as the Temple of the Deep |
+| [Burning Man Birthing Golf Cart](https://sketchfab.com/3d-models/burning-man-birthing-golf-cart-389d4e5341c54a0ea9a18692a1a618af) by mattlehrer | 340,095 | CC BY | an art car; decimate hard; only if the game has, or gains, an art car it can be |
+| [Auto Music Room, from Burning Man](https://sketchfab.com/3d-models/auto-music-room-from-burning-man-a83cd344eace488ab432c22573d560fa) by toeppen | 2,863,322 | CC BY | a scan of a piece; very heavy; only for a place in the game that matches it |
+| [Stage 3 burning man 2020, waves on land temple](https://sketchfab.com/3d-models/stage-3-burning-man-2020-waves-on-land-temple-16f253f3646a4897840c79def12cfc3a) by Bobtepe | 681,168 | CC BY | look first; heavy |
+
+Not found: the Temple of Everywhen (no downloadable model under that name). Not allowed although they come up first: "Burning Man Temple", the polyhedral and cube-octahedron lamps, the Electric Mushroom and the dragon (toeppen, BY-NC-SA), "low poly burning man" (jorgeTKyFR, BY-NC-SA), "Der brennende Mensch" (BY-NC), the MOOP pile (BY-NC-SA).
 
 **Sketchfab, by API** (to list candidates without clicking): the Data API v3 (docs: https://docs.sketchfab.com/data-api/v3/index.html). Search needs no token:
 
@@ -780,7 +803,183 @@ When no suitable model exists for something (likely for most of the 23 pieces an
 
 Total about 14 hours; stop early if the searches turn up nothing acceptable and say so: the stand-ins are the design, not a gap.
 
-## 11. Appendix: the numbers an implementer will reach for
+## 11. Phase 8: feel, after Bruno Simon's folio (≈ 20 h)
+
+Asked 2026-10-31 (Collin: "look at https://bruno-simon.com/ and let's see if we can build our 3D version in the same way"). What his site is made of was read from his case study (awwwards.com/brunos-portfolio-case-study.html, 2026-03-11) and the README of github.com/brunosimon/folio-2025 (MIT). It is a small island authored in Blender (object names such as `refLandingPhysicalFixed` say what becomes what in code), a car on Rapier physics with a separate *visual* vehicle that springs, rolls and leaves tracks, three.js written in TSL so it runs on WebGPU where it can, grass and rain as fields that loop round the camera, wind through everything, instancing plus merged models coloured from one palette, KTX2 textures and Draco models, spatial sound, a 3D interface, achievements and light multiplayer.
+
+What makes it feel good is mostly the visual vehicle and the world answering it: the body bouncing on its springs, the tracks behind it, the wind. All of that can be drawn from the `Game` we already have without touching it. This phase takes those, and first pays for them in draw calls. Section 0.3 still holds whole: nothing here changes `src/lib/playa.ts`, `brc.ts`, `camps.ts`, `soundcamps.ts` or `playaSound.ts`, nothing here changes top-down, and the new pure helpers go in new `src/lib/` files with node tests.
+
+### 11.1 Taken, and what we already have
+
+| his | ours today | this phase |
+|---|---|---|
+| visual vehicle on springs: pitch under throttle and brakes, roll in turns, a jolt on impact | the bikes, the unicycle and the tuk-tuk lean and steer (`riders.ts`), the RV's body rolls and dips (`buildRv`); every other ride is rigid | 8.2: the rides without a rig and the art car you drive get a spring body (superseded by Phase 9's real suspension, 9.4) |
+| the camera answering impacts | `chaseCam.ts` eases and widens the FOV with speed; no impact | 8.3: a short shake on a bump or a hit |
+| tracks in the ground | wheel dust puffs (`g.dust`, `litter.ts`); no tracks | 8.4: tyre tracks in the loose playa, fading |
+| wind through grass, foliage, rain | storms (`g.storm`), nothing moves with wind | 8.5: one wind, waving the 6,284 flags and blowing streaks past the camera |
+| fields that loop round the camera (grass, water, rain) | the ground is one lit shader | 8.5's streaks loop that way; 8.6 adds the cracked playa's plates near the camera |
+| instancing, merged models, one palette | instanced per geometry class per cell (`camps.ts`), merged one-offs coloured per vertex (`mergedParts`), so the palette trick is done already | 8.1: `THREE.BatchedMesh` takes the next step, several shapes in one draw call |
+
+### 11.2 Not taken, and why
+
+- **Rapier physics.** Taken after all (2026-10-31): Phase 9, section 12, in both views. 8.2's faked springs give way to the real suspension there.
+- **WebGPU / TSL.** It would mean rewriting every custom shader we have (`fx.ts`'s passes, the lit ground in `materials.ts`, the `onBeforeCompile` patches in `camps.ts`, `litter.ts`, `theMan.ts`, the glow shaders) as node materials. Our budget is draw calls, which WebGPU does not fix by itself. Revisit when the WebGL path is done.
+- **A world authored in Blender.** The city is 40,081 structs generated from the simulation's own data (`cityPlan()`), and that has to stay the source. The hero models go through Phase 7 (section 10); its optimize step (10.4) can compress textures to KTX2 ETC1S the way he does, if the models come with textures over 512².
+- **A 3D interface.** The HUD, the panel and the garage are the same DOM in both views.
+- **Spatial sound.** Panning the stages by their bearing from the camera would be a change to the mix in `playaSound.ts`, an existing lib file: ask first (0.5).
+- **Achievements, whispers, leaderboards.** New gameplay or a backend; out of scope (section 1).
+
+### 11.3 The budget
+
+At the start of this phase (PlayAlchemist's block in phase 5) the worst cases are **143 draw calls by day, 152 at night, 152 at night with the trip**, against the plan's 150. 8.4 and 8.5 add two calls (the tracks and the streaks); 8.6 adds none. So **8.1 goes first and must save at least 6 calls at the worst case** before anything else lands, which leaves the night at or under 148 when the phase is done. Measure with `grid2.mjs` against a worktree on its own port, as before (the notes folder in the memory has it); never from a few street positions.
+
+### Steps
+
+**8.0 Baseline (1 h).** On a clean checkout, run the real-frame grid by day, at night and at night with the trip, and write the three worst cases (calls and triangles, ground and plane) at the top of the 8.1 commit message. Also note how many of those calls are `camps.ts`'s: log `this.camps.stats().shown` at the worst pose.
+
+**8.1 Batch the camps (4 h).** `src/game/three/camps.ts`. Today each cell has one `InstancedMesh` per class (`box`, `hemi`, `cone`, `bikes` all use the same `white` material and still cost a call each). Replace the per-class meshes that share a material with **one `THREE.BatchedMesh` per material per cell**: `addGeometry` once per shape (the unit box, the hemisphere, the turned cone, the bike), `addInstance` per prism, `setMatrixAt` and `setColorAt` as now; `perObjectFrustumCulled = false` and `sortObjects = false` (the cell's bounding sphere culls it as a whole, the way the instanced meshes do now: `computeBoundingSphere()` after filling); `matrixAutoUpdate = false`. The materials with a shader of their own (`glow-lip`, `glow-arch`, `glow-canopy`, the wireframe `wire`, the polygon-offset `carpet`) keep their own mesh, so `white` (4 classes) becomes 1 per cell and the double-sided `pole` and `cloth` share one until 8.5 gives the cloth its own shader. The detail classes still use `DETAIL`, so keep the detail shapes (`bikes`, `pole`, `cloth`) in a second batched mesh per cell rather than merging them with the far ones. Check that `MeshLambertMaterial` with `vertexColors` off picks up the batch colour (three's BatchedMesh colour texture: it does in 0.186, `setColorAt`); `glowing()` reads `vColor`, so any glowing class you batch must still compile `vColor` (leave them as they are unless you check it). Where the browser lacks `WEBGL_multi_draw`, three loops over the draws (`WebGLRenderer.js`, the `renderMultiDraw` branch), so it is never worse than today. Check: the 8.0 grid again (calls down by at least 6 at each worst case, triangles unchanged within 1 %), a screenshot pair of a dense block by day and night that matches (`skinshots.mjs`), `renderer.info.memory.geometries` not up, and on the phone build too. If the saving is under 6, also try one batched mesh per material for the whole city with `setVisibleAt` per instance flipped only when a cell crosses its radius (`update()` already knows when), with frustum culling per instance on; measure the CPU time of `update()` and the triangles, which go up because cells behind the camera are drawn.
+
+**8.2 The ride on its springs (3 h; skip it if Phase 9 lands first, 9.4).** New `src/lib/rideFeel.ts` (pure) and `rideFeel.test.mjs`:
+```ts
+export type Feel = { pitch: number; roll: number; heave: number; vp: number; vr: number; vh: number; f: number; s: number };   // radians, radians, feet, their rates, last forward/side speed
+export type FeelTune = { hz: number; zeta: number; pitchK: number; rollK: number; maxPitch: number; maxRoll: number; kick: number };
+export const FEEL: Record<string, FeelTune>;   // by ride id: artcar (the Golden Ticket), fish, found, plane (on the ground only), mutant (an art car you drive); stiff and small for the Golden Ticket, soft and big for the art cars
+export const newFeel = (): Feel;
+/** One step: the body's target pitch is the forward acceleration ((forward - f) / dt) times pitchK (nose down under the brakes is positive),
+ *  its target roll the sideways acceleration (forward speed times yaw rate) times rollK (a car rolls out of a turn: positive is the left side down),
+ *  each clamped, and each angle a damped spring toward its target at hz and zeta; `kick` adds an upward heave impulse (a bump). */
+export function feelStep(s: Feel, forward: number, side: number, yawRate: number, kick: number, dt: number, k: FeelTune): Feel;
+```
+Tests: at a constant speed in a straight line everything settles to 0; braking hard from 100 ft/s pitches the nose down (positive) and it comes back within 1.5 s; a steady right turn rolls positive and holds; no value is ever past its max; a `kick` makes `heave` rise then settle; dt of 0 or over 0.3 leaves the state as it is. In `rides.ts` `updateRide`, for a ride with no rig (`which` not in `r.rigs`) and not flying, step a `Feel` kept on `RideMeshes` with the same forward speed and yaw rate the rigs get (line 122), and set the model's `rotation.x` from pitch (`rotation.order = "YXZ"` so the yaw stays first), `rotation.z` from roll and `position.y += heave`. In `cars.ts` do the same on the `driven(id, hue)` group of the art car you drive. The kick: `g.bumps` going up since the last frame (keep the last value) is a bump of `k.kick`; `g.hitCool` jumping up (the sim sets it on a hit) is half of one. Check: drive the Golden Ticket and an art car in headless Chrome (`carshots.mjs`): the nose dips under the brakes, the body rolls out of a turn, a bump into a stage bounces it once; nothing moves standing still.
+
+**8.3 The camera feels it (1 h).** In `rideFeel.ts`: `export function shake(t: number, since: number, amp: number): { x: number; y: number; z: number }` (a few summed sines of different frequencies, decaying as `exp(-(t - since) / 0.12)`, 0 after 0.6 s), with a test that it is 0 at 0.6 s and deterministic. In `renderer.ts` `frame()`, on the same bump or hit as 8.2 note `since = g.t` and `amp` (1.6 ft for a bump, 0.8 for a hit), and add `shake(...)` to the camera position after `this.camera.position.set(e.x, e.y, e.z)`, never to `this.cam` (the chase camera's spring must not learn the shake). None when `matchMedia("(prefers-reduced-motion: reduce)").matches`. Check: ride into a stage, the view jolts and is still within 0.6 s.
+
+**8.4 Tracks in the dust (3 h).** New `src/game/three/tracks.ts`, one draw call, built like `trails.ts`: a ring buffer of N = 600 points dropped every 1.5 ft you travel (by distance, not time: about 900 ft of track), only while `surfaceAt(car).kind === "playa"` (`brc.ts`; the streets are packed and keep no tracks) and you are on the ground; a gap in the ribbon where you left the playa (start a new strip: keep a `break` flag on a point and give that segment zero width). Two strips for a car (the wheels at `±0.4 · wid`), one for a bike or the unicycle; each strip 1.2 ft wide (2 for the art cars), a flat ribbon 0.15 ft up with the ground's own lighting (`registerGround()` on a `MeshBasicMaterial` with the colour `#c9b48a`, the playa a shade darker, so the night darkens it as it does the ground), `transparent`, `depthWrite: false`, `polygonOffset` like the carpets, opacity `0.55 · (1 - age / 90)` per vertex (age in game seconds) through a per-vertex alpha attribute as `litter.ts` does. Clear it on `newGame` (the renderer sees `g` change identity) and on a switch back from top-down after the stale gap (`renderer.ts` already detects it). `frustumCulled = false`, and skip the update while the strips are all older than 90 s. Check: a figure eight on the open playa leaves two clean crossing tracks that are gone 90 s later; none on the Esplanade; no seam at the gap; +1 draw call in the 8.0 grid.
+
+**8.5 Wind (4 h).** New `src/lib/wind.ts` (pure) and `wind.test.mjs`:
+```ts
+/** The wind over the playa at game time t: where it blows toward (a game heading), its speed in ft/s and how gusty it is (0..1).
+ *  A prevailing direction (a constant in the file; say in the commit which you chose) that wanders ±0.4 rad on slow sines, 6 ft/s with gusts
+ *  to 14 in clear weather, rising toward 45 with storm (stormLevel). Never reads the game's random stream. */
+export function windAt(t: number, storm: number): { dir: number; speed: number; gust: number };
+```
+Tests: the same `t` gives the same wind; it is continuous (no step over 0.05 rad or 0.5 ft/s between `t` and `t + 1/60`); `storm = 1` blows harder than 0 at every `t` sampled. Then, in three: (a) **the flags** (`camps.ts`, the `cloth` class): its own `MeshLambertMaterial` with an `onBeforeCompile` that waves the vertices along the cloth's length, `sin(x · 0.9 + uTime · (2 + speed / 6) + phase)` with the amplitude growing from the pole (local x = -3) to the free end, `phase` from the instance's world position so the 6,284 flags do not wave together, the uniforms `uTime` and `uWind` (speed) shared and set once a frame; the cloth's facing stays its instance yaw (turning each flag downwind is 6k matrix writes a frame: not worth it). It was sharing the pole's batch in 8.1; it now has a mesh per cell of its own, so take that from 8.1's saving and recount. (b) **wind streaks** (new `src/game/three/windFx.ts`, one draw call): 160 thin additive quads 20 to 60 ft long, 1 to 18 ft up, laid along `windAt().dir`, whose positions loop in a 700 ft box round the camera in the vertex shader (`mod(start + windTravel - camera, 700) - 350` per axis, `windTravel` the wind's integrated offset as a uniform), so they are always round you and never need a CPU update; faint white by day (opacity 0.06 to 0.12 with `gust`), off at night and when the wind is under 8 ft/s, thicker and the colour of the dust in a storm. Off on phones (`quality.touch`) until it is measured there. Check: flags wave out of step and harder in a storm; streaks drift past at the wind's speed whichever way you face, and loop without popping; +1 draw call.
+
+**8.6 The playa's plates (3 h).** The open playa's dried mud cracks into plates a few feet across, and nothing near the camera says so today. `litGround` in `materials.ts` is shared by every flat thing made with `basic()` or `registerGround()` (the decals, the bays, the dust angels, 8.4's tracks), so the cracks must not go into it for everyone: give `registerGround` an option, `registerGround(m, { plates: true })`, that adds the crack code and a program key of its own (`"ground-lit-plates"`), and pass it only for the ground planes of the playa itself in `ground.ts` (the city-map plane and the surround). Where the open playa is: a new pure `src/lib/openPlaya.ts` with `isOpenPlaya(x: number, y: number): boolean` written as a rule of radii and clock angles (inside the Esplanade's inner edge, past L's outer edge, or in the open wedge outside 2:00 to 10:00; not within Center Camp's circle) so it can be mirrored line for line in GLSL, and `openPlaya.test.mjs` that checks it against `surfaceAt(p).kind === "playa"` (`brc.ts`) over a 100 ft grid of the whole fence: at least 97 % agreement, and never true on a block. In the shader, where the rule holds: a Voronoi of the world position with cells about 3 ft across and thin dark edges (`#cbb68e`, 15 % at most), faded out by 120 ft from the camera so it never moirés, under the existing lighting so it darkens at night. No texture, no new draw call. Desktop only: behind the same `configureGround()` switch the phones use (phase 5 notes this shader as the first thing to thin on a phone). Check: the frame time at the grid's worst pose on the desktop build goes up by under 0.3 ms (`frame()` timing with `--disable-gpu-vsync`); a screenshot pair looking down at the playa by day and night; none on a block, the streets or a decal.
+
+**8.7 Acceptance (1 h).** The 8.0 grid one last time: every worst case is at or under where it started, and at night at or under 150. 60 fps in the emulated iPhone 13 with the CPU throttled 4x as in 5.5, at the same six poses. The camera button, the trip and top-down unchanged (the 0.4 gate's tests pass, the top-down draw-call log from the memory's `lift.mjs`/`cmp.mjs` is identical). Write the numbers into a "Phase 8 as built" paragraph here, as phase 5 did, then gate and push.
+
+| step | what | hours |
+|---|---|---|
+| 8.0 | baseline grid | 1 |
+| 8.1 | `BatchedMesh` per material per cell in `camps.ts` | 4 |
+| 8.2 | `rideFeel.ts` + test; springs on the rides without a rig and the art car you drive | 3 |
+| 8.3 | camera shake on a bump or a hit | 1 |
+| 8.4 | `tracks.ts`: tyre tracks in the playa | 3 |
+| 8.5 | `wind.ts` + test; waving flags; `windFx.ts` streaks | 4 |
+| 8.6 | `openPlaya.ts` + test; the playa's cracked plates on its own ground planes, desktop | 3 |
+| 8.7 | acceptance, numbers, ship | 1 |
+
+Each step is a commit of its own and can be reverted alone; 8.1 must land before 8.4 and 8.5. Phase 6 (ship) does not wait for this phase, and this phase does not wait for Phase 7.
+
+## 12. Phase 9: real physics with Rapier, in both views (≈ 40 h, 30 to 50)
+
+Asked 2026-10-31 (Collin: "forget rule 1, we can add Rapier physics"; then, asked where and what for: **both views**, for **real suspension**, **knocking things over** and **shoving art cars and bikes**; not jumps or ramps). This is the one phase that changes the simulation. Rule 1 (0.3) is waived for what this section names and nothing else: your ride's motion on the ground, its collisions with the world, its collisions with the others, and the props. The jobs, parking, the music, the weather, the NPCs' routes, the plane in the air, the chute and the HUD stay as they are. Rule 4 is waived too: top-down plays with the new physics and draws the props you knock over.
+
+### 12.1 The dependency
+
+- `@dimforge/rapier3d-compat@0.21.0` (Apache-2.0; published 2026-09-25, checked on npm 2026-10-31), pinned exactly. The `-compat` build has the wasm inlined as base64 and needs `await RAPIER.init()`: it runs unchanged in Vite and under `node --experimental-strip-types`, so the tests use the same code as the game. Its `dist/rapier.mjs` is **1.65 MB gzip**. The plain `@dimforge/rapier3d` ships the wasm as a file (3.08 MB raw, 1.17 MB gzip) but needs bundler wasm support (`vite-plugin-wasm`); switching the browser to it is 9.8's optional saving, not the first build.
+- It is a lazy chunk of its own, never in the main chunk and not in the three chunk. Add to `CREDITS.md`: Rapier, Apache-2.0, dimforge.
+- **3D, not 2D.** `@dimforge/rapier2d` is 0.91 MB gzip and the playa is flat, but suspension (pitch, roll, heave, a wheel on its spring) is 3D. Shoves and props in 3D also give the 3D view something to show.
+
+### 12.2 Architecture
+
+```
+src/lib/
+  physicsTypes.ts      NEW  types only, no rapier: the hook the game calls, the body and wheel states, the knocked props. playa.ts imports these types and nothing else
+  physicsShapes.ts     NEW  pure: the solid world as collider descriptions (fence walls, blocks with their bays cut out, stages, OBSTACLES, camp solids, the props), from brc.ts / playa.ts / camps.ts data
+  physicsShapes.test.mjs NEW
+  physicsTune.ts       NEW  pure: per ride, chassis size and mass, wheels, suspension, engine, brakes, friction on packed and loose ground
+  physics.ts           NEW  imports rapier: makeWorld(), the vehicle, the NPC bodies, the props, step(); implements PhysicsHooks
+  physics.test.mjs     NEW  awaits RAPIER.init(); the feel-parity tests (12.4)
+  playa.ts             EDIT stepGame calls g.phys when there is one; Game gains phys?, body?, wheels?, nudge, knocked; npcShown()
+src/game/
+  PlayaWin.tsx         EDIT loads the physics chunk at boot and attaches it; top-down draws nudged NPCs and knocked props
+  three/rides.ts, cars.ts, people.ts, camps.ts  EDIT  read g.body/g.wheels, npcShown(), g.knocked
+```
+
+**The seam** (`physicsTypes.ts`):
+```ts
+export type BodyState = { pitch: number; roll: number; heave: number };              // radians (nose down +, left side down +), feet up
+export type WheelState = { compress: number; spin: number; steer: number }[];        // per wheel: suspension travel 0..1, rolled angle, steering angle
+export type KnockedPose = { x: number; y: number; up: number; qx: number; qy: number; qz: number; qw: number };  // game feet; quaternion in three.js axes (view3d.ts 2.4)
+export interface PhysicsHooks {
+  /** Drive your ride one step: reads input and g.car, steps the world, writes g.car (x, y, h, vx, vy, steer), g.body, g.wheels, g.nudge, g.knocked.
+   *  Returns the hardest impact against the world (ft/s, as collide() does) and the NPC it hit hardest with its impact. */
+  step(g: Game, input: Input, dt: number, v: Vehicle): { world: number; npc: { n: Npc; impact: number } | null };
+  /** Put the ride where g.car says, at rest on its wheels (a new game, a teleport, a vehicle change, coming back from the air, hopping off). */
+  place(g: Game, v: Vehicle): void;
+  /** Clear the props and nudges (a new game). */
+  reset(): void;
+}
+```
+`Game` gains `phys?: PhysicsHooks` (not saved, not cloned), `body?: BodyState`, `wheels?: WheelState`, `nudge: Map<Npc, { dx: number; dy: number; dh: number }>`, `knocked: Map<string, KnockedPose>` (keyed `"<block index>:<struct index>[:<bike k>]"`). **With no `g.phys`, `stepGame` is exactly today's**: every existing test runs without physics and must pass unchanged, and the game plays on `carStep` until the chunk has loaded, or for good if it fails to (old browser, blocked wasm, low memory).
+
+**In `stepGame`** (`playa.ts:1161`): where it calls `carStep` and later `collide` and the NPC bounce loop, branch on `g.phys && !riding && !g.chute && !airborne && g.vehicle !== "plane" && g.angelT <= 0`. The physics branch calls `g.phys.step(...)` in place of all three; `impact > 60` is still a bump; an NPC impact over the threshold (12.5) runs today's hit block (the gift, the warning, `hitCool`). Everything after (the camp speed cap, parking, the mission) reads `g.car` as now. `g.ghost` (the big map open): the ride's colliders leave every collision group, so nothing stops you, as today. Leaving the physics branch (taking off, hopping on an art car, the chute) and coming back into it calls `place()`.
+
+**Units.** Rapier's tolerances are tuned for metres; inside `physics.ts` the world runs in metres (`FT = 0.3048`, gravity −9.81) and converts at the boundary, so the rest of the game stays in feet. Axes are the 3D view's (2.4): game x → X, game y → Z, up → Y; heading `h` → yaw `−h`.
+
+**Stepping.** A fixed step of 1/60 s with an accumulator (at most 4 steps a frame; the game's dt is already capped at 0.05). `g.car` is written from the last step, with no interpolation; if a 120 Hz screen judders, interpolate the chassis pose in the renderers only (not in `g.car`).
+
+**Loading.** `PlayaWin.tsx` at mount: `import("@/lib/physics").then((m) => m.makeWorld()).then((p) => { g.phys = p; p.place(g, vehicleOf(g)); })`, in a `.catch` that leaves carStep in charge and logs once. On `newGame`, `reset()` then `place()`. The physics chunk loads while the title card is up; on a phone, over a slow network, you drive on carStep until it arrives and the hand-over is the `place()` from where you are, at your speed.
+
+### Steps
+
+**9.0 Spike (2 h).** Install the pinned package. In a scratch branch, a flat ground and one cuboid car pushed by a force; check it inits in Chrome and under `node --experimental-strip-types`, the chunk's size in `npm run build`, and one world step with 2,000 static cuboids and 50 bodies: under 0.3 ms on the desktop, under 1.5 ms in the emulated iPhone 13 at 4x throttle. If node cannot load it, stop and say so.
+
+**9.1 The seam (3 h).** `physicsTypes.ts`, the `Game` fields (with `nudge` and `knocked` empty in `newGame`), the `stepGame` branch above, `npcShown(g, n)` (`npcAt` plus `g.nudge`), the loading in `PlayaWin.tsx`. A stub `PhysicsHooks` in a test that just calls `carStep` and `collide` must give the same `g.car` as no physics over 600 steps of scripted input (the branch itself changes nothing). Gate: every existing test passes untouched.
+
+**9.2 The solid world (5 h).** `physicsShapes.ts`, pure, returning `{ kind: "box" | "cyl"; x; y; w; l; h; yaw; group }[]`:
+- the fence: one thin tall box per pentagon edge, split round the airport's gap (`AIRPORT.gap`, as `solidAt` has it);
+- the blocks, for the rides that do not go through camps: each block's band (`blockBounds`) cut into boxes of at most 60 ft of arc, with the spans where `SPOTS`' bays open (`inBay`, `bayExit`) left out, so the bays stay drivable;
+- the stages and `OBSTACLES`: cylinders of their radius;
+- the camp solids (`plan.solids`), for the rides that do go through camps: boxes and cylinders (`round`) of their size;
+- collision groups: `WORLD`, `BLOCK` (only the rides with `throughCamps: false` collide with it), `CAMP` (only those with `throughCamps: true`), `NPC`, `PROP`, `RIDE`.
+The camp solids are many (count them in the test and write it down); if more than about 10,000, stream them: only those within 300 ft of the ride are in the world, added and removed in batches as you move (`physics.ts`). Test (`physicsShapes.test.mjs`): sample a 10 ft grid over the city and the fence; for each ride's `throughCamps`, a point is inside a collider exactly where `solidAt(p, through)` is solid, at 98 % or better, and never solid on a street or in a bay.
+
+**9.3 The vehicle (8 h; the step that decides the phase).** `physicsTune.ts` and the vehicle in `physics.ts`: a cuboid chassis of the ride's `len × wid` (`VEHICLES`) and a height per ride, its mass (bike and rider 230 lb, e-bike 260, unicycle 190, tuk-tuk 600, RV 12,000, the Golden Ticket 3,000, the cuttlefish 8,000, a found art car 15,000), its centre of mass low; Rapier's `DynamicRayCastVehicleController` with four wheels (the bikes and the unicycle get four wheels a hand's width apart, with roll locked: `setEnabledRotations(true, true, false)` in the chassis frame, since a bike's lean is drawn by its rig, not balanced by physics); engine force from `readStick()`'s pedals (the same function `carStep` uses), braking force, the handbrake as no rear friction plus brakes (the drift), drag and rolling resistance as forces; each wheel's `frictionSlip` from `gripAt()` under that wheel (packed 8, loose 4.2) times the ride's `grip`, and the top speed on dust (`v.dust`) by drag; steering from `readStick()`'s `want`, eased as `carStep` eases it and narrower with speed. Write back `g.car` with `steer`, and `g.body` from the chassis' rotation, `g.wheels` from the controller. **Feel parity** (`physics.test.mjs`), each ride, Rapier against `carStep` on flat packed ground and on loose dust: the time from rest to 80 % of top speed, the distance to stop from top speed, the radius of a full-lock turn at 50 ft/s, the slide angle a second into a handbrake turn at 80 ft/s: each within 15 % of `carStep`'s (write both columns in the commit). This is where the hours go: if a ride cannot be brought within 15 % in the time, keep it on `carStep` (a per-ride `physics: false` in the tune) and say which.
+
+**9.4 Drawing the suspension (2 h).** `rides.ts` and `cars.ts`: the models without a rig and the art car you drive take `g.body` (`rotation.order = "YXZ"`, `rotation.x` from pitch, `.z` from roll, `position.y += heave`); where a model's wheels are their own meshes (the RV's bones, `cars.ts`' wheels), they take `compress` and `spin`. This replaces 8.2: skip 8.2 if this phase lands first, or remove its springs here if not. 8.3's shake keeps reading `g.bumps` and `g.hitCool`. Top-down draws nothing new for the suspension.
+
+**9.5 Shoving the others (6 h).** In `physics.ts`, a pool of bodies for the others near you, refilled each step from `g.npcs` by distance:
+- **art cars** (and ambulances): up to 12 within 600 ft, **kinematic** bodies moved to `npcAt` each step (`setNextKinematicTranslation`/`Rotation`), so they are as heavy as a building and push you with their real speed;
+- **bikes, e-bikes and walkers**: up to 40 within 300 ft, **dynamic** bodies (230 lb, 260, 170) held to their `npcAt` pose by a spring and a damper (a force toward it and a torque to its heading, tuned so a shove moves a biker about 8 ft and they are back on their line within 3 s); the offset from their route is `g.nudge`, which they lose once back on it or leaving the pool. Walkers are pushed aside and never fall over (lock their tilt). They do not collide with each other or with the camps (their routes already keep them clear).
+`npcShown()` replaces `npcAt` wherever the others are *drawn* (top-down's painter, `people.ts`, `cars.ts`) and in the "slow down" warnings; their routes keep using `npcAt`. A hit: Rapier's contact force events between the ride and an NPC body; the threshold is set so that what today counts as a hit (`bounce` > 22 ft/s) still does, and the gift, the warning and `hitCool` follow as now. `g.slip` (slipping through after being pinned): the ride leaves the `NPC` group while it runs. Riding into an art car you are driving is not possible (it is you: not in the pool). Tests: a scripted run into a walking biker at 60 ft/s gives one hit, the biker moves and returns to its route; a kinematic art car crossing your nose pushes you.
+
+**9.6 Knocking things over (6 h).** Which: the parked bikes (each bike of a row or rack), the racks, signs, flags, speakers, couches and potties (`camps.ts` kinds `bikes`, `rack`, `sign`, `flag`, `speaker`, `couch`, `potty`); not MOOP (you pick it up), not tents, domes or RVs (they are solid and stay so). A pool of up to 300 dynamic bodies, made **asleep** for the props within 150 ft of the ride as you move (in the `PROP` group, which only rides with `throughCamps: true` meet, since only they ride through camps), each its real mass (a bike 30 lb, a sign 40, a flag 15, a speaker 150, a couch 120, a potty 400 lb and wide: it rocks rather than falls unless you are fast); a prop that wakes and moves is written to `g.knocked` under its key; a prop more than 400 ft from you and asleep for 30 s goes back where it was and leaves `g.knocked` (Bruno's reset). A potty or speaker hit over 60 ft/s is a bump. Drawing: in 3D, `camps.ts` writes that instance's matrix from the pose and hides it where it stood (with 8.1 done, a `BatchedMesh.setMatrixAt` on its id; without, the `InstancedMesh`'s), and puts it back on reset; in top-down, the painter skips a knocked struct where the plan has it and draws it at its pose (its footprint turned by the pose's yaw; a prop lying down is drawn as its side's footprint: its height by its width). Tests: a scripted run through a rack of bikes at 40 ft/s knocks at least 3 over; 60 s later and 500 ft away they are back; nothing in the pool outside 150 ft.
+
+**9.7 Every way you move, again (3 h).** In headless Chrome with physics on, every mode the game has: each ride; the airport (on the ground the plane stays on `carStep`: it is a plane; take off, land, bail out, land under the chute, back on the bike: `place()` each time); parking in a bay, leaving it; the Gate's dust angel and bell; ghost mode with the big map open; hop on an art car, ride along, hop off; drive a found art car; the Golden Ticket; a new game; switching views at speed; the persistence tests in the memory's notes folder. Each must behave as before but for the feel.
+
+**9.8 Performance and size (2 h).** The physics step, measured in `stepGame` with `performance.now()`: under 1 ms a frame on the desktop in the city's worst place (riding a bike through a dense block with the pools full), under 2.5 ms in the emulated iPhone 13 at 4x throttle. The chunk loads after the main chunk and never delays the first frame (check the network waterfall). The wasm heap after 10 minutes of riding does not grow (the pools are reused, the streamed colliders removed). With the chunk blocked (DevTools request blocking), the game plays on `carStep` with no error shown. Optional: move the browser to the plain `@dimforge/rapier3d` with `vite-plugin-wasm` (pin both; the node tests stay on `-compat`) and write down the saving (about 0.5 MB gzip).
+
+**9.9 Acceptance and ship (2 h).** All tests, the gate, the 8.0-style grid in 3D (the props and the pools add no draw calls: they use the instances that exist), 60 fps in the emulated phone at the six poses of 5.5, and an "as built" paragraph with the parity table, the step times and the chunk size.
+
+| step | what | hours |
+|---|---|---|
+| 9.0 | spike: install, init in Chrome and node, a step's cost | 2 |
+| 9.1 | the seam: types, `Game` fields, the `stepGame` branch, loading, the stub test | 3 |
+| 9.2 | `physicsShapes.ts` + test: the solid world as colliders, streaming the camp solids | 5 |
+| 9.3 | the vehicle per ride, `physicsTune.ts`, feel-parity tests | 8 (6 to 14) |
+| 9.4 | the suspension drawn in 3D | 2 |
+| 9.5 | the others: kinematic art cars, tethered bikes and walkers, hits | 6 |
+| 9.6 | the props: pool, sleep, knock, reset, drawn in both views | 6 |
+| 9.7 | every mode again | 3 |
+| 9.8 | step time, chunk, memory, fallback | 2 |
+| 9.9 | acceptance and ship | 2 |
+
+About 40 hours; 30 if the parity tuning goes well, 50 if it fights back. The risk is all in 9.3: today's feel was tuned by hand ride by ride (`VEHICLES`), and a raycast vehicle will not drift the way `carStep`'s grip-bleed does without work. That is why every ride can fall back to `carStep` alone, and why the parity numbers are written down. Order: 9.0 to 9.3 first; 9.4 to 9.6 in any order after; 8.1 (batching) before 9.6 is easier but not required.
+
+## 13. Appendix: the numbers an implementer will reach for
 
 - `CITY_SCALE = 1.5`; `ARC_R` = [3750, 4410, 4785, 5160, 5535, 5910, 6285, 6660, 7035, 7410, 7785, 8085, 8385] ft (Esplanade, A…L); `ROAD_W = 72`, `WIDE_ROAD_W = 104` (= `ESPLANADE_W`); radials every 30 min from 120 (2:00) to 600 (10:00), wide ones 180/270/360/450/540; `MAN_R = 80`; `TEMPLE` at 12:00, 3750 ft, `TEMPLE_R = 120`; `CENTER_CAMP` at 6:00, 4080 ft, `CENTER_CAMP_R = 570`, `CAFE_R = 195`; `FENCE_R = 11400` (a pentagon, a corner at 12:00); the airport at 4:12, `FENCE_R·1.09`, runways 4,600 × 110 ft at `±140`; the Gate at 4:30, `FENCE_R·1.25`, Gate Road 110 ft wide from L street out to `FENCE_R·1.7`.
 - `MAP_BOX = { top: -11550, bottom: 9375, half: 10950 }`; `cityImage()` is 2560² (1536² when `min(innerWidth, innerHeight) < 700`), `surroundImage()` (private to `citymap.ts`: export it in phase 1) is 1536² covering `AROUND = 4` times the city image's side.

@@ -16,6 +16,8 @@ import { mergedParts, shaped as P, type Part } from "./materials";
 export type PeopleMeshes = { group: THREE.Group; update(g: Game, cam: THREE.Vector3): void; /** ms the last update took, and how many people it drew */ stats(): { ms: number; shown: number } };
 /** People show within SHOW feet of your ride (in three dimensions: from the camera's height), shrinking away over the last fifth of it. */
 export const SHOW = 900;
+/** 2026's other art cars, being big, show further off. */
+const SHOW_MV = 1600;
 
 const WHITE = 0xffffff, TYRE = 0x15161d, SKIN = 0xf2c6a0, STRAW = 0xd9b46a, STEEL = 0x8a909c, SHORTS = 0x2f3550, SHOE = 0x2a211c, SADDLE = 0x6b4a2f;
 const cyl = (rt: number, rb: number, h: number, seg = 6) => new THREE.CylinderGeometry(rt, rb, h, seg);
@@ -30,8 +32,8 @@ function mergedTinted(parts: Tinted[]): THREE.BufferGeometry {
   return mergedParts(parts).geometry;
 }
 /** The people's material: `glowing`'s night glow, with the instance colour applied only as far as a vertex's `tint` says. */
-function tintedGlow(): THREE.MeshLambertMaterial {
-  const m = glowing({ vertexColors: true }, "glow-people-tint", 0.3), glow = m.onBeforeCompile;
+function tintedGlow(key = "glow-people-tint", k = 0.3): THREE.MeshLambertMaterial {
+  const m = glowing({ vertexColors: true }, key, k), glow = m.onBeforeCompile;
   m.onBeforeCompile = (shader, r) => {
     glow(shader, r);
     shader.vertexShader = "attribute float tint;\n" + shader.vertexShader.replace("#include <color_vertex>", `#include <color_vertex>
@@ -169,22 +171,77 @@ function ambulanceGeometry(): THREE.BufferGeometry {
   ].map((p) => ({ ...p, tint: 0 })));
 }
 
-type Kind = "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "ambulance" | "rv";
-const KINDS: Kind[] = ["bike", "ebike", "tuktuk", "unicycle", "walker", "ambulance", "rv"];
+/**
+ * 2026's other mutant vehicles (asked 2026-11-04), in four shapes for their forms, about 36 ft long, forward -Z, the hue on the body
+ * (tint 1) and the chassis, wheels and trim their own colours: a boat with a sail, a winged thing, a creature on legs, and a deck on wheels
+ * with a dome for the rest (cars, buses, trains, houses, everyday objects, plants).
+ */
+function mvChassis(add: (geo: THREE.BufferGeometry, color: number, tint?: number) => void) {
+  add(box(14, 2, 32).translate(0, 3, 0), 0x1b1f3b);
+  for (const s of [-1, 1]) for (const z of [-11, 11]) add(cyl(2.4, 2.4, 1.6, 8).rotateZ(Math.PI / 2).translate(s * 7, 2.4, z), TYRE);
+}
+function mvBoatGeometry(): THREE.BufferGeometry {
+  const parts: Tinted[] = [], add = adder(parts);
+  mvChassis(add);
+  const hull = new THREE.Shape([new THREE.Vector2(0, -20), new THREE.Vector2(8, -6), new THREE.Vector2(8, 16), new THREE.Vector2(-8, 16), new THREE.Vector2(-8, -6)]);
+  add(new THREE.ExtrudeGeometry(hull, { depth: 7, bevelEnabled: false }).rotateX(Math.PI / 2).translate(0, 11, 0), WHITE, 1);
+  add(box(16.4, 0.8, 30).translate(0, 7.6, 1.5), 0xfff3b0);
+  add(cyl(0.5, 0.5, 26, 5).translate(0, 24, -2), 0x6b4a2f);
+  const sail = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(13, 0), new THREE.Vector2(0, 22)]);
+  add(new THREE.ShapeGeometry(sail).rotateY(-Math.PI / 2).translate(0, 13, -2), 0xfdfaf2);
+  for (const p of parts) if (p.geo.index) p.geo = p.geo.toNonIndexed(); // the extruded hull has no index: none of them then, to merge
+  return mergedTinted(parts);
+}
+function mvWingGeometry(): THREE.BufferGeometry {
+  const parts: Tinted[] = [], add = adder(parts);
+  mvChassis(add);
+  add(new THREE.SphereGeometry(1, 10, 6).scale(6, 6, 17).translate(0, 11, 0), WHITE, 1);
+  add(new THREE.SphereGeometry(4, 8, 6).translate(0, 14, -16), WHITE, 1);
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(22, -6), new THREE.Vector2(26, 8), new THREE.Vector2(0, 12)]);
+    add(new THREE.ShapeGeometry(wing).rotateX(-Math.PI / 2).scale(s, 1, 1).translate(s * 4, 15, -2), WHITE, 1);
+    add(new THREE.SphereGeometry(0.9, 6, 4).translate(s * 1.8, 15.5, -19.4), 0x1b1f3b);
+  }
+  return mergedTinted(parts);
+}
+function mvBeastGeometry(): THREE.BufferGeometry {
+  const parts: Tinted[] = [], add = adder(parts);
+  mvChassis(add);
+  add(new THREE.SphereGeometry(1, 10, 7).scale(8, 7, 14).translate(0, 13, 2), WHITE, 1);
+  add(new THREE.SphereGeometry(1, 9, 6).scale(5, 5, 6).translate(0, 18, -15), WHITE, 1);
+  for (const [x, z] of [[-6, -7], [6, -7], [-6, 10], [6, 10]]) add(cyl(1.6, 1.3, 8, 6).translate(x, 6, z), WHITE, 1);
+  for (const s of [-1, 1]) { add(new THREE.SphereGeometry(1.2, 6, 4).translate(s * 2.4, 20, -20), 0xfdfaf2); add(new THREE.SphereGeometry(0.6, 5, 3).translate(s * 2.4, 20, -21), 0x1b1f3b); add(new THREE.ConeGeometry(1.2, 5, 5).translate(s * 3, 24.5, -14), 0xfdfaf2); }
+  add(cyl(0.8, 0.3, 12, 5).rotateX(-1.1).translate(0, 15, 20), WHITE, 1);
+  return mergedTinted(parts);
+}
+function mvDeckGeometry(): THREE.BufferGeometry {
+  const parts: Tinted[] = [], add = adder(parts);
+  mvChassis(add);
+  add(box(15, 4, 34).translate(0, 6, 0), WHITE, 1);
+  add(box(15.4, 0.6, 34.4).translate(0, 8.3, 0), 0xfff3b0);
+  add(new THREE.SphereGeometry(6.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 8.6, 3), 0xfdfaf2, 0.35);
+  for (const s of [-1, 1]) add(box(0.5, 3, 30).translate(s * 7.3, 10, 0), 0xfff3b0);
+  add(box(10, 6, 6).translate(0, 11.6, -12), 0x14172c);
+  return mergedTinted(parts);
+}
+const MV_SHAPE: Record<string, "mvBoat" | "mvWing" | "mvBeast" | "mvDeck"> = { ship: "mvBoat", wing: "mvWing", air: "mvWing", land: "mvBeast", myth: "mvBeast", robot: "mvBeast" };
+
+type Kind = "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "ambulance" | "rv" | "mvBoat" | "mvWing" | "mvBeast" | "mvDeck";
+const KINDS: Kind[] = ["bike", "ebike", "tuktuk", "unicycle", "walker", "ambulance", "rv", "mvBoat", "mvWing", "mvBeast", "mvDeck"];
 
 export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
   const group = new THREE.Group();
-  const geo: Record<Kind, THREE.BufferGeometry> = { bike: bikeGeometry(), ebike: bikeGeometry(true), tuktuk: tuktukGeometry(), unicycle: unicycleGeometry(), walker: walkerTinted(), ambulance: ambulanceGeometry(), rv: rvGeometry() };
-  const mat = tintedGlow();
+  const geo: Record<Kind, THREE.BufferGeometry> = { bike: bikeGeometry(), ebike: bikeGeometry(true), tuktuk: tuktukGeometry(), unicycle: unicycleGeometry(), walker: walkerTinted(), ambulance: ambulanceGeometry(), rv: rvGeometry(), mvBoat: mvBoatGeometry(), mvWing: mvWingGeometry(), mvBeast: mvBeastGeometry(), mvDeck: mvDeckGeometry() };
+  const mat = tintedGlow(), matMv = tintedGlow("glow-mv-tint", 0.85); // the art cars light up at night as art cars do
   // the NPC list is fixed for a game; the meshes are as big as its kinds are many
   let npcs: readonly Npc[] = g.npcs;
-  const index = (list: readonly Npc[]) => list.map((n, i) => ({ n, i, kind: n.kind as string })).filter((x) => (KINDS as string[]).includes(x.kind));
+  const index = (list: readonly Npc[]) => list.map((n, i) => ({ n, i, kind: n.kind === "mv" ? MV_SHAPE[n.form ?? ""] ?? "mvDeck" : n.kind as string })).filter((x) => (KINDS as string[]).includes(x.kind));
   let items = index(npcs);
   const meshes = {} as Record<Kind, THREE.InstancedMesh>;
   const make = () => {
     for (const k of KINDS) {
       meshes[k]?.removeFromParent(); meshes[k]?.dispose();
-      const m = new THREE.InstancedMesh(geo[k], mat, Math.max(1, items.filter((x) => x.kind === k).length));
+      const m = new THREE.InstancedMesh(geo[k], k.startsWith("mv") ? matMv : mat, Math.max(1, items.filter((x) => x.kind === k).length));
       m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.setColorAt(0, new THREE.Color(1, 1, 1));
       group.add(m); meshes[k] = m;
     }
@@ -200,11 +257,11 @@ export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
     update(game, cam) {
       const t0 = performance.now();
       if (game.npcs !== npcs) { npcs = game.npcs; items = index(npcs); make(); }
-      const mine = drivenKey(), n = { bike: 0, ebike: 0, tuktuk: 0, unicycle: 0, walker: 0, ambulance: 0, rv: 0 };
+      const mine = drivenKey(), n = { bike: 0, ebike: 0, tuktuk: 0, unicycle: 0, walker: 0, ambulance: 0, rv: 0, mvBoat: 0, mvWing: 0, mvBeast: 0, mvDeck: 0 };
       shown = 0;
       for (const { n: npc, i, kind } of items) {
         if (npc.key && npc.key === mine) continue;
-        const p = npcAt(npc, game.t), dx = p.x - game.car.x, dz = p.y - game.car.y, f = fadeAt(Math.sqrt(dx * dx + dz * dz + cam.y * cam.y), SHOW);
+        const p = npcAt(npc, game.t), dx = p.x - game.car.x, dz = p.y - game.car.y, f = fadeAt(Math.sqrt(dx * dx + dz * dz + cam.y * cam.y), kind.startsWith("mv") ? SHOW_MV : SHOW);
         if (f <= 0) continue;
         const k = kind as Kind, slot = n[k]++, m = meshes[k];
         d.position.set(p.x, k === "walker" ? 0.3 * Math.abs(Math.sin(game.t * 6 + i)) : 0, p.y); d.rotation.set(0, yawOf(p.h), 0); d.scale.setScalar(f); d.updateMatrix();
