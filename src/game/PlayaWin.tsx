@@ -1763,7 +1763,10 @@ export default function PlayaWin() {
   };
   // driving off keeps a playing set or video open where it is (asked 2026-10-22); an idle panel folds away
   onLeave.current = () => { setParked(null); if (!nowRef.current?.playing) setLounge(false); setNow((n) => (n?.playing ? n : null)); };
-  const pick = (key: string, t: Track) => setNow({ key, url: t.url, title: t.title, auto: true, playing: true });
+  // what you pick is yours over the place you are beside as you pick it (asked 2026-11-04: a video picked with V by an art car stopped at once, the car's music
+  // taking over, and the peek flickered): only a place you ride up to afterwards takes over
+  const nearKey = useRef<string | null>(null), pickNear = useRef<string | null>(null);
+  const pick = (key: string, t: Track) => { pickNear.current = nearKey.current; setNow({ key, url: t.url, title: t.title, auto: true, playing: true }); };
   const onPlaying = useCallback((on: boolean) => setNow((n) => (n && n.playing !== on ? { ...n, playing: on } : n)), []);
   const stopMusic = () => { setNow(null); setLounge(false); board.current?.focus({ preventScroll: true }); };
   const foldLounge = () => { setLounge(false); if (!nowRef.current?.playing) setNow(null); board.current?.focus({ preventScroll: true }); };
@@ -1999,7 +2002,8 @@ export default function PlayaWin() {
         const want = stepSticky(sticky.current, near, false, dtm, (!!near && g.parking.at === near.key) || (g.vehicle === "plane" && near?.key === "agave"));
         // the ride you are on (the art car you drive or ride along on, the plane with Agave aboard) never takes over a set or video you picked yourself: only a place you ride up to does (asked 2026-10-27: videos kept switching back to the Dragon Lady's playlist at its wheel)
         const own = g.vehicle === "found" ? drivenKey() : g.aboard ?? (g.vehicle === "plane" ? "agave" : null);
-        if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && near.key !== own && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
+        nearKey.current = near?.key ?? null;
+        if (picked?.playing && near && want?.key === near.key && near.key !== picked.key && near.key !== own && near.key !== pickNear.current && loudness(near.d) >= TAKEOVER) { nowRef.current = null; setNow(null); setLounge(false); }
         const quiet = phaseRef.current !== "play" || !soundRef.current || !!nowRef.current?.playing;
         const target = quiet ? null : want;
         const was = mix.current;
