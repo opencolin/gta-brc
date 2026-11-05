@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { drivenKey, npcAt, type Game, type Npc } from "@/lib/playa";
+import { drivenKey, fallOf, npcAt, type Game, type Npc } from "@/lib/playa";
 import { fadeAt } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import { glowing } from "./camps";
@@ -264,7 +264,9 @@ export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
         const p = npcAt(npc, game.t), dx = p.x - game.car.x, dz = p.y - game.car.y, f = fadeAt(Math.sqrt(dx * dx + dz * dz + cam.y * cam.y), kind.startsWith("mv") ? SHOW_MV : SHOW);
         if (f <= 0) continue;
         const k = kind as Kind, slot = n[k]++, m = meshes[k];
-        d.position.set(p.x, k === "walker" ? 0.3 * Math.abs(Math.sin(game.t * 6 + i)) : 0, p.y); d.rotation.set(0, yawOf(p.h), 0); d.scale.setScalar(f); d.updateMatrix();
+        // knocked over (asked 2026-11-04): tipped onto the side they fell to, about their own length, until they get back up
+        const fall = fallOf(npc, game.t);
+        d.position.set(p.x, k === "walker" && !fall ? 0.3 * Math.abs(Math.sin(game.t * 6 + i)) : 0, p.y); d.rotation.set(0, yawOf(p.h), fall ? -fall.side * fall.tilt * 1.45 : 0, "YXZ"); d.scale.setScalar(f); d.updateMatrix();
         m.setMatrixAt(slot, d.matrix);
         if (k !== "ambulance") m.setColorAt(slot, c.setHSL((npc.hue % 360) / 360, 0.7, 0.58, THREE.SRGBColorSpace)); else m.setColorAt(slot, c.setRGB(1, 1, 1));
         shown++;

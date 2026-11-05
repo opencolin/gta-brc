@@ -6,7 +6,7 @@ import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   MVS, ART_2026_SPOTS, newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
   newMission, stepMission, skipMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, warpDay, WARP_SECONDS, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, FALL, fallOf, fallsOver, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, blockBounds, toPolar, clockToAngle } from "./brc.ts";
@@ -564,7 +564,7 @@ test("bikers riding with an art car keep clear of it, and anyone squeezed betwee
   }
   // pinned between two of them standing still on the same spot
   const art = g.npcs.find((n) => n.kind === "mutant"), still = { ...art, speed: 0 }, p = npcAt(still, g.t);
-  g.npcs = [still, { ...still, kind: "bike", r: still.r }];
+  g.npcs = [still, { ...still, kind: "rv", r: still.r }]; // an RV: a bike no longer pins you, it falls over (2026-11-04)
   setVehicle(g, "bike");
   g.car.x = p.x + 3; g.car.y = p.y; g.car.vx = g.car.vy = 0;
   let slipped = false;
@@ -890,4 +890,27 @@ test("people on foot jump out of your way instead of being bumped (asked 2026-11
   // and later they are back on their way
   const back = w.dodge.t0 + DODGE.leap + DODGE.hold + DODGE.back + 0.1, r = npcAt({ ...w, dodge: null }, back), q = npcAt(w, back);
   assert.ok(Math.hypot(q.x - r.x, q.y - r.y) < 0.01, "back on their route");
+});
+
+test("a biker you ride into falls over and gets back up, and you ride on through (asked 2026-11-04)", () => {
+  const g = newGame(3, undefined, "agave");
+  const b = g.npcs.find((n) => n.kind === "bike" && n.path === "loop" && !n.lead);
+  b.speed = 0; // standing still, so you cannot miss
+  const p0 = npcAt(b, g.t), h = 0.7, f = { x: Math.sin(h), y: -Math.cos(h) };
+  g.car = { ...g.car, x: p0.x - f.x * 120, y: p0.y - f.y * 120, h, vx: f.x * 30, vy: f.y * 30 };
+  g.ghost = false; g.npcs.splice(0, g.npcs.length, b);
+  let slowest = Infinity, fell = null;
+  for (let i = 0; i < 60 * 6; i++) {
+    stepGame(g, { ...NO_INPUT, gas: true }, DT);
+    if (b.fall && fell === null) fell = g.t;
+    if (fell !== null && g.t - fell < 0.5) slowest = Math.min(slowest, speedOf(g.car));
+  }
+  assert.ok(fell !== null, "they fell over");
+  assert.ok(slowest > 25, `nothing stopped you (${slowest.toFixed(1)} ft/s at worst)`);
+  const t0 = b.fall.t0;
+  assert.ok(fallOf(b, t0 + FALL.down + FALL.lie / 2).tilt === 1, "flat on the ground a moment");
+  assert.equal(fallOf(b, t0 + FALL.down + FALL.lie + FALL.up + 0.01), null, "back on their feet");
+  const done = t0 + FALL.down + FALL.lie + FALL.up + FALL.back + 0.1, q = npcAt(b, done), r = npcAt({ ...b, fall: null }, done);
+  assert.ok(Math.hypot(q.x - r.x, q.y - r.y) < 0.01, "and on their way again");
+  assert.ok(fallsOver({ kind: "walker" }) && fallsOver({ kind: "unicycle" }) && !fallsOver({ kind: "mutant" }) && !fallsOver({ kind: "rv" }), "people on foot and on bikes fall; art cars and RVs still stop you");
 });

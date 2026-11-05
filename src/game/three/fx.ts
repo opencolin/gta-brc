@@ -62,14 +62,24 @@ class GlowPass {
 }
 
 /**
- * The trip's trails: each frame is the brighter of the new picture and the last frame's fade (three's afterimage shader), drawn once into a buffer
- * that the next pass reads as it is. `damp` is what is left of the last frame after a second, so the trails last as long at 144 fps as at 30.
+ * The trip's trails: each frame is the brighter of the new picture and the last frame's fade, drawn once into a buffer that the next pass reads as
+ * it is. `damp` is what is left of the last frame after a second, so the trails last as long at 144 fps as at 30. Only what is vivid leaves a trail
+ * (asked 2026-11-04: "don't blur things so much, the motion trails are cool"): the lights, the LEDs, the glowing and the strongly coloured, not the
+ * pale playa, the camps or the sky, which three's afterimage shader smeared into a blur across the whole picture as the view moved.
  */
+const TRAIL_FRAG = /* glsl */ `
+  uniform float damp; uniform sampler2D tOld; uniform sampler2D tNew; varying vec2 vUv;
+  void main() {
+    vec4 o = texture2D(tOld, vUv), n = texture2D(tNew, vUv);
+    float hi = max(o.r, max(o.g, o.b)), lo = min(o.r, min(o.g, o.b)), sat = hi > 1e-4 ? 1.0 - lo / hi : 0.0;
+    float vivid = max(smoothstep(0.5, 0.85, sat) * smoothstep(0.25, 0.6, hi), smoothstep(1.0, 1.6, hi)); // colourful and bright, or brighter than white
+    gl_FragColor = max(n, o * damp * vivid);
+  }`;
 class TrailPass {
   private old = half({ magFilter: THREE.NearestFilter });
   private cur = half({ magFilter: THREE.NearestFilter });
   private quad: FullScreenQuad;
-  private mat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(AfterimageShader.uniforms), vertexShader: VERT, fragmentShader: AfterimageShader.fragmentShader, depthTest: false, depthWrite: false });
+  private mat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.clone(AfterimageShader.uniforms), vertexShader: VERT, fragmentShader: TRAIL_FRAG, depthTest: false, depthWrite: false });
   private black = new THREE.Color();
   constructor() { this.quad = new FullScreenQuad(this.mat); }
   setSize(w: number, h: number): void { this.old.setSize(w, h); this.cur.setSize(w, h); }

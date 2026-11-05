@@ -22,7 +22,7 @@ import {
 } from "@/lib/brc";
 import {
   AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, MUTANTS, MVS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
-  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
+  atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, fallOf, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
 import { realCamps, type Struct } from "@/lib/camps";
@@ -1122,8 +1122,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   // the trip (asked 2026-10-26): what you saw a moment ago lingers under what you see now, a touch bigger and turned,
   // so everything that moves leaves a trail and the playa breathes; the colour wash and the sway are CSS on the canvas
   if (trip > 0 && echo && echo.width) {
-    ctx.save(); screen(); ctx.globalAlpha = 0.62 * trip;
-    ctx.translate(w / 2, h / 2); ctx.rotate(0.012 * trip * Math.sin(t * 0.8)); ctx.scale(1 + 0.014 * trip, 1 + 0.014 * trip); ctx.translate(-w / 2, -h / 2);
+    ctx.save(); screen(); ctx.globalAlpha = 0.3 * trip; // fainter and no longer turned or grown (asked 2026-11-04: it doubled the whole picture into a blur)
     ctx.drawImage(echo, 0, 0, w, h);
     ctx.restore(); world();
   }
@@ -1238,6 +1237,12 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   for (const n of g.npcs) { if (n.key && n.key === mine) continue; const p = npcAt(n, t); if (seen(p.x, p.y, 40)) npcs.push({ n, p }); }
   for (const { n, p } of npcs) {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.h);
+    // knocked over (asked 2026-11-04): a puff of dust, and they lie skewed off to the side they fell, until they get back up
+    const fall = fallOf(n, t);
+    if (fall) {
+      ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(fall.side * 4 + Math.cos(k * 1.7) * 6, Math.sin(k * 2.3) * 6, 4 + fall.tilt * 3, 0, Math.PI * 2); ctx.fill(); }
+      ctx.translate(fall.side * fall.tilt * 4, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1);
+    }
     if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "mv") drawMv(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
     ctx.restore();
   }
@@ -1356,6 +1361,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
  */
 /** How high the plane is before the big "Push E to eject" shows (asked 2026-11-04). */
 const EJECT_PROMPT_ALT = 150;
+/** ...and how near Agave Lounge (asked 2026-11-04: not until it is nearby), where the skydive lands you. */
+const EJECT_PROMPT_NEAR = 1500;
 /** How long pushing on without moving counts as stuck, in seconds (the "Press T to get superpowers" prompt). */
 const STUCK_SECONDS = 3;
 /** Whether the chase view's screen-space target ring is showing (paintOverlay's hysteresis). */
@@ -1799,8 +1806,8 @@ export default function PlayaWin() {
             }
             else if (e === "landed") {
               setParked((p) => (p === SKY_KEY ? null : p));   // down: the flight's videos are no longer where you are (one playing goes on in the panel)
-              // down under the chute you are on the bike; the garage no longer opens by itself (asked 2026-11-04), V opens it
-              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! V for the garage", until: g.t + 2.5 };
+              // down under the chute you are on the bike; the garage no longer opens by itself (asked 2026-11-04), G opens it
+              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! G for the garage", until: g.t + 2.5 };
             }
             else if (e === "delivered") {
               flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
@@ -1809,7 +1816,7 @@ export default function PlayaWin() {
                 const got = nextUnlock(d); if (!got) return d;
                 try { localStorage.setItem(UNLOCK_KEY, String(d + 1)); } catch {}
                 const name = GARAGE_RIDES.find((r) => r.id === got)?.name ?? VEHICLES[got].name;
-                setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. V for the garage`, until: game.current.t + 3.5 }; }, 2600);
+                setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. G for the garage`, until: game.current.t + 3.5 }; }, 2600);
                 return d + 1;
               });
               // Polo & Pan delivered to Agave Lounge (asked 2026-10-26): their set, as Brunch Life recorded it, goes on
@@ -1855,7 +1862,8 @@ export default function PlayaWin() {
       { const want = tripRef.current ? 1 : 0, lv = tripLevel.current; tripLevel.current = want > lv ? Math.min(want, lv + dt / 3) : Math.max(want, lv - dt / 2); }
       { const tl = tripLevel.current, tt = g.t;
         const filter = tl > 0 ? `hue-rotate(${(40 * tl * Math.sin(tt * 0.45)).toFixed(1)}deg) saturate(${(1 + 0.7 * tl).toFixed(2)})` : "";
-        const transform = tl > 0 ? `rotate(${(1.6 * tl * Math.sin(tt * 0.37)).toFixed(2)}deg) scale(${(1 + 0.05 * tl + 0.025 * tl * Math.sin(tt * 1.1)).toFixed(3)})` : "";
+        // no sway any more (asked 2026-11-04: "don't blur things so much"): turning and scaling the canvas resampled the whole picture soft
+        const transform = "";
         cv.style.filter = filter; cv.style.transform = transform;
         const gl = glCanvas.current; if (gl) { gl.style.filter = filter; gl.style.transform = transform; } } // the same wash and sway on the 3D canvas
       // the view's turn (phase 5): held keys lean it 0.6 rad either way, a drag sets it directly, and let go it eases back behind the ride (and stays there in top-down)
@@ -1936,7 +1944,7 @@ export default function PlayaWin() {
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
           hear: target && target.vol > 4 ? soundOf(target.key).name : soon ? soundOf(soon).name : "", hearKey: target && target.vol > 4 ? target.key : soon ?? "", hearSoon: !(target && target.vol > 4) && !!soon,
           alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g), gate: atGate(g),
-          prompt: stuck.current > STUCK_SECONDS ? "stuck" : g.vehicle !== "plane" ? (g.vehicle !== "found" && !g.chute && g.parking.at?.startsWith("mutant:") && ART_CARS[g.parking.at.slice(7)] ? "drive" : "") : g.alt <= 0 && !rolled.current ? "start" : g.alt >= EJECT_PROMPT_ALT ? "eject" : "",
+          prompt: stuck.current > STUCK_SECONDS ? "stuck" : g.vehicle !== "plane" ? (g.vehicle !== "found" && !g.chute && g.parking.at?.startsWith("mutant:") && ART_CARS[g.parking.at.slice(7)] ? "drive" : "") : g.alt <= 0 && !rolled.current ? "start" : g.alt >= EJECT_PROMPT_ALT && Math.hypot(g.car.x - AGAVE.dome.x, g.car.y - AGAVE.dome.y) < EJECT_PROMPT_NEAR ? "eject" : "",
         });
         const mc = mini.current, mx = mc?.getContext("2d");
         if (mc && mx && mc.width > 0) {
@@ -2048,7 +2056,7 @@ export default function PlayaWin() {
       const p = three.current?.perf?.();
       if (p) { console.log("[chase view]", `${p.calls} draw calls, ${(p.triangles / 1000).toFixed(0)}k triangles, ${p.geometries} geometries, ${p.textures} textures, ${p.fps.toFixed(1)} fps (${p.ms.toFixed(1)} ms/frame, ${p.cpuMs.toFixed(1)} ms of it frame()), ${p.extra ?? ""}`); flash.current = { text: `${p.calls} calls · ${(p.triangles / 1000).toFixed(0)}k tris · ${p.fps.toFixed(0)} fps`, until: game.current.t + 3 }; }
     }
-    else if (e.key === "v" || e.key === "V") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
+    else if (e.key === "g" || e.key === "G") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
     // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
     else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane") ridealong(); else if (!g.chute && g.alt === 0) setRides((r) => !r); }
@@ -2130,7 +2138,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, G changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E drives it, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
         onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
@@ -2221,9 +2229,9 @@ export default function PlayaWin() {
           <dl className="pl-keys" aria-label="the keys">
             <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
-            <div><dt>E</dt><dd>drive an art car · the plane · eject</dd></div>
+            <div><dt>E</dt><dd>drive an art car</dd></div>
             <div><dt>R</dt><dd>ride along · the garage</dd></div>
-            <div><dt>V</dt><dd>garage</dd></div>
+            <div><dt>G</dt><dd>garage</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
             <div><dt>, .</dt><dd>turn the view</dd></div>
             <div><dt>M</dt><dd>map</dd></div>
@@ -2256,7 +2264,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>G the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E drive it</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>

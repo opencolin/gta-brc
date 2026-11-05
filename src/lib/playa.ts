@@ -477,6 +477,8 @@ type NpcBase = {
   lead?: Npc; lag?: number; side?: number; rank?: number;
   /** someone on foot who jumped out of your way (dodgeWalkers): from `x0`, `y0` to `x`, `y` feet off their route, leaping at game time `t0` */
   dodge?: { x0: number; y0: number; x: number; y: number; t0: number } | null;
+  /** knocked over by you (knockOver): where they lie and which way they face, `side` the way they fell (+1 to their right), at game time `t0` */
+  fall?: { x: number; y: number; h: number; side: number; t0: number } | null;
 };
 /** `line`: from `from` to `to` and round again from `from` (the Exodus queue), `phase` feet along it */
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" }) | (NpcBase & { path: "line"; from: Vec; to: Vec });
@@ -607,7 +609,34 @@ export function stepPack(g: Game, dt: number) {
  */
 export const DODGE = { leap: 0.3, hold: 2.5, back: 2 } as const;
 const ease = (x: number) => x * x * (3 - 2 * x);
+/**
+ * Someone on foot or on a bike you ride into falls over and gets back up (asked 2026-11-04: "people don't block the user driving, just have the people fall
+ * down and get back up. no blood, no death", and the same for bikes): they tip over (FALL.down seconds), lie there a moment, stand back up, then catch up with
+ * their route; you ride on through.
+ */
+export const FALL = { down: 0.3, lie: 1.6, up: 0.6, back: 1.5 } as const;
+const FALL_T = FALL.down + FALL.lie + FALL.up + FALL.back;
+/** How far over someone is at time t, 0 standing to 1 flat on the ground, and the way they fell; null when they are not falling or getting up. */
+export function fallOf(n: Npc, t: number): { tilt: number; side: number } | null {
+  const f = n.fall; if (!f) return null;
+  const u = t - f.t0;
+  if (u < 0 || u >= FALL.down + FALL.lie + FALL.up) return null;
+  const tilt = u < FALL.down ? ease(u / FALL.down) : u < FALL.down + FALL.lie ? 1 : 1 - ease((u - FALL.down - FALL.lie) / FALL.up);
+  return { tilt, side: f.side };
+}
+/** Whether this kind falls over when you ride into it, instead of stopping you. */
+export const fallsOver = (n: Npc) => n.kind === "walker" || onBike(n);
 export function npcAt(n: Npc, t: number): { x: number; y: number; h: number } {
+  const f = n.fall;
+  if (f && t >= f.t0 && t - f.t0 < FALL_T) {
+    const u = t - f.t0 - (FALL.down + FALL.lie + FALL.up);
+    if (u < 0) return { x: f.x, y: f.y, h: f.h };
+    const p = dodgedAt(n, t), k = ease(u / FALL.back); // back on their feet: on to where their route has got to
+    return { x: f.x + (p.x - f.x) * k, y: f.y + (p.y - f.y) * k, h: k < 0.5 ? f.h : p.h };
+  }
+  return dodgedAt(n, t);
+}
+function dodgedAt(n: Npc, t: number): { x: number; y: number; h: number } {
   const p = routeAt(n, t), d = n.dodge;
   if (!d) return p;
   const u = t - d.t0;
@@ -1440,11 +1469,24 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   const others = riding || g.ghost || airborne ? [] : driven.key ? g.npcs.filter((n) => n.key !== driven.key) : g.npcs;
   // a close call is not a bump (asked 2026-10-27): you touch someone only inside seven tenths of their circle, with no margin, and only a firm knock counts
   const reach = (n: Npc) => NPC_R[n.kind] * 0.7 + v.wid / 2 + 1;
-  const touching = others.filter((n) => { if (n.kind === "walker") return false; const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < reach(n); }).length;
+  const touching = others.filter((n) => { if (fallsOver(n)) return false; const p = npcAt(n, g.t); return Math.hypot(g.car.x - p.x, g.car.y - p.y) < reach(n); }).length;
   for (const n of others) {
     const p = npcAt(n, g.t);
     const dx = g.car.x - p.x, dy = g.car.y - p.y, d = Math.hypot(dx, dy), min = reach(n);
-    if (d < min && g.slip <= 0 && n.kind !== "walker") {
+    if (d < min && fallsOver(n)) {
+      // someone on foot or on a bike: you ride on through and they fall over, knocked a little aside, and get back up (asked 2026-11-04)
+      if ((!n.fall || g.t - n.fall.t0 >= FALL_T) && spd > 4) { // only riding into them: standing beside someone who got up does not knock them down again
+        const r = right(g.car.h), side = (p.x - g.car.x) * r.x + (p.y - g.car.y) * r.y >= 0 ? 1 : -1; // which side of your way they are on
+        const kx = r.x * side * 4, ky = r.y * side * 4, own = right(p.h); // knocked away from you, and falling that way: to their own right or left
+        n.fall = { x: p.x + kx, y: p.y + ky, h: p.h, side: kx * own.x + ky * own.y >= 0 ? 1 : -1, t0: g.t };
+        if (g.hitCool <= 0 && spd > 22) {
+          g.hitCool = 1.5;
+          g.mission.gifts = Math.max(0, g.mission.gifts - 1);
+          g.warn = 3; g.warnText = n.kind === "walker" ? "oops! they're ok. 5 mph near people!" : "you knocked a biker over. they're ok. 5 mph near people!";
+          ev.push("hit");
+        }
+      }
+    } else if (d < min && g.slip <= 0) {
       const push = d > 1e-6 ? { depth: min - d, nx: dx / d, ny: dy / d } : { depth: min, nx: 0, ny: 1 };
       const hit = bounce(g.car, push, v.restitution);
       if (g.hitCool <= 0 && hit > 22) {

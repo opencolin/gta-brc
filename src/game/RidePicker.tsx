@@ -80,7 +80,7 @@ export function RidePicker({ open, current, skin, garage, unlocked, next, night,
     else if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(cards.length - 1, s + cols)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(0, s - cols)); }
     else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); take(sel); }
-    else if (e.key === "Escape" || e.key === "v" || e.key === "V") { e.preventDefault(); onClose(); }
+    else if (e.key === "Escape" || e.key === "g" || e.key === "G") { e.preventDefault(); onClose(); }
     e.stopPropagation();
   };
   return (
