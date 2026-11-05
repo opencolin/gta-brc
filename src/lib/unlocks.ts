@@ -10,7 +10,7 @@ import type { VehicleId } from "./playa.ts";
 /** What each job delivered gives, in order, after the Playa Cruiser you start with. */
 export const MISSION_RIDES: readonly VehicleId[] = ["rv", "fish"];
 /** What is yours from the start: every bike, the Playa Cruiser, the unicycle, the fat-tyre e-bike and the tuk-tuk (asked 2026-11-04). */
-export const START_RIDES: readonly VehicleId[] = ["bike", "unicycle", "ebike", "tuktuk"];
+export const START_RIDES: readonly VehicleId[] = ["bike", "unicycle", "onewheel", "ebike", "tuktuk"]; // and the Onewheel (asked 2026-11-04)
 export const UNLOCK_KEY = "agentcamp-playa-unlocks";
 
 /** The rides you may take from the garage, having delivered `delivered` jobs and driven the art cars in `driven` (their ids). */

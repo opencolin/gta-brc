@@ -6,7 +6,7 @@ import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   MVS, ART_2026_SPOTS, newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
   newMission, stepMission, skipMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, warpDay, WARP_SECONDS, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, FALL, fallOf, fallsOver, ART_MEET, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, FALL, fallOf, fallsOver, ART_MEET, FREEFALL, OPEN_AT, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, blockBounds, toPolar, clockToAngle } from "./brc.ts";
@@ -63,7 +63,7 @@ test("collisions: a block bounces the car back onto the street, slower", () => {
   // on E, aimed straight out from the Man into the block between E and F at 7:15, at speed
   const at = polar(435, ARC_R[5]);
   const a = (435 / 720) * Math.PI * 2;
-  const v = VEHICLES.artcar;
+  const v = VEHICLES.rv; // the RV: art cars cross the blocks since 2026-11-04
   let c = { ...newCar(at, a), vx: Math.sin(a) * 200, vy: -Math.cos(a) * 200 };
   // the first impact is the one that counts: a long car can go on to reach the block across the street
   let hit = 0, after = null;
@@ -178,7 +178,7 @@ test("tuk-tuks, unicycles and fat-tyre e-bikes ride the streets too, without cha
   for (const n of npcs.filter((n) => n.kind === "unicycle")) assert.ok(Math.abs(n.speed) < Math.min(...npcs.filter((b) => b.kind === "ebike").map((b) => Math.abs(b.speed))), "a unicycle is slower than any e-bike");
   // the new rides come after everyone else and from a generator of their own: the rest of the list is as it was
   const first = npcs.findIndex((n) => n.kind === "tuktuk");
-  assert.ok(npcs.slice(first).every((n) => n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "ebike" || n.kind === "rv" || n.kind === "mv"));
+  assert.ok(npcs.slice(first).every((n) => n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "onewheel" || n.kind === "ebike" || n.kind === "rv" || n.kind === "mv"));
   assert.deepEqual(makeNpcs(seeded(3)).slice(0, first).map((n) => n.hue), npcs.slice(0, first).map((n) => n.hue));
 });
 
@@ -210,22 +210,12 @@ test("Exodus: RVs nose to tail in two lanes out Gate Road, between the Gate's bo
   assert.ok(EXODUS.every((n) => n.speed > 0 && n.speed < 10), "crawling");
 });
 
-test("more people: walkers on the street edges, and bikers riding behind the art cars", () => {
+test("more people: bikers riding behind the art cars, and no one wandering the playa on foot (asked 2026-11-04: the people are in the crowds)", () => {
   const npcs = makeNpcs(seeded(3));
-  assert.ok(npcs.filter((n) => n.kind === "walker").length >= 50);
+  assert.equal(npcs.filter((n) => n.kind === "walker").length, 0, "no walkers");
   assert.ok(npcs.filter((n) => n.kind === "bike").length >= 100);
   const packs = npcs.filter((n) => n.lead);
   assert.ok(packs.length >= 60 && packs.every((n) => n.lead.kind === "mutant" || n.lead.kind === "artcar"));
-  for (const w of npcs.filter((n) => n.kind === "walker")) assert.ok(Math.abs(w.speed) < 8, "walkers walk");
-  // and plenty of them, by the kerb (asked 2026-10-26): every walker on a street is within the kerb band of its edge
-  const street = npcs.filter((n) => n.kind === "walker" && n.path === "arc");
-  assert.ok(street.length >= 390, `walkers on the streets (${street.length})`);
-  for (const w of street) {
-    const ring = ARC_R.findIndex((r, i) => Math.abs(w.r - r) <= arcWidth(i) / 2);
-    assert.ok(ring >= 0, "on a street");
-    const inFromEdge = arcWidth(ring) / 2 - Math.abs(w.r - ARC_R[ring]);
-    assert.ok(inFromEdge >= KERB - 1e-9 && inFromEdge <= KERB + KERB_BAND + 1e-9, `by the kerb (${inFromEdge.toFixed(1)} ft in)`);
-  }
 });
 
 test("storms rise, hold and blow over; night comes and goes; the toggle flips it", () => {
@@ -641,7 +631,7 @@ test("a ghost (the big map open, or the trip on) has no bumps, no slow-down warn
     const g = newGame(3, "bike");
     g.ghost = ghost; g.mission.gifts = 3;
     // on top of a walker, then into the fence at full speed
-    const n = g.npcs.find((x) => x.kind === "walker"), p = npcAt(n, g.t);
+    const n = g.npcs.find((x) => x.kind === "bike" && !x.lead), p = npcAt(n, g.t); // a biker: no walkers since 2026-11-04
     g.car = newCar(p, 0);
     const events = []; let warned = false;
     for (let i = 0; i < 30; i++) { events.push(...stepGame(g, { ...NO_INPUT, gas: true }, DT)); if (g.warn > 0) warned = true; }
@@ -874,7 +864,7 @@ test("skipping a job briefs another, with no gifts and no failure (asked 2026-11
 
 test("people on foot jump out of your way instead of being bumped (asked 2026-11-04)", () => {
   const g = newGame(3, undefined, "agave");
-  const w = g.npcs.find((n) => n.kind === "walker" && n.path === "loop");
+  const w = { kind: "walker", path: "loop", r: 900, speed: 4, phase: 120, hue: 40 }; // one of our own: none walk the playa since 2026-11-04
   // ride straight at them at 30 mph from 150 ft, and hold the gas
   const p0 = npcAt(w, g.t), h = 0.7, f = { x: Math.sin(h), y: -Math.cos(h) };
   g.car = { ...g.car, x: p0.x - f.x * 150, y: p0.y - f.y * 150, h, vx: f.x * 44, vy: f.y * 44 };
@@ -936,4 +926,14 @@ test("two art cars meet up, hang out a while and go on without driving through e
   // and they got past: each is now on the other side of where they met
   const p = npcAt(a, g.t), q = npcAt(b, g.t), ap = Math.atan2(p.y, p.x), bp = Math.atan2(q.y, q.x);
   assert.ok(Math.sin(ap - bp) * Math.sign(a.speed) > 0 || Math.hypot(p.x - q.x, p.y - q.y) > 600, "they went on past each other");
+});
+
+test("bailing out you fall free a few seconds before the canopy opens, well above the ground (asked 2026-11-04)", () => {
+  const g = newGame(2); setVehicle(g, "plane"); g.alt = 900; g.car.vx = 0; g.car.vy = -200; bailOut(g);
+  assert.ok(g.chute && g.fallT === FREEFALL, "falling free");
+  let opened = null;
+  for (let i = 0; i < 60 * 12; i++) { stepGame(g, NO_INPUT, DT); if (opened === null && !(g.fallT > 0)) opened = { t: g.t, alt: g.alt }; }
+  assert.ok(opened && opened.t > 3, `the freefall lasts a few seconds (${opened?.t.toFixed(1)} s)`);
+  assert.ok(opened.alt >= OPEN_AT - 5, `and the canopy opens well up (${Math.round(opened.alt)} ft)`);
+  const low = newGame(2); setVehicle(low, "plane"); low.alt = 200; bailOut(low); assert.equal(low.fallT, 0, "too low to fall free: the canopy opens at once");
 });

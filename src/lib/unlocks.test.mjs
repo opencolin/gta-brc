@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { MISSION_RIDES, START_RIDES, nextUnlock, unlockedRides } from "./unlocks.ts";
 
 test("every bike from the start, the RV and the Cuttlefish one job at a time, art cars once driven", () => {
-  assert.deepEqual(unlockedRides(0, []), ["bike", "unicycle", "ebike", "tuktuk"], "all the bikes at first");
+  assert.deepEqual(unlockedRides(0, []), ["bike", "unicycle", "onewheel", "ebike", "tuktuk"], "all the bikes (and the Onewheel) at first");
   assert.deepEqual(unlockedRides(1, []), [...START_RIDES, "rv"]);
   assert.ok(!unlockedRides(2, []).includes("artcar"), "no Golden Ticket until you have driven it");
   assert.ok(unlockedRides(0, ["golden-ticket"]).includes("artcar"), "and it is yours once you have");

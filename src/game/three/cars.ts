@@ -33,6 +33,8 @@ export type CarMeshes = {
 const SHOW_CAR = 4000, SHOW_ROOF = 2500, LIVE_ROOF = 700;
 /** How near a model with a `far` stand-in is drawn as itself (platforms.ts: up to 14 of them can be within SHOW_ROOF at once, about 1,700 triangles each). */
 const SHOW_MODEL = 1600;
+/** How much bigger Big Imagination's 747 is drawn than it was built (asked 2026-11-04), in 3D and top-down (PlayaWin drawMutant). */
+export const BIG_747 = 4;
 
 /** The cars that are a model of their own, in place of a hull, a skirt, wheels and a roof: the Golden Ticket (goldenTicket.ts), Big Imagination's 747 (bigImagination.ts), the Dragon Lady (dragonLady.ts),
  * and the creatures (critters.ts, asked 2026-10-31): Disco Doge (doge.ts), the Axolotl (axolotl.ts) and Kuker (kuker.ts). `roof`: how high a ride on top of it stands; `live`: its paint() only moves its parts, so it runs every frame while near. */
@@ -43,7 +45,8 @@ const MODELS: Record<string, () => Model> = {
   // the one-off art cars (oneoffs-*.ts, asked 2026-11-02), drawn as themselves within SHOW_MODEL and as the instanced hull beyond
   ...Object.fromEntries(Object.entries({ ...ONEOFFS_A, ...ONEOFFS_B, ...ONEOFFS_C, ...ONEOFFS_D }).map(([id, f]) => [id, () => ({ ...f(), far: true })])),
   "golden-ticket": () => ({ ...goldenTicket(), roof: 9.4 }),
-  "big-imagination-747": () => { const j = bigImagination(); return { group: j.group, paint: j.paint, roof: j.roof }; },
+  // four times its size (asked 2026-11-04: "make the big imagination 4x bigger")
+  "big-imagination-747": () => { const j = bigImagination(); j.group.scale.setScalar(BIG_747); return { group: j.group, paint: j.paint, roof: j.roof * BIG_747 }; },
   "dragon-lady": () => { const y = dragonLady(); return { group: y.group, paint: y.paint, roof: y.roof }; },
   "disco-doge": discoDoge,
   axolotl,

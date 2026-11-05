@@ -123,6 +123,24 @@ export function unicycleGeometry(): THREE.BufferGeometry {
   return mergedTinted(parts);
 }
 /**
+ * Someone on a Onewheel (asked 2026-11-04): the board along the way they go, one fat wheel through its middle under a fender, and the rider standing on it
+ * sideways (facing to the right of the board), knees bent, arms out for balance, about 230 triangles. `shirt`: a colour of its own for the rider's shirt
+ * (your ride), else the instance's hue.
+ */
+export function onewheelParts(shirt?: number): Tinted[] {
+  const parts: Tinted[] = [], add = adder(parts), R = 0.58;
+  add(box(0.8 * S, 0.16 * S, 2.6 * S).translate(0, (R + 0.12) * S, 0), 0x22242c); // the deck
+  add(new THREE.TorusGeometry((R - 0.17) * S, 0.17 * S, 4, 10).rotateY(Math.PI / 2).translate(0, R * S, 0), TYRE); // the fat tyre
+  add(box(0.86 * S, 0.12 * S, 1.15 * S).translate(0, (R * 2 + 0.06) * S, 0), 0xe9ecf2); // the fender over it
+  add(box(0.7 * S, 0.06 * S, 0.5 * S).translate(0, (R + 0.22) * S, -1.0 * S), 0x55d8ff, 0); // the front pad's light
+  // the rider, built facing -Z as the riders are, then turned to face +X: feet at the board's ends
+  const rp: Tinted[] = [], radd = adder(rp), deck = R + 0.24;
+  rider(radd, v(0, deck + 2.7, 0), 0.25, [v(-1.7, deck + 3.6, -0.35), v(1.7, deck + 3.9, -0.2)], v(0.4, -0.6, 0.3), [v(-0.95, deck + 0.12, -0.1), v(0.95, deck + 0.12, -0.1)]);
+  for (const p of rp) { p.geo.rotateY(-Math.PI / 2); if (shirt !== undefined && p.tint) { p.color = shirt; p.tint = 0; } parts.push(p); }
+  return parts;
+}
+export const onewheelGeometry = (): THREE.BufferGeometry => mergedTinted(onewheelParts());
+/**
  * A tuk-tuk (riders.ts's): the cruiser and its rider pulling a little covered trailer, a yellow bed on two wheels under a canopy in the
  * rider's hue, about 520 triangles.
  */
@@ -237,12 +255,12 @@ function mvDeckGeometry(): THREE.BufferGeometry {
 }
 const MV_SHAPE: Record<string, "mvBoat" | "mvWing" | "mvBeast" | "mvDeck"> = { ship: "mvBoat", wing: "mvWing", air: "mvWing", land: "mvBeast", myth: "mvBeast", robot: "mvBeast" };
 
-type Kind = "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "ambulance" | "rv" | "mvBoat" | "mvWing" | "mvBeast" | "mvDeck";
-const KINDS: Kind[] = ["bike", "ebike", "tuktuk", "unicycle", "walker", "ambulance", "rv", "mvBoat", "mvWing", "mvBeast", "mvDeck"];
+type Kind = "bike" | "ebike" | "tuktuk" | "unicycle" | "onewheel" | "walker" | "ambulance" | "rv" | "mvBoat" | "mvWing" | "mvBeast" | "mvDeck";
+const KINDS: Kind[] = ["bike", "ebike", "tuktuk", "unicycle", "onewheel", "walker", "ambulance", "rv", "mvBoat", "mvWing", "mvBeast", "mvDeck"];
 
 export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
   const group = new THREE.Group();
-  const geo: Record<Kind, THREE.BufferGeometry> = { bike: bikeGeometry(), ebike: bikeGeometry(true), tuktuk: tuktukGeometry(), unicycle: unicycleGeometry(), walker: walkerTinted(), ambulance: ambulanceGeometry(), rv: rvGeometry(), mvBoat: mvBoatGeometry(), mvWing: mvWingGeometry(), mvBeast: mvBeastGeometry(), mvDeck: mvDeckGeometry() };
+  const geo: Record<Kind, THREE.BufferGeometry> = { bike: bikeGeometry(), ebike: bikeGeometry(true), tuktuk: tuktukGeometry(), unicycle: unicycleGeometry(), onewheel: onewheelGeometry(), walker: walkerTinted(), ambulance: ambulanceGeometry(), rv: rvGeometry(), mvBoat: mvBoatGeometry(), mvWing: mvWingGeometry(), mvBeast: mvBeastGeometry(), mvDeck: mvDeckGeometry() };
   const mat = tintedGlow(), matMv = tintedGlow("glow-mv-tint", 0.85); // the art cars light up at night as art cars do
   // the NPC list is fixed for a game; the meshes are as big as its kinds are many
   let npcs: readonly Npc[] = g.npcs;
@@ -268,7 +286,7 @@ export function buildPeople(scene: THREE.Scene, g: Game): PeopleMeshes {
     update(game, cam) {
       const t0 = performance.now();
       if (game.npcs !== npcs) { npcs = game.npcs; items = index(npcs); make(); }
-      const mine = drivenKey(), n = { bike: 0, ebike: 0, tuktuk: 0, unicycle: 0, walker: 0, ambulance: 0, rv: 0, mvBoat: 0, mvWing: 0, mvBeast: 0, mvDeck: 0 };
+      const mine = drivenKey(), n = { bike: 0, ebike: 0, tuktuk: 0, unicycle: 0, onewheel: 0, walker: 0, ambulance: 0, rv: 0, mvBoat: 0, mvWing: 0, mvBeast: 0, mvDeck: 0 };
       shown = 0;
       for (const { n: npc, i, kind } of items) {
         if (npc.key && npc.key === mine) continue;

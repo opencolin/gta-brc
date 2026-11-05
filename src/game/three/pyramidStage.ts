@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { LED_DAY, PYRAMID, faceAt, ledPhase, ledRgb } from "@/lib/pyramidStage";
+import { LED_DAY, PYRAMID, faceAt as faceOf, ledPhase, ledRgb, type Pyramid } from "@/lib/pyramidStage";
 import { nightUniform } from "./camps";
 import { skinMaterial } from "./skinned";
 
@@ -13,7 +13,9 @@ import { skinMaterial } from "./skinned";
  */
 export type PyramidMeshes = { update(g: { car: { x: number; y: number } }, t: number): void };
 
-const { half: A, height: H, openHalf: OW, openH: OH, apron: AP, apronHalf: AW } = PYRAMID;
+// the pyramid being built (buildPyramid sets these: PlayAlchemist's and the Kazbah's are two sizes, asked 2026-11-04)
+let P: Pyramid = PYRAMID, A = P.half, H = P.height, OW = P.openHalf, OH = P.openH, AP = P.apron, AW = P.apronHalf;
+const faceAt = (y: number) => faceOf(y, P);
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
 /** A flat triangle fan or list into [positions, colours, glow] buffers. */
@@ -47,7 +49,8 @@ function frontFace(buf: Buf, color: number, glow: number): void {
 
 const PALE = 0xe9e2ff, SIDE = 0xcfc7ea, BACK = 0xb9b0d6, ALCOVE = 0x2b2150, WARM = 0xffb36b, DECK = 0x2a2440, TRUSS = 0x8f89aa;
 
-export function buildPyramid(group: THREE.Group, stage: { x: number; y: number }, facing: number): PyramidMeshes {
+export function buildPyramid(group: THREE.Group, stage: { x: number; y: number }, facing: number, spec: Pyramid = PYRAMID): PyramidMeshes {
+  P = spec; A = P.half; H = P.height; OW = P.openHalf; OH = P.openH; AP = P.apron; AW = P.apronHalf;
   const root = new THREE.Group();
   root.position.set(stage.x, 0, stage.y); root.rotation.y = -facing;   // local +x toward the bay (the game's x east, y south are three's x and z)
   group.add(root);

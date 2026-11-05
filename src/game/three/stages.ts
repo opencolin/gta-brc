@@ -3,7 +3,7 @@ import { MODELLED, buildArtPlaces } from "./artPlaces";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { ART_2026_SPOTS, SPOTS, type Game, type Spot } from "@/lib/playa";
 import { LAYER, hslHex } from "@/lib/scene3d";
-import { PYRAMID } from "@/lib/pyramidStage";
+import { PYRAMIDS, pyramidOf } from "@/lib/pyramidStage";
 import { PALETTE, cang } from "@/lib/view3d";
 import { glowing } from "./camps";
 import { pTexture } from "./decals";
@@ -62,7 +62,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   hl.rotation.x = Math.PI / 2; hl.position.y = 0.45; hl.renderOrder = LAYER.bayHi; hl.visible = false; group.add(hl);
 
   // ── stages: one instanced mesh per shape
-  const camps = spots.filter((s) => s.kind === "camp" && s.key !== PYRAMID.key), stones = spots.filter((s) => s.kind === "art" && !MODELLED.has(s.camp?.id ?? "")), fences = spots.filter((s) => s.kind === "fence");
+  const camps = spots.filter((s) => s.kind === "camp" && !pyramidOf(s.key)), stones = spots.filter((s) => s.kind === "art" && !MODELLED.has(s.camp?.id ?? "")), fences = spots.filter((s) => s.kind === "fence");
   /** an art place's crystal: its half-width and how high it hovers */
   const STONE_R = 5, STONE_Y = 18;
   const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number, set: (i: number, d: THREE.Object3D, c: THREE.Color) => void) => {
@@ -91,8 +91,8 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   inst(new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), white, fences.length, (i, o, c) => { const s = fences[i]; o.position.set(s.stage.x, 15, s.stage.y); o.scale.set(s.stage.r, 30, s.stage.r); c.setHex(0x2a2440, THREE.SRGBColorSpace); });
 
   // PlayAlchemist's Pyramid stage stands in place of its drum, deck and speakers (the sim's solid circle there is unchanged)
-  const py = SPOTS.find((s) => s.key === PYRAMID.key);
-  const pyramid: PyramidMeshes | null = py ? buildPyramid(group, py.stage, FACING(py)) : null;
+  // the pyramid stages, PlayAlchemist's and the Kazbah's (asked 2026-11-04)
+  const pyramids: PyramidMeshes[] = PYRAMIDS.flatMap((p) => { const sp = SPOTS.find((s) => s.key === p.key); return sp ? [buildPyramid(group, sp.stage, FACING(sp), p)] : []; });
 
   // the art places that have a model of the real piece (artPlaces.ts) instead of a crystal
   const artPlaces = buildArtPlaces(group, spots.filter((s) => s.kind === "art"));
@@ -102,7 +102,7 @@ export function buildStages(scene: THREE.Scene): StageMeshes {
   return {
     group,
     update(g, t) {
-      pyramid?.update(g, t);
+      for (const p of pyramids) p.update(g, t);
       artPlaces.update(g.car.x, g.car.y);
       // the art places' crystals turn slowly and bob, together
       stoneMesh.rotation.y = 0; stoneMesh.position.y = Math.sin(t * 1.3) * 1.5;

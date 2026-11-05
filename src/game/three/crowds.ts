@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { SPOTS, type Game } from "@/lib/playa";
-import { crowdSpots, fadeAt, type CrowdPerson } from "@/lib/scene3d";
+import { SPOTS, parkedCarList, type Game } from "@/lib/playa";
+import { carCrowd, crowdFall, crowdSpots, fadeAt, type CrowdPerson } from "@/lib/scene3d";
 import { peopleMaterial, personGeometry, type Pose } from "./people";
 
 /**
@@ -15,8 +15,8 @@ const SHOW = 600;
 
 export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
   const group = new THREE.Group();
-  const places = SPOTS.map((sp) => ({ x: sp.stage.x, y: sp.stage.y, r: sp.stage.r + 22, people: crowdSpots(sp) as CrowdPerson[], man: sp.key === "camp:the-man" }));
-  const total = places.reduce((n, p) => n + p.people.length, 0);
+  const places = SPOTS.map((sp) => ({ key: sp.key, x: sp.stage.x, y: sp.stage.y, r: sp.stage.r + 22, people: crowdSpots(sp) as CrowdPerson[], man: sp.key === "camp:the-man" }));
+  const total = places.reduce((n, p) => n + p.people.length, 0) + 16 * 12; // and room for the crowds round a dozen parked art cars
   const POSES: Pose[] = ["stand", "up", "wide", "wave"], mat = peopleMaterial();
   const meshes = POSES.map((pose) => {
     const m = new THREE.InstancedMesh(personGeometry(pose), mat, total);
@@ -31,16 +31,19 @@ export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
     shown: () => shown,
     update(g, cam) {
       const n = [0, 0, 0, 0];
-      for (const pl of places) {
+      // the crowds round the art cars parked on the playa (asked 2026-11-04), as a place each
+      const cars = parkedCarList().map(({ key, at }) => ({ key, x: at.x, y: at.y, r: 62, people: carCrowd(key, at), man: false })).slice(0, 12);
+      for (const pl of [...places, ...cars]) {
         const dx = pl.x - g.car.x, dz = pl.y - g.car.y, reach = SHOW + pl.r;
         if (dx * dx + dz * dz + cam.y * cam.y > reach * reach) continue;
         for (const [j, p] of pl.people.entries()) {
           const qx = p.x - g.car.x, qz = p.y - g.car.y, f = fadeAt(Math.sqrt(qx * qx + qz * qz + cam.y * cam.y), SHOW);
           if (f <= 0) continue;
           const beat = g.t * p.rate + p.phase, k = p.dancing ? 1 + (j % 3) : 0, mesh = meshes[k];
-          d.position.set(p.x, p.dancing ? 0.9 * Math.abs(Math.sin(beat)) : 0, p.y);
+          const fall = crowdFall(`${pl.key}:${j}`, p.x, p.y, g.car, g.t); // ridden into, they fall over and get back up (asked 2026-11-04)
+          d.position.set(p.x, p.dancing && !fall ? 0.9 * Math.abs(Math.sin(beat)) : 0, p.y);
           // facing the stage: the heading that looks inward from angle a; the Man's crowd faces the Man, who is toward the bay from his invisible stage; a dancer sways
-          d.rotation.set(0, (pl.man ? -Math.atan2(-p.x, p.y) : -(p.a - Math.PI / 2)) + (p.dancing ? 0.3 * Math.sin(beat * 0.5) : 0), p.dancing ? 0.08 * Math.sin(beat) : 0); d.scale.setScalar(f); d.updateMatrix();
+          d.rotation.set(0, (pl.man ? -Math.atan2(-p.x, p.y) : -(p.a - Math.PI / 2)) + (p.dancing && !fall ? 0.3 * Math.sin(beat * 0.5) : 0), fall ? -fall.side * fall.tilt * 1.45 : p.dancing ? 0.08 * Math.sin(beat) : 0, "YXZ"); d.scale.setScalar(f); d.updateMatrix();
           mesh.setMatrixAt(n[k], d.matrix); mesh.setColorAt(n[k], c.setHSL(p.hue / 360, 0.7, 0.55, THREE.SRGBColorSpace)); n[k]++;
         }
       }

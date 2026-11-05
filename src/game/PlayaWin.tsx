@@ -9,7 +9,8 @@ import { ART_PIECES } from "./artpieces";
 import { GARAGE_RIDES, RidePicker } from "./RidePicker";
 import { SKY_KEY } from "@/lib/flyover";
 import { UNLOCK_KEY, nextUnlock, unlockedRides } from "@/lib/unlocks";
-import { LED_DAY, PYRAMID, ledPhase, ledRgb } from "@/lib/pyramidStage";
+import { carCrowd, crowdFall } from "@/lib/scene3d";
+import { LED_DAY, ledPhase, ledRgb, pyramidOf, type Pyramid } from "@/lib/pyramidStage";
 import { ARMS as TEMPLE_ARMS, CROWN_N as TEMPLE_CROWN_N, FENCE_R as TEMPLE_FENCE_R, GATES as TEMPLE_GATES, STEMS as TEMPLE_STEMS, TOWER_R as TEMPLE_TOWER_R, armPoint, gateAngle, outerPetals, stemTip } from "@/lib/templeMoon";
 import { hasWebGL2, readViewMode, VIEW_KEY, writeViewMode, type Renderer, type ViewMode } from "./view";
 import { wrapAngle } from "@/lib/view3d";
@@ -21,7 +22,7 @@ import {
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
 } from "@/lib/brc";
 import {
-  AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, MUTANTS, MVS, NO_INPUT, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
+  AGAVE, AGAVE_ADDRESS, ART, ART_2026_SPOTS, MUTANTS, NO_INPUT, parkedCarList, STICK_BACK, startKey, NPC_R, SPEED_LIMIT_MPH, SPOTS, STOP_R, VEHICLES, VEHICLE_IDS, BASE_RIDES,
   atAirport, atGate, dustAngel, ringBell, bailOut, takePlane, cityPlan, DAY_SECONDS, POLO_JOB, vehicleOf, drivenKey, fallOf, warpDay, hopOff, hopOn, leaveDriven, setDriven, missionTarget, skipMission, mph, mutantOf, newGame, nextVehicle, nightLevel, npcAt, pagerLine, setVehicle, speedOf, stepGame, stormLevel,
   type Game, type Input, type Npc, type Spot, type VehicleId,
 } from "@/lib/playa";
@@ -285,6 +286,16 @@ function drawDomeCar(ctx: CanvasRenderingContext2D, t: number, night: number, br
   }
   if (brake) DOME_CAR.tail.forEach((p) => px(p, "#ff2d55"));
 }
+/** A Onewheel from above (asked 2026-11-04): the board along the way it goes, its fender and fat tyre in the middle, the rider standing across it, shoulders along the board, a straw hat. */
+function drawOnewheel(ctx: CanvasRenderingContext2D, t: number, night: number, hue = 330) {
+  ctx.fillStyle = "#22242c"; ctx.beginPath(); ctx.roundRect(-1.8, -5.6, 3.6, 11.2, 1.6); ctx.fill(); // the deck
+  ctx.fillStyle = "#e9ecf2"; ctx.fillRect(-1.9, -1.3, 3.8, 2.6); // the fender over the tyre
+  if (night > 0.3) { ctx.fillStyle = "#55d8ff"; ctx.fillRect(-1.4, -5.4, 2.8, 0.8); }
+  ctx.fillStyle = "#f2c6a0"; ctx.fillRect(-1.2, -4.6, 2.4, 1.4); ctx.fillRect(-1.2, 3.2, 2.4, 1.4); // the feet at the ends
+  ctx.fillStyle = hsl(hue, 70, 58); ctx.beginPath(); ctx.ellipse(0, 0, 2.4, 3.8, 0, 0, Math.PI * 2); ctx.fill(); // the shoulders, along the board
+  ctx.strokeStyle = "#f2c6a0"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(-0.5, -3.2); ctx.lineTo(-1.2, -7.5); ctx.moveTo(-0.5, 3.2); ctx.lineTo(-1, 7.2); ctx.stroke(); // the arms out fore and aft
+  ctx.fillStyle = "#ecd08a"; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill(); // the hat
+}
 /** The unicycle, from above: the wheel under a rider in a pink shirt and a straw hat. */
 function drawUnicycle(ctx: CanvasRenderingContext2D, t: number, night: number) {
   ctx.fillStyle = night > 0.3 ? hsl((t * 200) % 360, 100, 62) : C.navy; ctx.fillRect(-1.5, -6, 3, 12);
@@ -341,6 +352,7 @@ function drawRide(ctx: CanvasRenderingContext2D, id: VehicleId, t: number, night
   else if (id === "found") drawDomeCar(ctx, t, night, brake);
   else if (id === "fish") drawCuttlefish(ctx, t, night);
   else if (id === "unicycle") drawUnicycle(ctx, t, night);
+  else if (id === "onewheel") drawOnewheel(ctx, t, night);
   // the bikes at 0.55: about the size of the others on the road (asked 2026-10-22)
   else if (id === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, brake); }
   else { ctx.scale(0.55, 0.55); drawBikeRide(ctx, t, night, brake); }
@@ -495,20 +507,29 @@ function drawPlaneShadow(ctx: CanvasRenderingContext2D, alt: number) {
   ctx.fillStyle = `rgba(27, 31, 59, ${0.22 / (1 + alt / 600)})`;
   ctx.beginPath(); ctx.ellipse(0, 0, 17, 5, 0, 0, Math.PI * 2); ctx.ellipse(0, 1, 3, 15, 0, 0, Math.PI * 2); ctx.fill();
 }
-/** You under the parachute (asked 2026-10-22): the striped canopy over you, lines down to the harness, you in the middle. */
+/** You under the parachute (asked 2026-10-22; a ram-air canopy since 2026-11-04): seven cells across in stripes, the lines down to the harness, you under it. */
 function drawChute(ctx: CanvasRenderingContext2D, t: number, night: number) {
-  const sway = Math.sin(t * 1.7) * 2;
+  const sway = Math.sin(t * 1.7) * 1.5;
   ctx.save(); ctx.translate(sway, 0);
-  for (let k = 0; k < 8; k++) {
-    ctx.fillStyle = k % 2 ? "#ff6b9a" : "#fbf7ef";
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.ellipse(0, 0, 17, 13, 0, (k / 8) * Math.PI * 2, ((k + 1) / 8) * Math.PI * 2); ctx.closePath(); ctx.fill();
-  }
-  ctx.strokeStyle = "#1b1f3b"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(0, 0, 17, 13, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.fill(); // the vent
+  ctx.strokeStyle = "rgba(27, 31, 59, .55)"; ctx.lineWidth = 0.5;
+  for (const x of [-13, -8, -3, 3, 8, 13]) for (const y of [-3.5, 3.5]) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(Math.sign(x) * 0.8 - sway, 0); ctx.stroke(); }
+  const cols = ["#fbf7ef", "#ff6b9a", "#fbf7ef", "#ffd27a", "#fbf7ef", "#ff6b9a", "#fbf7ef"];
+  for (let k = 0; k < 7; k++) { ctx.fillStyle = cols[k]; ctx.fillRect(-13.65 + k * 3.9, -5, 3.9, 10); }
+  ctx.strokeStyle = "#1b1f3b"; ctx.lineWidth = 0.7; ctx.strokeRect(-13.65, -5, 27.3, 10);
+  ctx.strokeStyle = "rgba(27, 31, 59, .35)"; for (let k = 1; k < 7; k++) { ctx.beginPath(); ctx.moveTo(-13.65 + k * 3.9, -5); ctx.lineTo(-13.65 + k * 3.9, 5); ctx.stroke(); }
   ctx.restore();
-  ctx.strokeStyle = "rgba(27, 31, 59, .6)"; ctx.lineWidth = 0.5;
-  for (const [x, y] of [[-14, -6], [14, -6], [-14, 6], [14, 6], [0, -12], [0, 12]]) { ctx.beginPath(); ctx.moveTo(x + sway, y); ctx.lineTo(0, 0); ctx.stroke(); }
   ctx.save(); ctx.scale(0.8, 0.8); drawRider(ctx, 7, 330, night); ctx.restore();
+}
+/** You falling free before the canopy opens (asked 2026-11-04): from above, the arch, arms out bent forward, knees bent, the rig on your back. */
+function drawSkydiver(ctx: CanvasRenderingContext2D, t: number) {
+  ctx.save(); ctx.rotate(0.08 * Math.sin(t * 6));
+  ctx.strokeStyle = "#ff6b9a"; ctx.lineCap = "round";
+  ctx.lineWidth = 1.1; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx * 0.8, -1.2); ctx.lineTo(sx * 2.3, -1.6); ctx.lineTo(sx * 2.2, -3.1); ctx.stroke(); } // the arms
+  ctx.lineWidth = 1.3; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx * 0.4, 1.3); ctx.lineTo(sx * 1.3, 3.1); ctx.lineTo(sx * 1.6, 4); ctx.stroke(); } // the legs
+  ctx.fillStyle = "#ff6b9a"; ctx.beginPath(); ctx.ellipse(0, 0, 0.95, 1.9, 0, 0, Math.PI * 2); ctx.fill(); // the body
+  ctx.fillStyle = "#1b1f3b"; ctx.fillRect(-0.75, -1, 1.5, 1.9); // the rig
+  ctx.fillStyle = "#fbf7ef"; ctx.beginPath(); ctx.arc(0, -2.4, 0.85, 0, Math.PI * 2); ctx.fill(); // the helmet
+  ctx.lineCap = "butt"; ctx.restore();
 }
 /** The airport on the ground: its two runways with their centre lines and numbers, the hangars, a windsock, and the plane on its pad. */
 /** Gate Road and the Gate (asked 2026-10-26): the road from the city's last street out past the fence toward the highway, the
@@ -597,14 +618,16 @@ function drawFlyRanch(ctx: CanvasRenderingContext2D, t: number, night: number) {
 /** The crowd at a sound camp (asked 2026-10-23): a party round the front of the stage, hugging it, clear of the bay. Each person
  * stands in their own spot (seeded by the camp's key), dancing: bobbing to the beat, arms up on the drop, a few just
  * standing in a knot talking. Drawn, not NPCs: you ride through them. Agave's party is the biggest. */
-function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t: number, night: number) {
+function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t: number, night: number, car: Game["car"]) {
   let h = 0; for (const ch of sp.key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
   const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.camp?.piece ? 8 : sp.kind === "art" ? 12 : 20; // a few people looking at a piece
   for (let i = 0; i < n; i++) {
     const a = dir + (rnd() - 0.5) * 3.2, d = st.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360), ph = rnd() * Math.PI * 2, rate = 5 + rnd() * 3;
     const dancing = rnd() < 0.72, bob = dancing ? Math.sin(t * rate + ph) : 0, up = dancing && Math.sin(t * rate * 0.5 + ph) > 0.3;
-    ctx.save(); ctx.translate(st.x + Math.cos(a) * d, st.y + Math.sin(a) * d + bob * 1.2); ctx.rotate(a + Math.PI); // facing the stage
+    const px = st.x + Math.cos(a) * d, py = st.y + Math.sin(a) * d, fall = crowdFall(`${sp.key}:${i}`, px, py, car, t); // ridden into, they fall over and get back up (asked 2026-11-04)
+    ctx.save(); ctx.translate(px, py + (fall ? 0 : bob * 1.2)); ctx.rotate(a + Math.PI); // facing the stage
+    if (fall) { ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; ctx.beginPath(); ctx.arc(fall.side * 3, 0, 5 + fall.tilt * 2, 0, Math.PI * 2); ctx.fill(); ctx.translate(fall.side * fall.tilt * 3, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1); }
     ctx.fillStyle = "#f2c6a0";
     if (up) { ctx.fillRect(-5.5, -4 + bob, 2, 4); ctx.fillRect(3.5, -4 - bob, 2, 4); } else { ctx.fillRect(-5, -1 + bob * 0.6, 2, 3); ctx.fillRect(3, -1 - bob * 0.6, 2, 3); }
     ctx.fillStyle = hsl(hue, 70, night > 0.3 ? 60 : 55);
@@ -614,6 +637,19 @@ function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t:
     if (night > 0.3) { ctx.fillStyle = hsl((hue + t * 120) % 360, 100, 65); ctx.fillRect(-0.8, -0.8, 1.6, 1.6); }
     ctx.restore();
   }
+}
+/** The crowd round an art car parked on the playa (asked 2026-11-04; scene3d.ts carCrowd), drawn as the stages' crowds are, facing the car. */
+function drawCarCrowd(ctx: CanvasRenderingContext2D, key: string, at: { x: number; y: number }, t: number, night: number, car: Game["car"]) {
+  carCrowd(key, at).forEach((p, i) => {
+    const bob = p.dancing ? Math.sin(t * p.rate + p.phase) : 0, up = p.dancing && Math.sin(t * p.rate * 0.5 + p.phase) > 0.3, fall = crowdFall(`${key}:${i}`, p.x, p.y, car, t);
+    ctx.save(); ctx.translate(p.x, p.y + (fall ? 0 : bob * 1.2)); ctx.rotate(p.a + Math.PI);
+    if (fall) { ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; ctx.beginPath(); ctx.arc(fall.side * 3, 0, 5 + fall.tilt * 2, 0, Math.PI * 2); ctx.fill(); ctx.translate(fall.side * fall.tilt * 3, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1); }
+    ctx.fillStyle = "#f2c6a0";
+    if (up) { ctx.fillRect(-5.5, -4 + bob, 2, 4); ctx.fillRect(3.5, -4 - bob, 2, 4); } else { ctx.fillRect(-5, -1 + bob * 0.6, 2, 3); ctx.fillRect(3, -1 - bob * 0.6, 2, 3); }
+    ctx.fillStyle = hsl(p.hue, 70, night > 0.3 ? 60 : 55); ctx.beginPath(); ctx.ellipse(0, 0.5, 4.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hsl((p.hue + 40) % 360, 50, 75); ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
 }
 function drawWalker(ctx: CanvasRenderingContext2D, hue: number, t: number, night: number) {
   const sw = Math.sin(t * 6 + hue) * 2;
@@ -735,7 +771,7 @@ function drawBay(ctx: CanvasRenderingContext2D, sp: Spot, z: number, font: strin
  * PlayAlchemist's Pyramid stage from above (asked 2026-10-27; src/lib/pyramidStage.ts): the square base, its four triangular faces meeting at the apex (the bay's face the
  * palest, the back the darkest), the booth's deck in front, the edges and the diagonals lit: pale by day, warm to violet at night. Local frame: +y toward the bay.
  */
-function drawPyramidStage(ctx: CanvasRenderingContext2D, t: number, night: number) {
+function drawPyramidStage(ctx: CanvasRenderingContext2D, t: number, night: number, PYRAMID: Pyramid) {
   const a = PYRAMID.half, lit = night > 0.3;
   const led = (s: number) => { if (!lit) return `rgb(${LED_DAY[0]}, ${LED_DAY[1]}, ${LED_DAY[2]})`; const [r, g, b] = ledRgb(ledPhase(s, t)); return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`; };
   // the deck in front of the bay face, and the booth on it
@@ -762,8 +798,9 @@ function drawPyramidStage(ctx: CanvasRenderingContext2D, t: number, night: numbe
 function drawStage(ctx: CanvasRenderingContext2D, sp: Spot, t: number, night: number) {
   const r = sp.stage.r;
   ctx.save(); ctx.translate(sp.stage.x, sp.stage.y); ctx.rotate(Math.atan2(sp.mid.y - sp.stage.y, sp.mid.x - sp.stage.x) - Math.PI / 2); // facing the bay
-  if (sp.key === PYRAMID.key) {
-    drawPyramidStage(ctx, t, night);
+  const py = pyramidOf(sp.key);
+  if (py) {
+    drawPyramidStage(ctx, t, night, py);
   } else if (sp.kind === "art") {
     // an art piece with its own music: a glowing standing stone in its colour, its light pulsing at night
     ctx.fillStyle = hsl(sp.hue, 75, night > 0.3 ? 62 : 55); ctx.strokeStyle = C.navy; ctx.lineWidth = 3;
@@ -794,7 +831,7 @@ function drawMutant(ctx: CanvasRenderingContext2D, n: Npc, t: number, night: num
   const R = NPC_R.mutant;
   // a famous one, drawn in full (artcars.ts)
   const art = ART_CARS[(n.key ?? "").slice((n.key ?? "").indexOf(":") + 1)];
-  if (art) { ctx.fillStyle = "rgba(27, 31, 59, .18)"; ctx.beginPath(); ctx.ellipse(3, 4, 16, 33, 0, 0, Math.PI * 2); ctx.fill(); art(ctx, t, night); return; }
+  if (art) { if (n.key === "mutant:big-imagination-747") ctx.scale(4, 4); /* four times its size (asked 2026-11-04), as cars.ts BIG_747 */ ctx.fillStyle = "rgba(27, 31, 59, .18)"; ctx.beginPath(); ctx.ellipse(3, 4, 16, 33, 0, 0, Math.PI * 2); ctx.fill(); art(ctx, t, night); return; }
   ctx.fillStyle = "rgba(27, 31, 59, .25)"; ctx.fillRect(-R * 0.5 + 3, -R + 4, R, R * 2);
   ctx.fillStyle = hsl(n.hue, 55, 40); ctx.beginPath(); ctx.roundRect(-R * 0.5, -R, R, R * 2, 8); ctx.fill();
   ctx.strokeStyle = night > 0.3 ? hsl((n.hue + t * 60) % 360, 100, 70) : C.navy; ctx.lineWidth = night > 0.3 ? 3 : 1.5; ctx.stroke();
@@ -1028,7 +1065,6 @@ function mapSpotAt(w: number, h: number, x: number, y: number, t: number): { nam
   for (const sp of SPOTS) consider(sp.stage, sp.camp?.address ? `${sp.name} · ${sp.camp.address}` : sp.name);
   for (const m of MUTANTS) consider(npcAt(m, t), `${m.name} · art car`);
   for (const a of ART_2026_SPOTS) consider(a, a.artist ? `${a.name} · art by ${a.artist}` : `${a.name} · art`);
-  for (const m of MVS) consider(npcAt(m, t), `${m.name} · art car`);
   const b = best as { name: string; x: number; y: number } | null;
   return b ? { name: b.name, x: b.x, y: b.y } : null;
 }
@@ -1037,7 +1073,6 @@ function drawMapMarks(ctx: CanvasRenderingContext2D, w: number, h: number, g: Ga
   const at = (p: Vec) => ({ x: ox + p.x * s, y: oy + p.y * s });
   // 2026's other art cars, where they are now: little dots under the famous ones (asked 2026-11-04)
   ctx.strokeStyle = "rgba(27, 31, 59, .7)"; ctx.lineWidth = 0.75;
-  for (const m of MVS) { const q = at(npcAt(m, g.t)); ctx.fillStyle = hsl(m.hue, 85, 60); ctx.beginPath(); ctx.arc(q.x, q.y, w > 400 ? 2.2 : 1.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   // the famous art cars, where they are now
   for (const m of MUTANTS) {
     const q = at(npcAt(m, g.t));
@@ -1150,7 +1185,8 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   const spots = SPOTS.filter((sp) => seen(sp.mid.x, sp.mid.y, 260));
   for (const sp of spots) drawBay(ctx, sp, z, font, g.parking.at === sp.key, t);
   for (const sp of spots) if (sp.kind !== "agave" && !sp.camp?.piece) drawStage(ctx, sp, t, night); // a piece is its own stage (drawArt)
-  for (const sp of spots) drawCrowd(ctx, sp, t, night);
+  for (const sp of spots) drawCrowd(ctx, sp, t, night, g.car);
+  for (const { key, at } of parkedCarList()) if (seen(at.x, at.y, 120)) drawCarCrowd(ctx, key, at, t, night, g.car);
   // the next ride, parked at the side of Agave's bay: stop in the bay to hop on
   // (2026-10-28: only a bike now: the Golden Ticket itself is the art car parked along Agave's curb, and drawing a second one here put two on the map)
   if (spots.some((sp) => sp.kind === "agave") && g.vehicle === "artcar") {
@@ -1243,7 +1279,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
       ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(fall.side * 4 + Math.cos(k * 1.7) * 6, Math.sin(k * 2.3) * 6, 4 + fall.tilt * 3, 0, Math.PI * 2); ctx.fill(); }
       ctx.translate(fall.side * fall.tilt * 4, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1);
     }
-    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "mv") drawMv(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
+    if (n.kind === "mutant") drawMutant(ctx, n, t, night); else if (n.kind === "mv") drawMv(ctx, n, t, night); else if (n.kind === "ambulance") drawAmbulance(ctx, t, night); else if (n.kind === "ebike") { ctx.scale(0.55, 0.55); drawEBike(ctx, t, night, false); } else if (n.kind === "rv" || n.kind === "tuktuk" || n.kind === "unicycle") drawRide(ctx, n.kind, t, night, false); else if (n.kind === "onewheel") drawOnewheel(ctx, t, night, n.hue); else if (n.kind === "bike" && n.hue % 7 === 0) drawSuperbike(ctx, n.hue, night); else if (n.kind === "artcar") drawFish(ctx, n.hue, t, night); else if (n.kind === "walker") drawWalker(ctx, n.hue, t, night); else drawRider(ctx, n.hue * 7 + Math.floor((n.phase ?? 0) * 13) + Math.round((n.lag ?? 0) * 31), n.hue, night);
     ctx.restore();
   }
   for (const { n, p } of npcs) if ((n.kind === "mutant" || (n.kind === "mv" && Math.hypot(p.x - g.car.x, p.y - g.car.y) < 500)) && n.name) { // 2026's other cars are named near you
@@ -1257,7 +1293,7 @@ function paint(ctx: CanvasRenderingContext2D, w: number, h: number, g: Game, cam
   } else if (g.chute) {
     // under the canopy: your shadow on the playa off to one side, then you and the canopy, bigger the higher you are
     ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.fillStyle = `rgba(27, 31, 59, ${0.2 / (1 + g.alt / 600)})`; ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); drawChute(ctx, t, night); ctx.restore(); // the same size on the screen all the way down
+    ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); if ((g.fallT ?? 0) > 0) { ctx.scale(2.6, 2.6); drawSkydiver(ctx, t); } else drawChute(ctx, t, night); ctx.restore(); // the same size on the screen all the way down; falling free, you before the canopy opens
   } else if (g.vehicle === "plane" && g.alt > 0) {
     ctx.save(); ctx.translate(g.car.x + g.alt * 0.5, g.car.y + g.alt * 0.4); ctx.rotate(g.car.h); drawPlaneShadow(ctx, g.alt); ctx.restore();
     ctx.save(); ctx.translate(g.car.x, g.car.y); const k = 1 + g.alt / AIR_PULL; ctx.scale(k, k); ctx.rotate(g.car.h); drawPlane(ctx, t, night); ctx.restore(); // grows exactly as the camera pulls back, so it stays the same size on the screen (asked 2026-10-26)
@@ -1484,7 +1520,7 @@ function onNowNear(evs: readonly PlacedEvent[], p: Vec, day: string, hour: numbe
   }
   return out.sort((a, b) => a.d - b.d).slice(0, 3).map(({ d: _d, ...e }) => e);
 }
-type Hud = { /** the burn's day and time (getlost.ts burnTime) */ when: string; /** events on now near you (asked 2026-11-03) */ onNow: { key: string; name: string; host: string; till: string }[]; address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; pad: boolean; /** the big prompt in the middle (asked 2026-11-04): W to start on the pad, E to eject in the air, E to drive the art car you are beside, T for superpowers when you are stuck */ prompt: "" | "start" | "eject" | "drive" | "stuck" };
+type Hud = { /** the burn's day and time (getlost.ts burnTime) */ when: string; /** events on now near you (asked 2026-11-03) */ onNow: { key: string; name: string; host: string; till: string }[]; address: string; mph: number; pager: string; time: number | null; gifts: number; moop: number; warn: string; night: boolean; storm: boolean; hear: string; hearKey: string; hearSoon: boolean; gate: boolean; alt: number; chute: boolean; /** falling free before the canopy opens */ free?: boolean; pad: boolean; /** the big prompt in the middle (asked 2026-11-04): W to start on the pad, E to eject in the air, E to drive the art car you are beside, T for superpowers when you are stuck */ prompt: "" | "start" | "eject" | "drive" | "stuck" };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** Camp sound on or off, per device (lib/profile.ts LOCAL_ONLY). */
@@ -1642,7 +1678,7 @@ export default function PlayaWin() {
   const takeOff = () => { const g = game.current; if (takePlane(g)) { setVehicleState("plane"); setRides(false); flash.current = { text: "at the controls. gas to roll; past 30 mph it lifts", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); } };
   const ridealong = () => {
     const g = game.current;
-    if (g.vehicle === "plane") { const air = g.alt > 0; bailOut(g); setVehicleState("bike"); flash.current = { text: air ? "bailed out! steer the chute down" : "out of the plane", until: g.t + 2.5 }; board.current?.focus({ preventScroll: true }); return; }
+    if (g.vehicle === "plane") { const air = g.alt > 0; bailOut(g); setVehicleState("bike"); flash.current = { text: air ? ((g.fallT ?? 0) > 0 ? "out! falling free, then the canopy" : "bailed out! steer the chute down") : "out of the plane", until: g.t + 2.5 }; board.current?.focus({ preventScroll: true }); return; }
     if (g.aboard) { hopOff(g); setVehicleState("bike"); }
     else if (g.vehicle === "found") { leaveDriven(g); setVehicleState("bike"); flash.current = { text: "parked it. on the bike", until: g.t + 1.5 }; }
     else hopOn(g);
@@ -1956,7 +1992,7 @@ export default function PlayaWin() {
           time: m.phase === "pickup" || m.phase === "dropoff" || m.phase === "follow" ? m.timeLeft : null,
           gifts: m.gifts, moop: g.moopCount, warn: g.warn > 0 ? g.warnText : fl, night: nightLevel(g.dayT) > 0.5, storm: stormLevel(g.storm) > 0.3,
           hear: target && target.vol > 4 ? soundOf(target.key).name : soon ? soundOf(soon).name : "", hearKey: target && target.vol > 4 ? target.key : soon ?? "", hearSoon: !(target && target.vol > 4) && !!soon,
-          alt: Math.round(g.alt), chute: g.chute, pad: atAirport(g), gate: atGate(g),
+          alt: Math.round(g.alt), chute: g.chute, free: (g.fallT ?? 0) > 0, pad: atAirport(g), gate: atGate(g),
           prompt: stuck.current > STUCK_SECONDS ? "stuck" : g.vehicle !== "plane" ? (g.vehicle !== "found" && !g.chute && g.parking.at?.startsWith("mutant:") && ART_CARS[g.parking.at.slice(7)] ? "drive" : "") : g.alt <= 0 && !rolled.current ? "start" : g.alt >= EJECT_PROMPT_ALT && Math.hypot(g.car.x - AGAVE.dome.x, g.car.y - AGAVE.dome.y) < EJECT_PROMPT_NEAR ? "eject" : "",
         });
         const mc = mini.current, mx = mc?.getContext("2d");
@@ -2200,7 +2236,7 @@ export default function PlayaWin() {
           {hud.when && <span className="pl-count">{hud.when}</span>}
           <span className="pl-speed"><b className={over ? "pl-over" : undefined}>{hud.mph}</b> mph <span className="pl-limit">limit {SPEED_LIMIT_MPH}</span></span>
           <span className="pl-count">gifts <b>{hud.gifts}</b> · moop <b>{hud.moop}</b></span>
-          {hud.alt > 0 && <span className="pl-count">{hud.chute ? "under the chute" : "flying"} · <b>{hud.alt}&apos;</b> up</span>}
+          {hud.alt > 0 && <span className="pl-count">{hud.chute ? (hud.free ? "falling free" : "under the chute") : "flying"} · <b>{hud.alt}&apos;</b> up</span>}
           {hud.pad && <span className="pl-count">a plane on the pad · <b>E</b> takes it</span>}
           {hud.hear && (
             <span className="pl-hear">
@@ -2267,14 +2303,13 @@ export default function PlayaWin() {
             );
           })()}
           <dl className="pl-keys" aria-label="the keys">
-            <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
+            <div><dt>W A S D</dt><dd>drive</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
             <div><dt>E</dt><dd>enter · exit</dd></div>
             <div><dt>B</dt><dd>video</dd></div>
             <div><dt>R</dt><dd>ride along</dd></div>
             <div><dt>V</dt><dd>vehicle</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
-            <div><dt>, .</dt><dd>turn the view</dd></div>
             <div><dt>M</dt><dd>map</dd></div>
             <div><dt>N</dt><dd>night</dd></div>
             <div><dt>T</dt><dd>trip</dd></div>

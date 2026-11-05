@@ -23,6 +23,7 @@ import { EVENT_RIDES } from "./camps2026.ts";
 import { dayName, hourLabel, toGame } from "./getlost.ts";
 import { ART_2026, CARS_2026, type CarForm } from "./playa2026.ts";
 import { SOUND_CAMPS, campTracks, type SoundCamp } from "./soundcamps.ts";
+import { pyramidOf, pyramidStageR } from "./pyramidStage.ts";
 
 /** Where Agave Lounge camps: the Esplanade at 8:30, its dome facing the open playa. */
 export const AGAVE_ADDRESS = "8:30 & Esplanade";
@@ -68,18 +69,18 @@ export const VEHICLES = {
   artcar: {
     name: "Golden Ticket", len: 20, wid: 10, // the Golden Ticket (2026-10-26): a San Francisco meter-maid cart reborn in gold, LEDs, a bus seat and Void sound
     maxSpeed: 350, maxReverse: 70, accel: 175, brake: 300, reverse: 80, handbrake: 230, // 50 mph on the HUD, as quick as the e-bike (asked 2026-10-26: faster), and more on the open playa
-    drag: 0.28, roll: 14, maxYaw: 2.1, hbYaw: 1.8, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: false,
+    drag: 0.28, roll: 14, maxYaw: 2.1, hbYaw: 1.8, restitution: 0.25, dust: 1.12, grip: 0.9, throughCamps: true, // art cars cross the camps' blocks too (asked 2026-11-04)
   },
   fish: {
     name: "cuttlefish", len: 36, wid: 20, // a cuttlefish art car, its fin rippling and its colours rolling (PlayaWin.tsx drawCuttlefish)
     maxSpeed: 225, maxReverse: 60, accel: 125, brake: 300, reverse: 80, handbrake: 240,
-    drag: 0.31, roll: 15, maxYaw: 2.1, hbYaw: 2, restitution: 0.3, dust: 1.05, grip: 0.75, throughCamps: false,
+    drag: 0.31, roll: 15, maxYaw: 2.1, hbYaw: 2, restitution: 0.3, dust: 1.05, grip: 0.75, throughCamps: true, // art cars cross the camps' blocks too (asked 2026-11-04)
   },
   // a famous art car you found on the playa and took the wheel of (PlayaWin "drive it", artcars.ts draws it; asked 2026-10-22)
   found: {
     name: "art car", len: 36, wid: 20, // drawn at 0.58 of the 64-foot art car: the streets are twice the longest ride
     maxSpeed: 200, maxReverse: 60, accel: 95, brake: 260, reverse: 70, handbrake: 200,
-    drag: 0.3, roll: 14, maxYaw: 1.6, hbYaw: 1.5, restitution: 0.2, dust: 1.2, grip: 0.9, throughCamps: false,
+    drag: 0.3, roll: 14, maxYaw: 1.6, hbYaw: 1.5, restitution: 0.2, dust: 1.2, grip: 0.9, throughCamps: true, // art cars cross the camps' blocks too (asked 2026-11-04)
   },
   // the plane from the airport (asked 2026-10-22): slow to roll, fast once it lifts, wide and gentle in a turn
   plane: {
@@ -98,6 +99,12 @@ export const VEHICLES = {
     name: "RV", len: 32, wid: 9,
     maxSpeed: 210, maxReverse: 30, accel: 60, brake: 130, reverse: 35, handbrake: 105, // 30 mph on the HUD
     drag: 0.22, roll: 14, maxYaw: 0.9, hbYaw: 1.1, restitution: 0.1, dust: 0.8, grip: 0.8, throughCamps: false,
+  },
+  // the Onewheel (asked 2026-11-04): a board on one fat wheel, ridden standing sideways; 19 mph, carves quick, floats over the dust, through the camps
+  onewheel: {
+    name: "onewheel", len: 8, wid: 6,
+    maxSpeed: 133, maxReverse: 25, accel: 120, brake: 240, reverse: 40, handbrake: 220, // 19 mph on the HUD
+    drag: 0.3, roll: 16, maxYaw: 3.2, hbYaw: 1.5, restitution: 0.5, dust: 0.6, grip: 1.1, throughCamps: true,
   },
   unicycle: {
     name: "unicycle", len: 10, wid: 8,
@@ -329,7 +336,8 @@ const clash = (a: { stage: Round; mid: Vec; bay: Bay }, b: { stage: Round; mid: 
 export const NUDGES = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6].map((k) => k * 120);
 function placeCamp(c: SoundCamp, placed: readonly Spot[]): Spot {
   for (const n of NUDGES) {
-    const s = spotAt(c.address!, { nudge: (c.nudge ?? 0) + n });
+    const py = pyramidOf(`camp:${c.id}`); // a pyramid stage wider than a drum gets a stage as wide as it (asked 2026-11-04)
+    const s = spotAt(c.address!, { nudge: (c.nudge ?? 0) + n, ...(py ? { stageR: pyramidStageR(py) } : {}) });
     if (spotFits(s) && !placed.some((p) => clash(p, s))) return { key: `camp:${c.id}`, name: c.name, kind: "camp", ...s, stage: { ...s.stage, name: c.name }, hue: hueOf(c.id), camp: c };
   }
   throw new Error(`no room for ${c.name} at ${c.address}`);
@@ -470,7 +478,7 @@ export function collide(c: Car, v: Vehicle = CAR): number {
 /* ── the others on the road ─────────────────────────────────────────────── */
 
 type NpcBase = {
-  kind: "bike" | "ebike" | "tuktuk" | "unicycle" | "walker" | "artcar" | "mutant" | "mv" | "ambulance" | "rv"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
+  kind: "bike" | "ebike" | "tuktuk" | "unicycle" | "onewheel" | "walker" | "artcar" | "mutant" | "mv" | "ambulance" | "rv"; speed: number; phase: number; hue: number; r: number; key?: string; name?: string;
   /** a 2026 mutant vehicle's shape (MVS) */
   form?: CarForm;
   /** a biker riding with an art car: where the car was `lag` seconds ago, `side` feet off its line, `rank` its place in the pack */
@@ -485,9 +493,9 @@ type NpcBase = {
 };
 /** `line`: from `from` to `to` and round again from `from` (the Exodus queue), `phase` feet along it */
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" }) | (NpcBase & { path: "line"; from: Vec; to: Vec });
-export const NPC_R = { bike: 7, ebike: 7, tuktuk: 10, unicycle: 5, walker: 5, artcar: 24, mutant: 32, mv: 18, ambulance: 14, rv: 14 } as const;
+export const NPC_R = { bike: 7, ebike: 7, tuktuk: 10, unicycle: 5, onewheel: 5, walker: 5, artcar: 24, mutant: 32, mv: 18, ambulance: 14, rv: 14 } as const;
 /** Someone on a bike of some sort, for the warnings. */
-export const onBike = (n: Npc) => n.kind === "bike" || n.kind === "ebike" || n.kind === "tuktuk" || n.kind === "unicycle";
+export const onBike = (n: Npc) => n.kind === "bike" || n.kind === "ebike" || n.kind === "tuktuk" || n.kind === "unicycle" || n.kind === "onewheel";
 /** Room a biker riding with an art car keeps from it: wide enough to ride between them. */
 export const FOLLOW_GAP = 30;
 
@@ -502,6 +510,8 @@ const parkedCars = new Map<string, { x: number; y: number; h: number }>();
 export function setDriven(key: string | null) { if (key) parkedCars.delete(key); driven.key = key; driven.trail = []; if (key !== packFor) { pack.clear(); packFor = key; } }
 export const drivenKey = () => driven.key;
 export const parkedCarAt = (key: string) => parkedCars.get(key) ?? null;
+/** The art cars parked on the playa now, and where (their crowds dance round them). */
+export const parkedCarList = () => [...parkedCars.entries()].map(([key, at]) => ({ key, at }));
 /**
  * Step out of the art car you drive (asked 2026-10-22): it stays parked where you left it, not sent back on its
  * route, and you are on the bike beside it. Does nothing but clear the wheel if you were not in a found car.
@@ -726,6 +736,9 @@ function moreRides(): Npc[] {
   for (let i = 0; i < 8; i++) out.push(playa("unicycle", 7, 6, any));
   for (let i = 0; i < 28; i++) out.push(street("ebike", 28, 20, blue));
   for (let i = 0; i < 12; i++) out.push(playa("ebike", 30, 20, blue));
+  // people on Onewheels (asked 2026-11-04), after the rest so their numbers are as they were
+  for (let i = 0; i < 24; i++) out.push(street("onewheel", 14, 10, any));
+  for (let i = 0; i < 10; i++) out.push(playa("onewheel", 16, 10, any));
   return out;
 }
 /**
@@ -851,13 +864,15 @@ export function makeNpcs(rand: () => number): Npc[] {
       out.push({ kind: "bike", path: "loop", r: lead.r, speed: lead.speed, phase: 0, hue: Math.floor(rand() * 360), lead, lag: 1.2 + j * 0.55 + rand() * 0.5, side: (rand() - 0.5) * 90, rank: j });
     }
   }
-  out.push(...moreRides(), ...EXODUS, ...MVS);
+  out.push(...moreRides(), ...EXODUS); // no MVS on the playa (asked 2026-11-04: "remove all the fake/npc art cars that aren't interactive"): only the art cars you can ride along on and drive
   // Center Camp sits across the Esplanade, A and B (the 2026 city, asked 2026-11-03): a ride on one of those arcs keeps to one side of it and turns back at its edge
   for (const n of out) if (n.path === "arc" && !n.lead && n.from <= 360 && n.to >= 360) {
     const gap = arcGap(n.r);
     if (gap > 0) { if (n.phase < 240) n.to = 360 - gap; else n.from = 360 + gap; n.phase %= n.to - n.from; }
   }
-  return out;
+  // no one wandering the playa on foot any more (asked 2026-11-04: "remove the random pedestrians around the playa, they should be dancing near parked art cars,
+  // art pieces, or camps"): the crowds are at the stages and round the parked art cars (scene3d.ts crowdSpots, carCrowd); drawn after the rest so everyone else's numbers are as they were
+  return out.filter((n) => n.kind !== "walker");
 }
 /** Half the clock span (minutes) Center Camp takes out of the arc at radius r, with room for a rider; 0 for an arc clear of it. */
 function arcGap(r: number): number {
@@ -978,6 +993,8 @@ export type MissionEvent = "start" | "picked" | "delivered" | "failed";
 export const SKYDIVE_ALT = 400, SKYDIVE_TIME = 240;
 /** How fast the ground comes up under the parachute, ft/s: about 8 s down from the jump's 400 ft (24 ft/s until 2026-11-04, asked: a little too long). */
 export const CHUTE_SINK = 48;
+/** The freefall before the canopy opens (asked 2026-11-04: "make the guy skydive a little longer"): up to FREEFALL seconds, speeding up to FALL_FAST ft/s, opening early by OPEN_AT ft. */
+export const FREEFALL = 5, FALL_FAST = 110, OPEN_AT = 220;
 export const SKYDIVE_JOB = JOBS.findIndex((j) => j.kind === "skydive");
 /** The job after the jump: Polo & Pan in the Golden Ticket. */
 export const POLO_JOB = JOBS.findIndex((j) => j.who === "Polo & Pan");
@@ -1302,7 +1319,7 @@ export type Game = {
   storm: Storm; dayT: number; /** the night button's time-lapse under way (warpDay), or none */ dayWarp?: { to: number; rate: number } | null; dust: Dust[]; bumps: number; hitCool: number; /** the art car you are riding along on (hopOn), or null */ aboard: string | null; /** the big map is open: nothing stops you, so you can get unstuck and go where you point (asked 2026-10-22) */ ghost: boolean; /** seconds pinned against the others, and seconds left slipping through them */ pinned: number; slip: number; warn: number; warnText: string;
   parking: Parking;
   /** feet up: more than 0 and the plane, or you under the canopy, is in the air (asked 2026-10-22) */ alt: number;
-  /** you bailed out: under a parachute, drifting down */ chute: boolean;
+  /** you bailed out: under a parachute, drifting down */ chute: boolean; /** seconds of freefall left before the canopy opens (0 under it) */ fallT?: number;
   /** the plane you bailed out of, flying on without you until it is gone */ plane: (Car & { alt: number; left: number }) | null;
   /** the dust angels made at the Gate (asked 2026-10-26), left in the playa; `angelT` is the seconds left of the one being made, lying down */ angels: Vec[]; angelT: number;
   rand: () => number;
@@ -1426,7 +1443,7 @@ export function bailOut(g: Game) {
   if (g.alt > 0) {
     const f = fwd(g.car.h), spd = Math.max(STALL, speedOf(g.car));
     g.plane = { ...g.car, vx: f.x * spd, vy: f.y * spd, alt: g.alt, left: 30 };
-    g.chute = true;
+    g.chute = true; g.fallT = g.alt > OPEN_AT + 40 ? FREEFALL : 0;
     g.car = { ...g.car, vx: g.car.vx * 0.15, vy: g.car.vy * 0.15 };
     g.vehicle = "bike";
   } else {
@@ -1486,7 +1503,10 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
     let vx = c.vx * (1 - 1.4 * dt) + ax * 90 * dt, vy = c.vy * (1 - 1.4 * dt) + ay * 90 * dt;
     const sp = Math.hypot(vx, vy); if (sp > 45) { vx *= 45 / sp; vy *= 45 / sp; }
     g.car = { ...c, x: c.x + vx * dt, y: c.y + vy * dt, vx, vy, h: sp > 5 ? Math.atan2(vx, -vy) : c.h };
-    g.alt = Math.max(0, g.alt - CHUTE_SINK * dt);
+    if (g.fallT && g.fallT > 0) { // falling free: faster and faster, until FREEFALL is up or the ground is OPEN_AT away
+      const s = FREEFALL - g.fallT; g.alt = Math.max(0, g.alt - Math.min(FALL_FAST, 25 + 32 * s) * dt); g.fallT -= dt;
+      if (g.alt <= OPEN_AT) g.fallT = 0;
+    } else g.alt = Math.max(0, g.alt - CHUTE_SINK * dt);
     if (g.alt === 0) { g.chute = false; g.car = { ...g.car, vx: 0, vy: 0 }; collide(g.car, VEHICLES.bike); ev.push("landed"); }
   } else {
     g.car = carStep(g.car, input, dt, g.vehicle === "plane" && g.alt > 0 ? 40 : gripAt(g.car), v);

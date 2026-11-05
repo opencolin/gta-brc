@@ -9,6 +9,7 @@ import { angelTexture, planeShadowTexture } from "./decals";
 import { cuttlefish } from "./cuttlefish";
 import { goldenTicket, type Ticket } from "./goldenTicket";
 import { mergedParts, registerGround, shade, shaped as P, type Part } from "./materials";
+import { onewheelParts } from "./people";
 import { buildCyclist, buildRv, type Rig } from "./riders";
 import { skinMaterial } from "./skinned";
 
@@ -63,6 +64,8 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   rig("ebike", buildCyclist("ebike", skin), [[5.6, 4.6]]);
   rig("unicycle", buildCyclist("unicycle", skin), []);
   rig("tuktuk", buildCyclist("tuktuk", skin), [[9.4, 2.9, 3]]);
+  // the Onewheel (asked 2026-11-04): the board, its wheel and you standing on it sideways, in your pink shirt (people.ts onewheelParts)
+  add("onewheel", model(onewheelParts(PINK)));
   rig("rv", buildRv(skin), [[15.6, 3.4, 1.4, -3.3], [15.6, 3.4, 1.4, 3.3]]);
   // the Golden Ticket: the gold cart with its speaker pods, its sign and its drawing on top (goldenTicket.ts)
   { const g = goldenTicket().group; g.visible = false; add("artcar", withBrake(g, 10.4, 3)); }
@@ -86,20 +89,49 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   const plane2 = makePlane(), padPlane = makePlane(); group.add(plane2, padPlane);
   const planeShadowMat = () => new THREE.MeshBasicMaterial({ map: planeShadowTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal });
   const planeShadows = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), planeShadowMat()); m.position.y = 0.4; m.renderOrder = LAYER.decal; m.visible = false; group.add(m); return m; });
-  // you under the chute: a striped canopy on lines over the rider hanging at the bottom. The canopy and the rider swing from the canopy's
-  // middle (`swing`, 22 ft up), and a second rider, spread-eagled face down, is the one falling before the canopy opens (bailing out, below)
-  const slices = Array.from({ length: 8 }, (_, k): Part => P(new THREE.SphereGeometry(14, 3, 8, (k * Math.PI) / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? PINK : 0xfbf7ef, { y: 22, sy: 0.9 }));
-  const lines = Array.from({ length: 8 }, (_, k): Part => { const a = (k * Math.PI) / 4, x = Math.cos(a) * 13, z = Math.sin(a) * 13, len = Math.hypot(x, z, 20), g = cyl(0.12, 0.12, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-x, -20, -z).normalize())); return { geo: g.translate(x / 2, 22 - 10, z / 2), color: 0x4a4f6e }; });
-  const canopy = mergedParts([...slices, ...lines]), hang = mergedParts([P(new THREE.CapsuleGeometry(1.1, 3, 3, 8), 0xff6b9a, { y: 3.4 }), P(ball(1.2), SKIN, { y: 6.2 }), P(cyl(2.2, 2.2, 0.3), STRAW, { y: 7.1 })]);
-  // falling: the body along -Z (head first, as the ride's nose), arms out forward and legs back in an X, face down; a limb is a capsule
-  // laid along Z (rx) and turned to its direction (ry), its middle half its length out from the joint
-  const limb = (x: number, z: number, ang: number, len: number): Part => P(new THREE.CapsuleGeometry(0.4, len, 2, 6), SKIN, { rx: Math.PI / 2, ry: ang, x: x + Math.sin(ang) * (len / 2 + 0.4), y: 3, z: z + Math.cos(ang) * (len / 2 + 0.4) });
+  // you under the chute (made more real 2026-11-04, asked): a ram-air canopy, seven cells in an arc, in stripes, on lines down to your harness, and you
+  // hanging in it in a jumpsuit and helmet, hands up on the steering toggles, legs dangling. The canopy and you swing from the canopy's middle (`swing`,
+  // 22 ft up). Falling before it opens, another of you is in the freefall arch: face down, back arched, arms out bent up at the elbows, knees bent, the
+  // rig on your back (bailing out, below)
+  const SUIT = PINK, HELMET = 0xfbf7ef, RIG = NAVY, BOOT = 0x2a211c, GOGGLE = 0x22324a;
+  const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const rod = (a: THREE.Vector3, b: THREE.Vector3, r: number, color: number, seg = 6): Part => {
+    const d = b.clone().sub(a), g = new THREE.CapsuleGeometry(r, Math.max(0.01, d.length() - 2 * r), 2, seg);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
+    const m = a.clone().add(b).multiplyScalar(0.5); return { geo: g.translate(m.x, m.y, m.z), color };
+  };
+  const cells: Part[] = [], lines: Part[] = [];
+  for (let i = 0; i < 7; i++) {
+    const th = (i - 3) * 0.17, R = 30, x = Math.sin(th) * R, y = 22 + (Math.cos(th) - 1) * R;
+    cells.push(P(box(5.15, 1.5, 10), i === 3 ? 0xffd27a : i % 2 ? PINK : 0xfbf7ef, { x, y, rz: -th, rx: deg(-4) })); // cells side by side, no gaps
+    // under each cell's ends a line runs down to the riser on its side, front and back
+    for (const z of [-3.6, 3.6]) {
+      const a = v3(x - Math.sin(th) * 0.8, y - Math.cos(th) * 0.8, z), b = v3(Math.sign(x || (i - 3.01)) * 0.75, 7.6, 0);
+      const d = b.clone().sub(a), g = cyl(0.07, 0.07, d.length(), 3); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+      const m = a.clone().add(b).multiplyScalar(0.5); lines.push({ geo: g.translate(m.x, m.y, m.z), color: 0x4a4f6e });
+    }
+  }
+  const canopy = mergedParts([...cells, ...lines]);
+  const hang = mergedParts([
+    rod(v3(0, 3.3, 0), v3(0, 5.5, 0), 0.75, SUIT, 8), P(ball(0.78, 10, 8), SKIN, { y: 6.35 }), P(ball(0.86, 10, 6), HELMET, { y: 6.55, sy: 0.9 }), P(box(1.1, 0.32, 0.2), GOGGLE, { y: 6.45, z: -0.7 }),
+    P(box(1.5, 1.7, 0.7), RIG, { y: 4.7, z: 0.75 }), P(box(1.6, 0.25, 1.4), RIG, { y: 3.4 }), // the rig on the back, the leg straps
+    ...[-1, 1].flatMap((sx) => [
+      rod(v3(sx * 0.7, 5.3, 0), v3(sx * 1.15, 6.4, 0.15), 0.26, SUIT), rod(v3(sx * 1.15, 6.4, 0.15), v3(sx * 0.8, 7.5, 0), 0.22, SUIT), P(ball(0.24, 6, 4), 0x3a3f52, { x: sx * 0.8, y: 7.6 }), // arms up on the toggles
+      rod(v3(sx * 0.35, 3.2, 0), v3(sx * 0.45, 1.9, -0.6), 0.34, SUIT), rod(v3(sx * 0.45, 1.9, -0.6), v3(sx * 0.4, 0.55, -0.3), 0.28, SUIT), P(box(0.45, 0.4, 0.9), BOOT, { x: sx * 0.4, y: 0.3, z: -0.45 }), // legs dangling
+    ]),
+  ]);
+  // falling: along -Z (head first, as the ride's nose), face down (to -Y), the back arched up
   const fall = mergedParts([
-    P(new THREE.CapsuleGeometry(1.1, 3, 3, 8), 0xff6b9a, { rx: Math.PI / 2, y: 3 }), P(ball(1.2), SKIN, { y: 3.2, z: -3.6 }), P(box(1.8, 0.5, 0.6), NAVY, { y: 3.4, z: -4.5 }),
-    limb(-1, -1.4, deg(-128), 3.2), limb(1, -1.4, deg(128), 3.2), limb(-0.6, 2, deg(-22), 3.6), limb(0.6, 2, deg(22), 3.6),
+    rod(v3(0, 3, 1.4), v3(0, 3.1, -1.4), 0.78, SUIT, 8), P(ball(0.78, 10, 8), SKIN, { y: 3.25, z: -2.3 }), P(ball(0.86, 10, 6), HELMET, { y: 3.45, z: -2.35, sz: 0.95 }),
+    P(box(1.1, 0.3, 0.2), GOGGLE, { y: 2.75, z: -2.6, rx: deg(70) }), P(box(1.5, 0.7, 1.9), RIG, { y: 3.85, z: -0.1 }),
+    ...[-1, 1].flatMap((sx) => [
+      rod(v3(sx * 0.75, 3.1, -1.2), v3(sx * 2.2, 3.45, -1.6), 0.26, SUIT), rod(v3(sx * 2.2, 3.45, -1.6), v3(sx * 2.15, 3.75, -3.1), 0.22, SUIT), P(ball(0.25, 6, 4), SKIN, { x: sx * 2.15, y: 3.8, z: -3.25 }), // arms out, bent up
+      rod(v3(sx * 0.4, 3, 1.3), v3(sx * 1.3, 3.2, 3.1), 0.34, SUIT), rod(v3(sx * 1.3, 3.2, 3.1), v3(sx * 1.55, 4.4, 3.9), 0.28, SUIT), P(box(0.45, 0.9, 0.4), BOOT, { x: sx * 1.6, y: 4.85, z: 4.1 }), // knees bent, feet up
+    ]),
   ]);
   const swing = new THREE.Group(), inner = new THREE.Group();
   swing.position.y = 22; inner.position.y = -22; inner.add(canopy, hang); swing.add(inner);
+  fall.scale.setScalar(2); // falling free you are a small thing a long way down: drawn twice your size so the arch reads from the camera
   { const g = new THREE.Group(); g.add(swing, fall); fall.visible = false; g.visible = false; add("chute", g); }
   // you lying in the dust making an angel
   add("angelmaker", model([P(box(3, 1, 5), PINK, { y: 0.6 }), P(ball(1.6), SKIN, { y: 0.9, z: -4.2 }), P(box(14, 0.6, 1), SKIN, { y: 0.7, z: -2 }), P(box(1, 0.6, 9), SKIN, { y: 0.7, z: 6, rz: deg(0) }), P(box(8, 0.6, 1), SKIN, { y: 0.7, z: 5.5, rz: 0 })]));
@@ -114,7 +146,7 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   return { group, models, rigs, motion: { t: 0, h: 0, alt: 0, pitch: 0, bank: 0 }, brakes, props, plane2, padPlane, planeShadows, shadow, angels, bail: { t0: -1, was: false, fall, hang, canopy, swing } };
 }
 
-const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", tuktuk: "tuktuk", rv: "rv", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
+const ID: Partial<Record<VehicleId, string>> = { bike: "bike", ebike: "ebike", unicycle: "unicycle", onewheel: "onewheel", tuktuk: "tuktuk", rv: "rv", artcar: "artcar", fish: "fish", found: "found", plane: "plane" };
 const dummy = new THREE.Object3D();
 
 /**
@@ -187,33 +219,31 @@ export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: strin
 }
 
 const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
-/** Seconds into a jump: out of the door and falling, the canopy opening, swinging under it; after this the chute just hangs. */
-const EXIT = 0.45, OPEN = 1.4, SETTLE = 4.5;
+/** Seconds into a jump: out of the door head first; and from the canopy opening, swinging under it until it settles. */
+const EXIT = 0.45, SETTLE = 3.1;
 
 /**
- * Bailing out, drawn (asked 2026-10-31): the sim puts you under an open chute at once, and the 3D view plays the jump over its first
- * few seconds. You go out of the plane's left side head first, tip flat into a spread-eagle with a wobble and drop away below where
- * the sim has you (up to 30 ft); at OPEN the canopy bursts out of its pack, overshooting, the drop is taken back as it catches you
- * and you swing under it until it settles. Only a jump that has just begun plays (the plane left on its own less than a second ago),
- * so switching to the chase view under a chute already open does not replay it.
+ * Bailing out, drawn (asked 2026-10-31; the freefall made the sim's own, longer, 2026-11-04): out of the plane's left side head first, you tip flat
+ * into the freefall arch with a wobble while the sim has you falling free (g.fallT), then the canopy bursts out of its pack, overshooting, and you swing
+ * under it until it settles. Only a jump that has just begun plays (the plane left on its own less than a second ago), so switching to the chase view
+ * under a chute already open does not replay it.
  */
 function bailingOut(r: RideMeshes, g: Game, m: THREE.Object3D, grow: number): void {
-  const b = r.bail;
-  if (!b.was) b.t0 = g.plane && g.plane.left > 29 ? g.t : -1;
+  const b = r.bail as RideMeshes["bail"] & { open?: number };
+  if (!b.was) { b.t0 = g.plane && g.plane.left > 29 ? g.t : -1; b.open = (g.fallT ?? 0) > 0 ? undefined : b.t0 < 0 ? -1e9 : g.t; }
   b.was = true;
-  const s = b.t0 < 0 ? SETTLE : g.t - b.t0;
-  const falling = s < OPEN;
+  const falling = (g.fallT ?? 0) > 0;
+  if (!falling && b.open === undefined) b.open = g.t;
+  const s = b.t0 < 0 ? 99 : g.t - b.t0, u = falling ? 0 : g.t - (b.open ?? -1e9);
   b.fall.visible = falling; b.hang.visible = !falling; b.canopy.visible = !falling;
-  // out of the door: sideways to the left, and back under the sim's point by the time the canopy has settled
-  const side = 12 * Math.sin(Math.PI * Math.min(1, s / SETTLE)) * grow, rt = right(g.car.h);
-  // the drop: falling faster than the sim's steady 24 ft/s until the canopy opens, then pulled back up as it bites
-  const deep = 15 * OPEN * OPEN, drop = falling ? 15 * s * s : deep * (1 - smooth((s - OPEN) / 1.4));
-  m.position.x -= rt.x * side; m.position.z -= rt.y * side; m.position.y -= drop * grow;
-  // falling: head first out of the door, then flat, rocking
+  // out of the door: sideways to the left, then back under the sim's point
+  const side = 12 * Math.sin(Math.PI * Math.min(1, s / 2.5)) * grow, rt = right(g.car.h);
+  m.position.x -= rt.x * side; m.position.z -= rt.y * side;
+  // falling: head first out of the door, then flat in the arch, rocking
   const out = 1 - smooth(s / EXIT);
-  b.fall.rotation.set(-0.9 * out + 0.08 * Math.sin(s * 11), 0, 0.18 * Math.sin(s * 7.3) + 0.6 * out);
+  b.fall.rotation.set(-0.9 * out + 0.07 * Math.sin(s * 9), 0.12 * Math.sin(s * 1.3), 0.14 * Math.sin(s * 6.1) + 0.6 * out);
   // the canopy: from its pack to open, overshooting a little, then the swing under it dying away
-  const u = Math.max(0, s - OPEN), k = falling ? 0.05 : Math.max(0.05, 1 - Math.exp(-5 * u / 0.8) * Math.cos(9 * u));
+  const k = falling ? 0.05 : Math.max(0.05, 1 - Math.exp(-5 * u / 0.8) * Math.cos(9 * u));
   b.canopy.scale.set(k, 0.3 + 0.7 * Math.min(1, k), k);
-  b.swing.rotation.x = s >= SETTLE ? 0 : 0.55 * Math.exp(-1.6 * u) * Math.cos(4.2 * u);
+  b.swing.rotation.x = u >= SETTLE ? 0 : 0.55 * Math.exp(-1.6 * u) * Math.cos(4.2 * u);
 }

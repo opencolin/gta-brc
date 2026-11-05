@@ -27,6 +27,24 @@ function rider(c: Ctx, x: number, y: number, shirt: string, bob: number) {
 }
 const lamp = (c: Ctx, x: number, y: number, night: number, col = "#fff3b0") => { if (night > 0.3) { c.shadowColor = col; c.shadowBlur = 14; } c.fillStyle = night > 0.3 ? col : "#d9d4c4"; disc(c, x, y, 2.5); c.fill(); c.shadowBlur = 0; };
 
+/** The Onewheel (asked 2026-11-04): the board on its one fat wheel under a fender, the rider standing on it side-on to the board, facing you, knees bent, arms out. */
+function onewheel(c: Ctx, t: number, night: number) {
+  shadow(c, 24);
+  wheel(c, 0, -7, 7, t, true);
+  c.fillStyle = "#e9ecf2"; rr(c, -9, -16, 18, 4, 2); c.fill(); // the fender
+  c.fillStyle = "#22242c"; rr(c, -22, -10, 44, 4, 2); c.fill(); // the deck
+  if (night > 0.3) { c.shadowColor = "#55d8ff"; c.shadowBlur = 10; c.fillStyle = "#55d8ff"; c.fillRect(-22, -9, 3, 2); c.shadowBlur = 0; }
+  const bob = Math.sin(t * 2.2) * 1.2;
+  c.save(); c.translate(0, -10 + bob);
+  c.strokeStyle = SKIN; c.lineWidth = 3.4; c.lineCap = "round"; // the legs, apart on the board, knees bent
+  c.beginPath(); c.moveTo(-15, 0); c.lineTo(-10, -14); c.lineTo(-5, -26); c.moveTo(15, 0); c.lineTo(10, -14); c.lineTo(5, -26); c.stroke();
+  c.fillStyle = NAVY; rr(c, -7, -32, 14, 9, 3); c.fill(); // shorts
+  c.fillStyle = PINK; rr(c, -7, -54, 14, 24, 4); c.fill(); // the shirt
+  c.strokeStyle = SKIN; c.lineWidth = 3; c.beginPath(); c.moveTo(-6, -50); c.lineTo(-18, -44 + Math.sin(t * 2) * 2); c.moveTo(6, -50); c.lineTo(18, -46 - Math.sin(t * 2) * 2); c.stroke(); c.lineCap = "butt";
+  c.fillStyle = SKIN; disc(c, 0, -60, 6); c.fill();
+  c.fillStyle = "#e3c98a"; c.beginPath(); c.ellipse(0, -63, 11, 3, 0, 0, Math.PI * 2); c.fill(); disc(c, 0, -65, 6); c.fill();
+  c.restore();
+}
 /** The unicycle: one big wheel, a seat post, the rider sitting tall and pedalling. */
 function unicycle(c: Ctx, t: number, night: number) {
   shadow(c, 22);
@@ -139,5 +157,5 @@ function rv(c: Ctx, t: number, night: number) {
 }
 
 export const SIDE_VIEWS: Record<string, (c: Ctx, t: number, night: number) => void> = {
-  unicycle, bike: (c, t, n) => cruiser(c, t, n, false), tuktuk, ebike: (c, t, n) => cruiser(c, t, n, true), fish: cuttlefish, artcar: goldenTicket, rv,
+  unicycle, onewheel, bike: (c, t, n) => cruiser(c, t, n, false), tuktuk, ebike: (c, t, n) => cruiser(c, t, n, true), fish: cuttlefish, artcar: goldenTicket, rv,
 };

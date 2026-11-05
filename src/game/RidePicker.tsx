@@ -12,6 +12,7 @@ import { soundOf } from "./PlayaLounge";
 /** The rides in the garage's order, and what they are called on the cards. */
 export const GARAGE_RIDES: { id: VehicleId; name: string; line: string }[] = [
   { id: "unicycle", name: "Unicycle", line: "one wheel, all balance: slow, turns on a dime, goes anywhere" },
+  { id: "onewheel", name: "Onewheel", line: "a board on one fat wheel, ridden sideways: 19 mph, carves tight, floats over the dust" },
   { id: "bike", name: "Playa Cruiser", line: "the fat-tyred beach bike every burner rides: 21 mph, through the camps" },
   { id: "tuktuk", name: "Tuktuk", line: "a bike pulling a little covered trailer: 30 mph, quick on its feet, sticks to the streets" },
   { id: "rv", name: "RV", line: "a camp's Winnebago: 30 mph, slow to turn, keeps to the streets, the whole crew aboard" },

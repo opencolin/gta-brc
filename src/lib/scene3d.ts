@@ -186,6 +186,41 @@ export function crowdSpots(sp: { key: string; kind: string; camp?: { piece?: unk
   return out;
 }
 
+/**
+ * Someone in a crowd you ride into falls over and gets back up, as the people on the road do (asked 2026-11-04: "those who are dancing don't seem to fall
+ * over"): tipped over away from you, a moment on the ground, back up. Both views ask it of each person they draw (`id`: the place's key and the person's
+ * number), so it is the same fall in both; it returns how far over they are (0 to 1) and which way, or null standing.
+ */
+const crowdFalls = new Map<string, { t0: number; side: number }>();
+export const CROWD_FALL = { down: 0.3, lie: 1.6, up: 0.6 } as const;
+export function crowdFall(id: string, x: number, y: number, car: { x: number; y: number; h: number; vx: number; vy: number }, t: number): { tilt: number; side: number } | null {
+  let f = crowdFalls.get(id);
+  const T = CROWD_FALL.down + CROWD_FALL.lie + CROWD_FALL.up;
+  if (f && (t < f.t0 || t - f.t0 >= T)) { crowdFalls.delete(id); f = undefined; }
+  if (!f && Math.hypot(x - car.x, y - car.y) < 7 && Math.hypot(car.vx, car.vy) > 3) {
+    const rx = Math.cos(car.h), ry = Math.sin(car.h);
+    f = { t0: t, side: (x - car.x) * rx + (y - car.y) * ry >= 0 ? 1 : -1 }; crowdFalls.set(id, f);
+  }
+  if (!f) return null;
+  const u = t - f.t0, e = (v: number) => v * v * (3 - 2 * v);
+  return { tilt: u < CROWD_FALL.down ? e(u / CROWD_FALL.down) : u < CROWD_FALL.down + CROWD_FALL.lie ? 1 : 1 - e((u - CROWD_FALL.down - CROWD_FALL.lie) / CROWD_FALL.up), side: f.side };
+}
+
+/**
+ * The crowd round an art car parked on the playa (asked 2026-11-04): 16 people in a loose ring 44 to 62 ft out (clear of the car's 32 ft), seeded by its key, facing it,
+ * most of them dancing. `a` is the angle from the car to each, as crowdSpots' is from the stage.
+ */
+export function carCrowd(key: string, at: { x: number; y: number }): CrowdPerson[] {
+  let h = 7; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const out: CrowdPerson[] = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + (rnd() - 0.5) * 0.35, d = 44 + rnd() * 18, hue = Math.floor(rnd() * 360), phase = rnd() * Math.PI * 2, rate = 5 + rnd() * 3, dancing = rnd() < 0.85;
+    out.push({ x: at.x + Math.cos(a) * d, y: at.y + Math.sin(a) * d, a, hue, phase, rate, dancing });
+  }
+  return out;
+}
+
 /** How much of a thing `d` feet away there is when it shows within `show`: all of it inside 0.8·show, shrinking to nothing at show (so people grow in instead of popping). */
 export const fadeAt = (d: number, show: number) => (d >= show ? 0 : d <= 0.8 * show ? 1 : (show - d) / (0.2 * show));
 
