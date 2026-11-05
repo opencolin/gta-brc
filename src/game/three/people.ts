@@ -153,16 +153,27 @@ export function rvGeometry(): THREE.BufferGeometry {
   }
   return mergedTinted(parts);
 }
-/** A walker, about 70 triangles: a body, a head and a hat. */
-export function walkerGeometry(): THREE.BufferGeometry {
-  return mergedParts([
-    P(new THREE.CapsuleGeometry(1.1, 3, 1, 5), WHITE, { y: 3 }), P(new THREE.SphereGeometry(1.1, 5, 3), WHITE, { y: 6.1 }), P(cyl(2, 2, 0.25), WHITE, { y: 7.1 }),
-  ]).geometry;
+/**
+ * Someone on their feet, built as the riders are (asked 2026-11-04: the dancers "don't look anything like the people on bikes"): the same shirt in
+ * their hue, dark shorts, bare legs and arms, shoes and a straw hat, at the same scale, standing on the playa. `walk` mid-stride with the arms down,
+ * `stand` still, and three ways of dancing: both hands up, arms wide in a V, one hand up and the other out in front.
+ */
+export type Pose = "walk" | "stand" | "up" | "wide" | "wave";
+export function personGeometry(pose: Pose): THREE.BufferGeometry {
+  const parts: Tinted[] = [], add = adder(parts);
+  const hips = v(0, 3.05, 0), dance = pose !== "walk" && pose !== "stand";
+  const hands: Record<Pose, [THREE.Vector3, THREE.Vector3]> = {
+    walk: [v(-0.8, 2.95, 0.35), v(0.8, 2.95, -0.35)], stand: [v(-0.78, 2.9, 0), v(0.78, 2.9, 0)],
+    up: [v(-0.7, 6.95, -0.3), v(0.7, 6.95, -0.3)], wide: [v(-1.65, 6.3, -0.4), v(1.65, 6.3, -0.4)], wave: [v(-0.6, 6.95, -0.2), v(0.85, 4.7, -1.15)],
+  };
+  const feet: [THREE.Vector3, THREE.Vector3] = pose === "walk" ? [v(-0.3, 0.25, -0.55), v(0.3, 0.25, 0.55)] : dance ? [v(-0.48, 0.25, 0), v(0.48, 0.25, 0)] : [v(-0.32, 0.25, 0), v(0.32, 0.25, 0)];
+  rider(add, hips, 0, hands[pose], new THREE.Vector3(1, -0.3, 0.3), feet);
+  return mergedTinted(parts);
 }
-/** The walker as the people's mesh draws it: all of it in its hue. */
-const walkerTinted = () => mergedTinted([
-  { ...P(new THREE.CapsuleGeometry(1.1, 3, 1, 5), WHITE, { y: 3 }), tint: 1 }, { ...P(new THREE.SphereGeometry(1.1, 5, 3), WHITE, { y: 6.1 }), tint: 1 }, { ...P(cyl(2, 2, 0.25), WHITE, { y: 7.1 }), tint: 1 },
-]);
+/** The people's material (crowds.ts uses it too): the night glow, the instance's hue on the shirt only. */
+export const peopleMaterial = () => tintedGlow();
+/** The walker as the people's mesh draws it. */
+const walkerTinted = () => personGeometry("walk");
 /** An ambulance: white box, red stripe, red and blue lights on the roof. */
 function ambulanceGeometry(): THREE.BufferGeometry {
   return mergedTinted([

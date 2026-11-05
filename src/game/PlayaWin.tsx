@@ -1564,6 +1564,10 @@ export default function PlayaWin() {
   // a new job's card in the middle of the screen, on its way to the pager (asked 2026-11-04)
   const [job, setJob] = useState<{ text: string; n: number } | null>(null);
   const jobN = useRef(0), pagerEl = useRef<HTMLDivElement>(null);
+  /** a job delivered (asked 2026-11-04): MISSION COMPLETE! in the middle for two seconds, with the gifts it gave and the ride it unlocked */
+  const wonN = useRef(0);
+  const [won, setWon] = useState<{ gifts: number; ride: string | null; n: number } | null>(null);
+  useEffect(() => { if (!won) return; const id = setTimeout(() => setWon((w) => (w?.n === won.n ? null : w)), 2000); return () => clearTimeout(id); }, [won?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const jobDone = useCallback(() => setJob(null), []);
   /** whether you have got going yet: until then a big "Push W to start" (asked 2026-11-04) */
   const rolled = useRef(false);
@@ -1796,6 +1800,7 @@ export default function PlayaWin() {
         // speed read as jitter and a doubled plane or e-bike
         const n = Math.min(6, Math.max(1, Math.ceil(dt / DT))), hStep = Math.min(DT, dt / n);
         for (let i = 0; i < n; i++) {
+          const giftsWere = g.mission.gifts;
           for (const e of stepGame(g, inp, hStep)) {
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
             else if (e === "takeoff") {
@@ -1810,12 +1815,14 @@ export default function PlayaWin() {
               flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! G for the garage", until: g.t + 2.5 };
             }
             else if (e === "delivered") {
-              flash.current = { text: `delivered: gifts ${g.mission.gifts}`, until: g.t + 2.5 };
+              const n = ++wonN.current;
+              setWon({ gifts: g.mission.gifts - giftsWere, ride: null, n });
               // a new ride for each job delivered, until they are all yours
               setDelivered((d) => {
                 const got = nextUnlock(d); if (!got) return d;
                 try { localStorage.setItem(UNLOCK_KEY, String(d + 1)); } catch {}
                 const name = GARAGE_RIDES.find((r) => r.id === got)?.name ?? VEHICLES[got].name;
+                setTimeout(() => setWon((w) => (w?.n === n ? { ...w, ride: name } : w)), 0);
                 setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. G for the garage`, until: game.current.t + 3.5 }; }, 2600);
                 return d + 1;
               });
@@ -2153,7 +2160,15 @@ export default function PlayaWin() {
 
         {job && <JobCard job={job} pager={pagerEl} onDone={jobDone} />}
         {/* big and clear in the middle (asked 2026-11-04): what to press to get going on the pad, to eject once up in the plane, and to drive the art car you are beside; not over a new job's card */}
-        {phase === "play" && hud.prompt && !job && !rides && !map && (
+        {won && (
+          <div className="pl-won" role="status">
+            <div className="pl-won-card"><b>MISSION COMPLETE!</b>
+              <span>+{won.gifts} {won.gifts === 1 ? "gift" : "gifts"}</span>
+              {won.ride && <span className="pl-won-ride">new ride: the {won.ride}</span>}
+            </div>
+          </div>
+        )}
+        {phase === "play" && hud.prompt && !job && !won && !rides && !map && (
           <div className="pl-prompt" role="status">
             <div className="pl-prompt-card">{hud.prompt === "start"
               ? touchUi ? <>push the stick <b>up</b> to start</> : <>Push <kbd>W</kbd> to start</>
@@ -2231,6 +2246,20 @@ export default function PlayaWin() {
 
 
         {keysUi && phase === "play" && (
+          // a car radio's faceplate on a desk (asked 2026-11-04, from Collin: "the buttons and the legend could probably look more like a car radio. and we
+          // could show the song that's playing"): its display with what is playing and from where, the keys as keycaps under it, the buttons along its foot
+          <div className="pl-deck">
+          {(() => {
+            const amb = hud.hearKey ? playable(hud.hearKey) : [], at = now?.playing ? now : null;
+            const song = at ? at.title : amb.length ? amb[(setOf[hud.hearKey] ?? nextSetIndex(hud.hearKey)) % amb.length].title : "";
+            const from = at ? soundOf(at.key).name : hud.hear ? `${hud.hear}${hud.hearSoon ? " · coming up" : ""}` : "";
+            return (
+              <div className="pl-lcd" aria-live="polite" aria-label={song ? `playing ${song} from ${from}` : "nothing playing"}>
+                <span className="pl-lcd-from">{from ? `♪ ${from}` : "♪ radio playa"}</span>
+                <span className="pl-lcd-song"><span className={song.length > 44 ? "pl-lcd-scroll" : undefined}>{song || "nothing playing · P plays what's nearby"}</span></span>
+              </div>
+            );
+          })()}
           <dl className="pl-keys" aria-label="the keys">
             <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
@@ -2247,6 +2276,7 @@ export default function PlayaWin() {
             <div><dt>Q</dt><dd>previous</dd></div>
             <div><dt>1-8</dt><dd>tracks</dd></div>
           </dl>
+          </div>
         )}
         {touchUi && !keysUi && phase === "play" && (
           <div className="pl-pads" role="group" aria-label="driving controls">

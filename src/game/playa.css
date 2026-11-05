@@ -445,3 +445,57 @@
 /* the music line in the location box, a size up with it on a desk (asked 2026-11-04) */
 .pl:not([data-phone]) .pl-hear { gap: 6px; font-size: 15px; }
 .pl:not([data-phone]) .pl-hear-btn { min-width: 28px; min-height: 24px; font-size: 13px; }
+/* MISSION COMPLETE! (asked 2026-11-04): two seconds in the middle when a job is delivered, with the gifts it gave and the ride it unlocked */
+.pl .pl-won { position: absolute; inset: 0; z-index: 9; display: grid; place-items: center; padding: 16px 16px 14vh; pointer-events: none; }
+.pl .pl-won-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 34px; border-radius: 16px; background: rgba(27, 31, 59, .95); border: 3px solid var(--pl-gold);
+  color: var(--pl-ink); text-align: center; box-shadow: 0 10px 40px rgba(27, 31, 59, .4); animation: pl-won-in .35s cubic-bezier(.2, 1.4, .4, 1);
+}
+.pl .pl-won-card b { font-family: var(--font-display, var(--font)); font-size: 52px; line-height: 1.05; letter-spacing: .02em; color: var(--pl-pink); }
+.pl .pl-won-card span { font-family: var(--font-display, var(--font)); font-size: 26px; color: var(--pl-gold); }
+.pl .pl-won-card .pl-won-ride { font-size: 20px; color: var(--pl-ink); }
+.pl[data-phone] .pl-won-card b { font-size: 32px; }
+.pl[data-phone] .pl-won-card span { font-size: 19px; }
+@keyframes pl-won-in { from { opacity: 0; transform: scale(.7); } }
+@media (prefers-reduced-motion: reduce) { .pl .pl-won-card { animation: none; } }
+/* the car radio (asked 2026-11-04, from Collin: the legend too small; "the buttons and the legend could probably look more like a car radio. and we could show the
+   song that's playing"): on a desk, a dark faceplate at the bottom middle with an LCD across its top showing where the music is from and the set playing (scrolling
+   when it is long), the keys under it as keycaps, a size up, and the buttons (pl-tools, fixed at the foot) standing in its lower part as the radio's own buttons */
+.pl:not([data-phone]) .pl-deck {
+  position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4; box-sizing: border-box; width: clamp(560px, calc(100vw - 740px), 860px);
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 16px 70px; border-radius: 16px; pointer-events: none;
+  background: linear-gradient(180deg, #2c2f39 0%, #1b1d24 55%, #15161c 100%); border: 1px solid #0b0c10;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 -2px 0 rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .45);
+}
+.pl[data-map] .pl-deck { visibility: hidden; }
+.pl .pl-lcd {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; border-radius: 8px; overflow: hidden; min-width: 0;
+  background: linear-gradient(180deg, #071c18, #0c2a24); border: 1px solid #000; box-shadow: inset 0 2px 8px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .06);
+  font-family: var(--mono); color: #8dffd0; text-shadow: 0 0 6px rgba(80, 255, 190, .55); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+}
+.pl .pl-lcd-from { font-size: 12px; opacity: .75; overflow: hidden; text-overflow: ellipsis; }
+.pl .pl-lcd-song { font-size: 19px; line-height: 1.25; overflow: hidden; }
+.pl .pl-lcd-song > span { display: inline-block; }
+.pl .pl-lcd-song > span.pl-lcd-scroll { padding-left: 100%; animation: pl-lcd 18s linear infinite; }
+@keyframes pl-lcd { to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .pl .pl-lcd-song > span.pl-lcd-scroll { animation: none; padding-left: 0; } }
+/* the keys inside the faceplate, as keycaps */
+.pl:not([data-phone]) .pl-deck .pl-keys {
+  position: static; transform: none; left: auto; bottom: auto; max-width: none; width: auto; padding: 0; background: none; border-radius: 0;
+  gap: 7px 16px; font-size: 14px; line-height: 1.2; color: #d9dce6;
+}
+.pl:not([data-phone]) .pl-deck .pl-keys > div { align-items: center; gap: 6px; }
+.pl:not([data-phone]) .pl-deck .pl-keys dt {
+  min-width: 14px; padding: 2px 7px; border-radius: 5px; text-align: center; font-size: 12px; letter-spacing: .03em;
+  background: linear-gradient(180deg, #4a4e5c, #33363f); color: #fff; border: 1px solid #0b0c10; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 2px 0 #0b0c10;
+}
+/* the buttons as the radio's: dark, raised, a pink light when on */
+.pl:not([data-phone]) .pl-tools { bottom: 22px; gap: 8px; }
+.pl:not([data-phone]) .pl-tools .pl-btn {
+  min-height: 40px; padding: 4px 14px; border-radius: 8px; font-size: 14px; color: #eef0f6; border: 1px solid #0b0c10;
+  background: linear-gradient(180deg, #474b58, #2a2d36); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 3px 0 #0b0c10;
+}
+.pl:not([data-phone]) .pl-tools .pl-btn.pl-icon { min-width: 46px; }
+.pl:not([data-phone]) .pl-tools .pl-btn:hover { background: linear-gradient(180deg, #555a69, #30343e); }
+.pl:not([data-phone]) .pl-tools .pl-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 1px 0 #0b0c10; }
+.pl:not([data-phone]) .pl-tools .pl-btn[aria-pressed="true"] { color: var(--pl-pink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -3px 0 var(--pl-pink), 0 3px 0 #0b0c10, 0 0 12px rgba(255, 107, 154, .45); }
