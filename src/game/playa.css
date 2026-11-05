@@ -499,3 +499,5 @@
 .pl:not([data-phone]) .pl-tools .pl-btn:hover { background: linear-gradient(180deg, #555a69, #30343e); }
 .pl:not([data-phone]) .pl-tools .pl-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 1px 0 #0b0c10; }
 .pl:not([data-phone]) .pl-tools .pl-btn[aria-pressed="true"] { color: var(--pl-pink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -3px 0 var(--pl-pink), 0 3px 0 #0b0c10, 0 0 12px rgba(255, 107, 154, .45); }
+/* the ride button says the ride's name on a desk, "ride" on a phone (asked 2026-11-04: no "ride:") */
+.pl:not([data-phone]) .pl-ride-word { display: none; }

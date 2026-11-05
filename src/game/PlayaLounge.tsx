@@ -2,7 +2,7 @@
 import { FLYOVER, SKY_KEY } from "@/lib/flyover";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { SETS } from "@/lib/agave";
-import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, mediaProgress, playerSrc, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
+import { YT_ORIGIN, isVideo, mediaCommand, mediaEvent, mediaProgress, playerSrc, ytId, ytListening, ytThumb, type MediaMethod } from "@/lib/playaMedia";
 import { loadListened, saveListened, noteProgress, noteDone, resumeAt, nextUnheard } from "@/lib/listened";
 import { campTracks, siteOf, soundCamp } from "@/lib/soundcamps";
 import { VEHICLES, VEHICLE_IDS, type VehicleId } from "@/lib/playa";
@@ -57,6 +57,24 @@ export function ClipPeek({ k, onOpen, ref }: { k: string; onOpen: (key: string, 
       </button>
     </div>
   );
+}
+
+/**
+ * Whether a YouTube video stands upright (asked 2026-11-04: an upright video sat in a landscape frame): a short always does; any other is asked of YouTube's
+ * "original aspect ratio" thumbnail (oar2.jpg), which only an upright video has (a landscape one gets a small landscape stand-in), and the answer kept.
+ */
+const tallSeen = new Map<string, boolean>();
+function useTall(url: string | undefined): boolean {
+  const id = url ? ytId(url) : null, short = !!url && /youtube\.com\/shorts\//.test(url);
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!id || short || tallSeen.has(id)) return;
+    const im = new Image();
+    im.onload = () => { tallSeen.set(id, im.naturalHeight > im.naturalWidth); bump((n) => n + 1); };
+    im.onerror = () => { tallSeen.set(id, false); };
+    im.src = `https://i.ytimg.com/vi/${id}/oar2.jpg`;
+  }, [id, short]);
+  return short || (!!id && !!tallSeen.get(id));
 }
 
 /** A command to whichever embed plays `url` (SoundCloud's widget or YouTube's player, lib/games/playaMedia.ts). */
@@ -140,6 +158,8 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
   const [wide, setWide] = useState(false);
   /** the video alone filling the screen, without the sets (asked 2026-11-04) */
   const [full, setFull] = useState(false);
+  /** the video playing stands upright: its frame stands too (useTall) */
+  const tall = useTall(now && isVideo(now.url) ? now.url : undefined);
   // a video that ends or can't play here moves on to the place's next set, so YouTube's end and error screens never show
   const next = useRef(() => {}); next.current = () => {
     if (!now) return;
@@ -269,7 +289,7 @@ export function Lounge({ parked, now, open, onPick, onPlaying, onClose, onOpen, 
         </div>
       )}
       {now && !(stacked && !isVideo(now.url)) && (
-        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${/youtube\.com\/shorts\//.test(now.url) ? " pl-lg-clip-player" : ""}${theatre ? " pl-lg-full" : ""}`}>
+        <div className={`pl-lg-player${isVideo(now.url) ? " pl-lg-video" : ""}${tall ? " pl-lg-clip-player" : ""}${theatre ? " pl-lg-full" : ""}`}>
           {isVideo(now.url) ? (<>
             <VideoShell ios={ios} url={now.url} title={now.title} playing={now.playing} onToggle={() => post(frame.current?.contentWindow, now.url, now.playing ? "pause" : "play")}>
               <iframe key={`${now.url}|${now.auto}`} ref={frame} tabIndex={-1} title={`${s.name}: ${now.title}, on YouTube`} allow="autoplay; encrypted-media"

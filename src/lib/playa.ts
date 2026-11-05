@@ -479,6 +479,9 @@ type NpcBase = {
   dodge?: { x0: number; y0: number; x: number; y: number; t0: number } | null;
   /** knocked over by you (knockOver): where they lie and which way they face, `side` the way they fell (+1 to their right), at game time `t0` */
   fall?: { x: number; y: number; h: number; side: number; t0: number } | null;
+  /** an art car's seconds behind its timetable, from stopping to hang out with another or to let it by (stepArtCars), its swing to the side (feet, + to its
+   * right) to get round one, the other it is hanging out with and until when, and when it last met each */
+  held?: number; swerve?: number; meet?: { key: string; until: number } | null; met?: Record<string, number>; /** seconds it has been kept waiting by another */ stuck?: number;
 };
 /** `line`: from `from` to `to` and round again from `from` (the Exodus queue), `phase` feet along it */
 export type Npc = (NpcBase & { path: "arc"; from: number; to: number }) | (NpcBase & { path: "loop" }) | (NpcBase & { path: "line"; from: Vec; to: Vec });
@@ -649,6 +652,14 @@ function dodgedAt(n: Npc, t: number): { x: number; y: number; h: number } {
 function routeAt(n: Npc, t: number): { x: number; y: number; h: number } {
   if (driven.key && n.key === driven.key) { const p = drivenAt(t); if (p) return p; }
   if (n.key) { const pk = parkedCars.get(n.key); if (pk) return pk; }
+  if ((n.held || n.swerve) && !n.lead) { // an art car that has stopped a while or swung aside (stepArtCars)
+    const p = timetableAt(n, t - (n.held ?? 0)), sw = n.swerve ?? 0;
+    return sw ? { x: p.x + Math.cos(p.h) * sw, y: p.y + Math.sin(p.h) * sw, h: p.h } : p;
+  }
+  return timetableAt(n, t);
+}
+/** Where someone's route puts them at time t, as it was laid out. */
+function timetableAt(n: Npc, t: number): { x: number; y: number; h: number } {
   if (n.lead) {
     const pp = pack.get(n); if (pp) return pp; // riding behind the car you drive, or pulled up where you left it
     if (n.lead.key) { const pk = parkedCars.get(n.lead.key); if (pk) return packSlot(pk, n.rank ?? 0); } // behind a parked car, in rows
@@ -1205,6 +1216,55 @@ function stepDay(g: Game, dt: number): void {
  * Anyone on foot in your path jumps out of the way: someone ahead of you (within the next DODGE_LOOK seconds at your speed, or close by),
  * nearer your line than they could stand, leaps aside, square to your way and to the side they were already on, far enough to stand clear.
  */
+/**
+ * The art cars meet up instead of driving through each other (asked 2026-11-04: "two art cars just drove through each other, let's have them meet up and
+ * hang out together a while but don't go through each other"). Two coming together stop a little apart and hang out for MEET seconds; then each moves on
+ * only where it does not close on the other inside their CLEAR: the one that would gives way (falling behind its timetable, `held`), and if both would, as
+ * two head on along the same street do, the first in the list swings out to the side (`swerve`) and goes round. A car you drive or that is parked is not
+ * among them; the packs behind one stop and go with it.
+ */
+export const ART_MEET = { secs: 20, again: 180, gap: 30, swerve: 14, goRound: 10, giveUp: 40 } as const;
+const clearOf = (a: Npc, b: Npc) => NPC_R[a.kind] + NPC_R[b.kind] + 8;
+export function stepArtCars(g: Game, dt: number): void {
+  if (dt <= 0) return;
+  const cars = g.npcs.filter((n) => (n.kind === "mutant" || n.kind === "mv") && !n.lead && n.key && n.key !== driven.key && !parkedCars.has(n.key));
+  const t = g.t, now = cars.map((n) => routeAt(n, t)), next = cars.map((n) => routeAt(n, t + dt));
+  // neighbours by a grid of CELL-foot squares
+  const CELL = 200, grid = new Map<string, number[]>();
+  now.forEach((p, i) => { const k = `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`; const l = grid.get(k); if (l) l.push(i); else grid.set(k, [i]); });
+  const near = (i: number) => { const p = now[i], cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL), out: number[] = []; for (let x = cx - 1; x <= cx + 1; x++) for (let y = cy - 1; y <= cy + 1; y++) for (const j of grid.get(`${x},${y}`) ?? []) if (j !== i) out.push(j); return out; };
+  const d2 = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  const hold = new Array<boolean>(cars.length).fill(false), swing = new Array<number>(cars.length).fill(0);
+  for (let i = 0; i < cars.length; i++) {
+    const a = cars[i];
+    if (a.meet && t < a.meet.until) { hold[i] = true; continue; }
+    if (a.meet) a.meet = null;
+    for (const j of near(i)) {
+      const b = cars[j], c = clearOf(a, b), d = d2(now[i], now[j]), dn = d2(next[i], now[j]);
+      // coming together: they pull up and hang out, unless they met a little while ago
+      if (d < c + ART_MEET.gap && d2(next[i], next[j]) < d && (a.met?.[b.key!] ?? -Infinity) < t - ART_MEET.again && !(b.meet && t < b.meet.until)) {
+        const until = t + ART_MEET.secs; a.meet = { key: b.key!, until }; b.meet = { key: a.key!, until };
+        (a.met ??= {})[b.key!] = t; (b.met ??= {})[a.key!] = t; hold[i] = true; break;
+      }
+      // moving on would close inside their clearance: give way, or, the first of two that both would, swing out round the other
+      if (dn < c && dn < d) {
+        // kept waiting long (behind one hanging out with a third, or in a knot of them) it goes round anyway, and longer still it squeezes on through
+        const bBlocked = d2(next[j], now[i]) < c && d2(next[j], now[i]) < d, st = a.stuck ?? 0;
+        if (st > ART_MEET.giveUp) continue;
+        if ((bBlocked && i < j) || st > ART_MEET.goRound) { const r = { x: Math.cos(now[i].h), y: Math.sin(now[i].h) }; swing[i] = ((now[j].x - now[i].x) * r.x + (now[j].y - now[i].y) * r.y > 0 ? -1 : 1) * (c + ART_MEET.swerve); }
+        else hold[i] = true;
+      }
+    }
+  }
+  for (let i = 0; i < cars.length; i++) {
+    const n = cars[i];
+    const waiting = hold[i] || (swing[i] && Math.abs(swing[i] - (n.swerve ?? 0)) > 2); // swinging out, it waits until it is out to the side
+    if (waiting) n.held = (n.held ?? 0) + dt;
+    n.stuck = waiting && !(n.meet && t < n.meet.until) ? (n.stuck ?? 0) + dt : swing[i] || hold[i] ? n.stuck ?? 0 : Math.max(0, (n.stuck ?? 0) - dt * 4);
+    const want = swing[i] || (Math.abs(n.swerve ?? 0) > 0.01 && near(i).some((j) => d2(now[i], now[j]) < clearOf(n, cars[j]) + 20) ? n.swerve! : 0), sw = n.swerve ?? 0, step = 14 * dt;
+    n.swerve = Math.abs(want - sw) <= step ? want : sw + Math.sign(want - sw) * step;
+  }
+}
 const DODGE_LOOK = 0.9, DODGE_CLEAR = 10;
 export function dodgeWalkers(g: Game, v: Vehicle): void {
   const spd = speedOf(g.car);
@@ -1314,6 +1374,7 @@ function startPose(key: string | null): { at: Vec; h: number } {
 
 export function newGame(seed = 1, vehicle: VehicleId = "bike", at: string | null = null): Game {
   const rand = seeded(seed);
+  for (const n of [...MUTANTS, ...MVS]) { n.held = 0; n.swerve = 0; n.meet = null; n.met = {}; n.stuck = 0; } // the art cars back on their timetables (stepArtCars)
   // the Golden Ticket is parked at Agave Lounge (asked 2026-10-26), on the Esplanade a little past the camp's bay, until someone drives it off
   { const a = clockToAngle(AGAVE.curbMin), tx = Math.cos(a), ty = Math.sin(a); parkedCars.set("mutant:golden-ticket", { x: AGAVE.curb.x + tx * 165, y: AGAVE.curb.y + ty * 165, h: a + Math.PI / 2 }); } // 165 ft along: out of parking reach (MUTANT_PARK_R) of where you start, so its panel does not open on its own
   // Dragomi is parked at Celestial Tea Garden, 8:45 & E, mountain side (asked 2026-11-04): on E, along the camp's curb, a little clockwise of the camp's middle (526.3),
@@ -1463,6 +1524,7 @@ export function stepGame(g: Game, input: Input, dt: number): GameEvent[] {
   // through everyone for a second instead of being shoved back and forth on the spot.
   if (driven.key && g.vehicle === "found") noteDriven(g.t, g.car);
   stepPack(g, dt);
+  stepArtCars(g, dt);
   // people on foot jump out of your way instead of being bumped (asked 2026-11-04)
   if (!riding && !airborne) dodgeWalkers(g, v);
   // the art car you drive is you: no bumping into yourself; nor into anyone on foot, who has jumped clear (they still have you slow down)

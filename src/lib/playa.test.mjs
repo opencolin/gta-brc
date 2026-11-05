@@ -6,7 +6,7 @@ import { packVee,
   CAR, NO_INPUT, AGAVE, AGAVE_ADDRESS, JOBS, STOP_R, ART, OBSTACLES, startKey, mutantOf, SKYDIVE_JOB, SKYDIVE_ALT, startSkydive, POLO_JOB, atGate, dustAngel, ringBell, ANGEL_T, VEHICLES, VEHICLE_IDS, SPOTS, MUTANTS, CAMP_SPEED, FOLLOW_R,
   MVS, ART_2026_SPOTS, newCar, carStep, BLOCK_EDGE, blockCore, carSpeeds, speedOf, collide, solidAt, bounce, agaveSpot, place, placeKeys, npcAt, makeNpcs, NPC_R, FOLLOW_GAP, seeded, inBay, cityPlan, EXODUS, EXODUS_GAP, EXODUS_LANE,
   newMission, stepMission, skipMission, missionTarget, pagerLine, timeFor, nextJob, stormLevel, stepStorm, nightLevel, sunGlow, flipDay, warpDay, WARP_SECONDS, DAY_SECONDS,
-  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, FALL, fallOf, fallsOver, newParking, stepParking, parkingAt, PARK_SPEED,
+  newGame, stepGame, moopSpot, mph, MPH, setVehicle, vehicleOf, KERB, KERB_BAND, PACK_SEP, packSlot, nextVehicle, hopOn, hopOff, setDriven, leaveDriven, parkedCarAt, takePlane, bailOut, atAirport, TAKEOFF, STALL, CHUTE_SINK, FIRST_STORM, DODGE, FALL, fallOf, fallsOver, ART_MEET, newParking, stepParking, parkingAt, PARK_SPEED,
 } from "./playa.ts";
 import { fwd, right } from "./view3d.ts";
 import { AIRPORT, ARC_R, GATE, ROAD_W, WIDE_ROAD_W, ESPLANADE_W, CITY_SCALE, FENCE_R, arcWidth, polar, pointAt, surfaceAt, addressOf, blockPush, blockBounds, toPolar, clockToAngle } from "./brc.ts";
@@ -913,4 +913,27 @@ test("a biker you ride into falls over and gets back up, and you ride on through
   const done = t0 + FALL.down + FALL.lie + FALL.up + FALL.back + 0.1, q = npcAt(b, done), r = npcAt({ ...b, fall: null }, done);
   assert.ok(Math.hypot(q.x - r.x, q.y - r.y) < 0.01, "and on their way again");
   assert.ok(fallsOver({ kind: "walker" }) && fallsOver({ kind: "unicycle" }) && !fallsOver({ kind: "mutant" }) && !fallsOver({ kind: "rv" }), "people on foot and on bikes fall; art cars and RVs still stop you");
+});
+
+test("two art cars meet up, hang out a while and go on without driving through each other (asked 2026-11-04)", () => {
+  const g = newGame(5, undefined, "agave");
+  const base = MUTANTS.find((m) => m.path === "loop");
+  // head on along the same circle, 400 ft apart
+  const perMin = (base.r * Math.PI * 2) / 720;
+  const a = { ...base, key: "mutant:test-a", speed: 12, phase: 100, held: 0, swerve: 0, meet: null, met: {} };
+  const b = { ...base, key: "mutant:test-b", speed: -12, phase: 100 + 400 / perMin, held: 0, swerve: 0, meet: null, met: {} };
+  g.npcs.splice(0, g.npcs.length, a, b); g.car.x = 99999; g.car.y = 99999;
+  const clear = NPC_R.mutant * 2 + 8;
+  let closest = Infinity, metAt = null;
+  for (let i = 0; i < 60 * 120; i++) {
+    stepGame(g, NO_INPUT, DT);
+    const p = npcAt(a, g.t), q = npcAt(b, g.t); closest = Math.min(closest, Math.hypot(p.x - q.x, p.y - q.y));
+    if (a.meet && metAt === null) metAt = g.t;
+  }
+  assert.ok(metAt !== null, "they met up");
+  assert.ok(a.held >= ART_MEET.secs - 0.1 && b.held >= ART_MEET.secs - 0.1, `they hung out (${a.held.toFixed(1)} s, ${b.held.toFixed(1)} s)`);
+  assert.ok(closest >= clear - 1, `never through each other (${closest.toFixed(1)} ft apart at closest, ${clear} clear)`);
+  // and they got past: each is now on the other side of where they met
+  const p = npcAt(a, g.t), q = npcAt(b, g.t), ap = Math.atan2(p.y, p.x), bp = Math.atan2(q.y, q.x);
+  assert.ok(Math.sin(ap - bp) * Math.sign(a.speed) > 0 || Math.hypot(p.x - q.x, p.y - q.y) > 600, "they went on past each other");
 });

@@ -1586,6 +1586,7 @@ export default function PlayaWin() {
   const [gl2] = useState(hasWebGL2);
   const glCanvas = useRef<HTMLCanvasElement>(null);
   const orbitRef = useRef(0); // radians the camera has been turned round the ride (phase 5)
+  const lastHeading = useRef(0); // the ride's heading last frame, for the view's swing as you turn
   // turning the chase view (asked 2026-10-27): a finger dragging on the view (the second finger, while the other is on the stick) or the right mouse button, `,` and `.` held; it eases back behind the ride when let go
   const orbitDrag = useRef<{ id: number; x: number } | null>(null);
   const orbitKeys = useRef({ l: false, r: false });
@@ -1811,8 +1812,8 @@ export default function PlayaWin() {
             }
             else if (e === "landed") {
               setParked((p) => (p === SKY_KEY ? null : p));   // down: the flight's videos are no longer where you are (one playing goes on in the panel)
-              // down under the chute you are on the bike; the garage no longer opens by itself (asked 2026-11-04), G opens it
-              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! G for the garage", until: g.t + 2.5 };
+              // down under the chute you are on the bike; the garage no longer opens by itself (asked 2026-11-04), V opens it
+              flash.current = { text: g.vehicle === "plane" ? "down on the playa" : touchUi ? "touchdown!" : "touchdown! V for a vehicle", until: g.t + 2.5 };
             }
             else if (e === "delivered") {
               const n = ++wonN.current;
@@ -1823,7 +1824,7 @@ export default function PlayaWin() {
                 try { localStorage.setItem(UNLOCK_KEY, String(d + 1)); } catch {}
                 const name = GARAGE_RIDES.find((r) => r.id === got)?.name ?? VEHICLES[got].name;
                 setTimeout(() => setWon((w) => (w?.n === n ? { ...w, ride: name } : w)), 0);
-                setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. G for the garage`, until: game.current.t + 3.5 }; }, 2600);
+                setTimeout(() => { flash.current = { text: `new ride unlocked: the ${name}. V for the vehicles`, until: game.current.t + 3.5 }; }, 2600);
                 return d + 1;
               });
               // Polo & Pan delivered to Agave Lounge (asked 2026-10-26): their set, as Brunch Life recorded it, goes on
@@ -1876,10 +1877,15 @@ export default function PlayaWin() {
       // the view's turn (phase 5): held keys lean it 0.6 rad either way, a drag sets it directly, and let go it eases back behind the ride (and stays there in top-down)
       if (viewRef.current !== "chase") { orbitRef.current = 0; orbitDrag.current = null; }
       else if (!orbitDrag.current) {
-        const kt = (orbitKeys.current.r ? 0.6 : 0) - (orbitKeys.current.l ? 0.6 : 0);
-        orbitRef.current += (kt - orbitRef.current) * (1 - Math.exp(-dt / (kt ? 0.25 : 0.6)));
+        // and on its own as you turn (asked 2026-11-04): the view swings the other way to your turn, as , and . would (turning left it leans as . does), by
+        // how fast you are turning; held keys still win
+        const turn = dt > 0 ? Math.atan2(Math.sin(g.car.h - lastHeading.current), Math.cos(g.car.h - lastHeading.current)) / dt : 0;
+        const keyed = orbitKeys.current.r || orbitKeys.current.l, auto = Math.max(-0.45, Math.min(0.45, -turn * 0.2));
+        const kt = keyed ? (orbitKeys.current.r ? 0.6 : 0) - (orbitKeys.current.l ? 0.6 : 0) : g.alt > 0 || g.chute ? 0 : auto;
+        orbitRef.current += (kt - orbitRef.current) * (1 - Math.exp(-dt / (keyed ? 0.25 : Math.abs(kt) > Math.abs(orbitRef.current) ? 0.35 : 0.6)));
         if (!kt && Math.abs(orbitRef.current) < 1e-3) orbitRef.current = 0;
       }
+      lastHeading.current = g.car.h;
       // the chase camera paints in WebGL when it has loaded (until then, and in top-down, paint() draws the world)
       const r = viewRef.current === "chase" ? three.current : null;
       if (r && w && h) {
@@ -2063,15 +2069,15 @@ export default function PlayaWin() {
       const p = three.current?.perf?.();
       if (p) { console.log("[chase view]", `${p.calls} draw calls, ${(p.triangles / 1000).toFixed(0)}k triangles, ${p.geometries} geometries, ${p.textures} textures, ${p.fps.toFixed(1)} fps (${p.ms.toFixed(1)} ms/frame, ${p.cpuMs.toFixed(1)} ms of it frame()), ${p.extra ?? ""}`); flash.current = { text: `${p.calls} calls · ${(p.triangles / 1000).toFixed(0)}k tris · ${p.fps.toFixed(0)} fps`, until: game.current.t + 3 }; }
     }
-    // V plays the video nearby (asked 2026-11-04): the one showing in passing, or the nearest place's with only videos, over whatever was playing
-    else if (e.key === "v" || e.key === "V") {
+    // B plays the video nearby (asked 2026-11-04 as V; V is the vehicles since): the one showing in passing, or the nearest place's with only videos, over whatever was playing
+    else if (e.key === "b" || e.key === "B") {
       e.preventDefault(); const g = game.current, seen = nearest(g.car, clipSources(g.t)), k = peek ?? (seen && loudness(seen.d) > 0 ? seen.key : null), t = k ? soundOf(k).tracks[0] : null;
       if (k && t) { pick(k, t); setLounge(true); } else flash.current = { text: "no video nearby", until: g.t + 1.5 };
     }
-    else if (e.key === "g" || e.key === "G") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
+    else if (e.key === "v" || e.key === "V") { e.preventDefault(); const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); } // the garage (asked 2026-10-26), on the ground only
     // beside an art car (asked 2026-10-22): R rides along on it or hops off, E takes its wheel (D steers)
-    // R: in the plane it bails out (on the ground, steps out); under the chute nothing; otherwise the garage, the art car beside you first (asked 2026-10-26)
-    else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane") ridealong(); else if (!g.chute && g.alt === 0) setRides((r) => !r); }
+    // R: in the plane it bails out (on the ground, steps out); beside an art car it rides along on it, and riding along it hops off; no longer the garage (asked 2026-11-04: G is)
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); const g = game.current; if (g.vehicle === "plane" || g.aboard || (g.vehicle !== "found" && !g.chute && g.parking.at?.startsWith("mutant:"))) ridealong(); }
     // E: at the wheel of an art car it parks it and puts you on the bike (asked 2026-10-26: it used to take the wheel again); beside one it takes the wheel; at the airport, the plane;
     // in the plane it ejects you under the chute, as R does (asked 2026-11-04)
     else if (e.key === "e" || e.key === "E") { const g = game.current; const at = g.parking.at; if (g.vehicle === "found" || g.vehicle === "plane") { e.preventDefault(); ridealong(); } else if (atAirport(g)) { e.preventDefault(); takeOff(); } else if (at?.startsWith("mutant:") && ART_CARS[at.slice(7)]) { e.preventDefault(); drive(at.slice(7)); } }
@@ -2150,7 +2156,7 @@ export default function PlayaWin() {
   return (
     <div className="pl" ref={root} data-phone={mobile ? "" : undefined} data-touch={touchUi ? "" : undefined} data-map={map ? "" : undefined}>
       <div className="pl-stage" ref={board} tabIndex={0} role="application"
-        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, G changes ride, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E enters or exits an art car or the plane, V plays a video nearby, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
+        aria-label="GTA:BRC. drive with the arrow keys or WASD, space is the handbrake, V changes vehicle, M the map, N day or night, C the chase camera or top-down (comma and full stop turn it, or drag with the right mouse button), R rides along on an art car, E enters or exits an art car or the plane, B plays a video nearby, P plays the music nearby and then the next track, Q goes back a track, 1 to 8 pick a track"
         onKeyDown={(e) => onKey(e, true)} onKeyUp={(e) => onKey(e, false)}
         onPointerDown={viewDown} onPointerMove={viewMove} onPointerUp={viewUp} onPointerCancel={viewUp} onLostPointerCapture={viewUp} onContextMenu={(e) => { if (onView(e)) e.preventDefault(); }}
         onBlur={() => { keys.current = { ...NO_INPUT }; orbitKeys.current = { l: false, r: false }; }}>
@@ -2217,7 +2223,7 @@ export default function PlayaWin() {
           </button>
           <div className="pl-tools">
             <span className="pl-ride">
-              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog" aria-label={`ride: ${vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}`}>ride<span className="pl-ride-name">: {vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}</span> ▾</button>
+              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog" aria-label={`ride: ${vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}`}>{/* the ride's name alone (asked 2026-11-04: no "ride:"); a phone, with no room for the name, says "ride" */}<span className="pl-ride-word">ride</span><span className="pl-ride-name">{vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}</span> ▾</button>
             </span>
             {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn pl-chip" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
@@ -2264,9 +2270,9 @@ export default function PlayaWin() {
             <div><dt>W A S D</dt><dd>drive (or the arrows)</dd></div>
             <div><dt>space</dt><dd>drift</dd></div>
             <div><dt>E</dt><dd>enter · exit</dd></div>
-            <div><dt>V</dt><dd>video nearby</dd></div>
-            <div><dt>R</dt><dd>ride along · the garage</dd></div>
-            <div><dt>G</dt><dd>garage</dd></div>
+            <div><dt>B</dt><dd>video</dd></div>
+            <div><dt>R</dt><dd>ride along</dd></div>
+            <div><dt>V</dt><dd>vehicle</dd></div>
             <div><dt>C</dt><dd>camera</dd></div>
             <div><dt>, .</dt><dd>turn the view</dd></div>
             <div><dt>M</dt><dd>map</dd></div>
@@ -2300,7 +2306,7 @@ export default function PlayaWin() {
             <ul className="pl-help">
               {touchUi
                 ? <><li>push the stick where you want to go, further is faster · pull it back to brake and reverse</li><li>drift is the handbrake · tap the minimap for the city · in the chase view, drag a second finger on the view to look round</li></>
-                : <><li>arrows or WASD drive · space is the handbrake</li><li>G the garage: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R the garage too, with the art car beside you first · E enter or exit an art car or the plane · V play a video nearby</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
+                : <><li>arrows or WASD drive · space is the handbrake</li><li>V the vehicles: choose a ride · M map · N day or night · T trip · C chase camera, and , . turn it (or drag with the right mouse button)</li><li>R ride along on the art car beside you · E enter or exit an art car or the plane · B play a video nearby</li><li>the music: P plays what is nearby, then the next track · Q the one before, then stops · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
             <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
