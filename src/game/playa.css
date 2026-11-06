@@ -533,3 +533,14 @@
 }
 /* no ride and drive buttons by an art car on a desk (asked 2026-11-04): E takes its wheel, its panel's button rides along */
 .pl:not([data-phone]):not([data-touch]) .pl-tools .pl-carbtn { display: none; }
+
+/* today's best, on the title and pause card (asked 2026-11-05) */
+.pl .pl-board { width: 100%; max-height: min(42vh, 320px); overflow-y: auto; text-align: left; font-size: var(--t-secondary); line-height: var(--lh-secondary); }
+.pl .pl-board p { margin: 0; text-align: center; }
+.pl .pl-board-jobs, .pl .pl-board-top { margin: 0; padding: 0; list-style: none; }
+.pl .pl-board-jobs > li + li { margin-top: 8px; }
+.pl .pl-board-job { font-weight: 600; }
+.pl .pl-board-top li { display: flex; justify-content: space-between; gap: 12px; font-family: var(--font-mono, monospace); }
+.pl .pl-board-top li.pl-me { color: var(--pl-pink); }
+.pl .pl-board-name { font-size: var(--t-secondary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.pl .pl-over-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }

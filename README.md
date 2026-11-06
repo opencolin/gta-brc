@@ -15,7 +15,7 @@ npm run build    # typecheck + a static build in dist/
 
 Add `?view=chase` to the address (or press C in the game) for the 3D chase camera; `?view=top` goes back to the map view.
 
-Vite + React + TypeScript, no server: the whole game is a static site. The music is embedded SoundCloud and YouTube players; nothing is copied.
+Vite + React + TypeScript, a static site, with two small Vercel Functions in `api/` for everyone's counters and the daily leaderboard (Upstash Redis from the Vercel Marketplace; `vercel env pull` brings the keys, `vercel dev --listen 3000` and `API_PROXY=http://localhost:3000 npm run dev` run them locally, and without them the game plays on). The music is embedded SoundCloud and YouTube players; nothing is copied.
 
 ## Where things are
 

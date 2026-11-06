@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p . && vite build",
+    "build": "tsc --noEmit -p . && tsc --noEmit -p api && vite build",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test src/lib/*.test.mjs"
   },
   "dependencies": {
+    "@upstash/ratelimit": "2.2.0",
+    "@upstash/redis": "1.39.0",
     "react": "^19.1.4",
     "react-dom": "^19.1.4",
     "three": "0.186.1"

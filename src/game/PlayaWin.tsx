@@ -18,6 +18,9 @@ import { wrapAngle } from "@/lib/view3d";
 import { drawAmbulance, drawSuperbike } from "./artplatforms";
 import { MAP_BOX, drawCityImage } from "./citymap";
 import { AGAVE_IMG } from "@/lib/agave";
+import * as scores from "./scores";
+import { ScoresCard } from "./ScoresCard";
+import { fmtSecs } from "@/lib/scores";
 import {
   AIRPORT, ARC_R, ARCS, CENTER_CAMP, CENTER_CAMP_R, CAFE_R, FLY_RANCH, PLAZAS, CITY_SCALE, GATE, FENCE, MAN_R, RADIALS, TEMPLE, TEMPLE_R, WIDE_RADIALS,
   addressOf, arcWidth, blockBounds, clockLabel, clockToAngle, polar, radialWidth, type Vec,
@@ -1619,6 +1622,7 @@ export default function PlayaWin() {
   const [phase, setPhaseState] = useState<Phase>("title");
   const [map, setMap] = useState(false);
   const [layout, setLayout] = useState(false);
+  const [best, setBest] = useState(false); // today's best on the title and pause card
   const [coarse, setCoarse] = useState(false);
   const [hud, setHud] = useState<Hud>({ when: "", onNow: [], address: "", mph: 0, pager: "", time: null, gifts: 0, moop: 0, warn: "", night: false, storm: false, hear: "", hearKey: "", hearSoon: false, gate: false, alt: 0, chute: false, pad: false, prompt: "" });
   const flash = useRef<{ text: string; until: number }>({ text: "", until: 0 });
@@ -1871,8 +1875,10 @@ export default function PlayaWin() {
         for (let i = 0; i < n; i++) {
           const giftsWere = g.mission.gifts;
           for (const e of stepGame(g, inp, hStep)) {
+            if (e === "moop" || e === "bump") scores.count(e);
             if (e === "storm") flash.current = { text: "dust storm! whiteout rolling in", until: g.t + 3 };
             else if (e === "takeoff") {
+              scores.dropRun(); // the plane makes the skydive the job
               flash.current = { text: "wheels up. gas climbs, brake dives, E ejects", until: g.t + 3 };
               // videos of flying over the city go with the flight (asked 2026-11-04): the panel opens on them, the first one playing
               const first = soundOf(SKY_KEY).tracks[0];
@@ -1885,6 +1891,8 @@ export default function PlayaWin() {
             }
             else if (e === "delivered") {
               const n = ++wonN.current;
+              // a ride job's leg on today's board (asked 2026-11-05): how fast, and where that puts you
+              void scores.delivered(g.t, g.car).then((r) => { if (r) setTimeout(() => { flash.current = { text: `${fmtSecs(r.secs)} pickup to drop${r.best < r.secs ? ` (your best today ${fmtSecs(r.best)})` : ""} · #${r.rank} of ${r.of} today`, until: game.current.t + 3.5 }; }, 2200); });
               setWon({ gifts: g.mission.gifts - giftsWere, ride: null, n });
               // a new ride for each job delivered, until they are all yours
               setDelivered((d) => {
@@ -1898,8 +1906,9 @@ export default function PlayaWin() {
               // Polo & Pan delivered to Agave Lounge (asked 2026-10-26): their set, as Brunch Life recorded it, goes on
               if (g.mission.job === POLO_JOB) { flash.current = { text: "Polo & Pan are on at Agave Lounge!", until: g.t + 3 }; pick("agave", POLO_SET); setLounge(true); }
             }
-            else if (e === "failed") flash.current = { text: "out of time", until: g.t + 2.5 };
+            else if (e === "failed") { scores.dropRun(); flash.current = { text: "out of time", until: g.t + 2.5 }; }
             else if (e === "picked") {
+              scores.picked(g.mission.job, g.t, g.car);
               // someone aboard: onto the tuk-tuk, with room for them in its trailer, unless you are in a car of some sort (asked 2026-11-04)
               const job = JOBS[g.mission.job % JOBS.length], bikeish = g.vehicle === "bike" || g.vehicle === "ebike" || g.vehicle === "unicycle" || g.vehicle === "onewheel";
               if (job.kind === "ride" && bikeish && !g.aboard) { setVehicle(g, "tuktuk"); setVehicleState("tuktuk"); flash.current = { text: "on board! into the tuk-tuk", until: g.t + 2 }; }
@@ -1912,6 +1921,7 @@ export default function PlayaWin() {
             else if (e === "leave") onLeave.current();
           }
         }
+        scores.tick(dt, g.t, g.car);
       }
       // the camera: trails the car and leads it along its velocity, and pulls back with speed
       const spd = speedOf(g.car);
@@ -2106,7 +2116,7 @@ export default function PlayaWin() {
     return () => { mo?.disconnect(); clearTimeout(back); document.removeEventListener("visibilitychange", check); window.removeEventListener("blur", blur); document.removeEventListener("keydown", stray); document.removeEventListener("keyup", stray); };
   }, []);
 
-  const go = () => { setPhase("play"); setMap(false); setLayout(false); board.current?.focus({ preventScroll: true }); };
+  const go = () => { setPhase("play"); setMap(false); setLayout(false); setBest(false); board.current?.focus({ preventScroll: true }); };
   const toggleNight = () => warpDay(game.current);   // a time-lapse through the sunset or the sunrise (playa.ts warpDay)
   // the trip (asked 2026-10-26): trails, a colour wash and a sway, eased in and out over a few seconds; T or the ✶ button
   const [trip, setTrip] = useState(false); const tripRef = useRef(false); tripRef.current = trip; const tripLevel = useRef(0);
@@ -2228,8 +2238,8 @@ export default function PlayaWin() {
     </>}
     {hud.pad && <button type="button" className={`${cls} pl-found`} onClick={takeOff}>✈ take the plane</button>}
     {hud.gate && <>
-      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (dustAngel(g)) flash.current = { text: g.angels.length === 1 ? "welcome home! a dust angel for the virgin burner: a gift" : "another angel in the dust", until: g.t + 3 }; board.current?.focus({ preventScroll: true }); }}>dust angel</button>
-      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (ringBell(g)) { ding(); flash.current = { text: "the bell rings out. welcome home!", until: g.t + 2.5 }; } board.current?.focus({ preventScroll: true }); }}>ring the bell</button>
+      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (dustAngel(g)) { scores.count("angel"); flash.current = { text: g.angels.length === 1 ? "welcome home! a dust angel for the virgin burner: a gift" : "another angel in the dust", until: g.t + 3 }; } board.current?.focus({ preventScroll: true }); }}>dust angel</button>
+      <button type="button" className={`${cls} pl-found`} onClick={() => { const g = game.current; if (ringBell(g)) { ding(); scores.count("bell"); flash.current = { text: "the bell rings out. welcome home!", until: g.t + 2.5 }; } board.current?.focus({ preventScroll: true }); }}>ring the bell</button>
     </>}
   </>;
   // the Greeters' bell: three partials of a bell, struck and left to ring (Web Audio), only with the sound on
@@ -2281,8 +2291,10 @@ export default function PlayaWin() {
           <span className="pl-pager-txt">{hud.pager}</span>
           {hud.time != null && <b className={hud.time < 10 ? "pl-late" : undefined}>{fmt(hud.time)}</b>}
           {/* skip this job for the next one (asked 2026-11-03) */}
-          <button type="button" className="pl-btn pl-skip" onClick={() => { skipMission(game.current.mission); flash.current = { text: "skipped: here's the next job", until: game.current.t + 1.5 }; board.current?.focus({ preventScroll: true }); }}
+          <button type="button" className="pl-btn pl-skip" onClick={() => { skipMission(game.current.mission); scores.dropRun(); flash.current = { text: "skipped: here's the next job", until: game.current.t + 1.5 }; board.current?.focus({ preventScroll: true }); }}
             aria-label="skip this job for the next one" title="next job">skip ▸</button>
+          {/* everyone's counters and today's fastest legs (asked 2026-11-05) */}
+          <button type="button" className="pl-btn pl-skip" onClick={() => setBest((b) => !b)} aria-pressed={best} aria-label="today's best: the fastest rides and everyone's counters" title="today's best">best</button>
         </div>
 
         <div className="pl-where">
@@ -2389,8 +2401,13 @@ export default function PlayaWin() {
           </div>
         )}
 
+        {phase === "play" && best && !map && !layout && (
+          <div className="pl-over-card"><ScoresCard onBack={() => { setBest(false); board.current?.focus({ preventScroll: true }); }} /></div>
+        )}
+
         {phase !== "play" && !layout && !map && (
           <div className="pl-over-card">
+            {best ? <ScoresCard onBack={() => setBest(false)} /> : <>
             {phase === "title" ? (
               <>
                 <div className="pl-title">GTA:BRC</div>
@@ -2403,7 +2420,11 @@ export default function PlayaWin() {
                 : <><li>arrows or WASD drive · space is the handbrake</li><li>R rides: choose a ride · G map · M back to the music · T trip · C chase camera (drag with the right mouse button to turn it) · L day or night</li><li>E enter or exit an art car or the plane · V play a video nearby · ride along on an art car from its panel</li><li>the music: N or . plays what is nearby, then the next track · , or B the one before, then stops · P play or pause · 1-8 pick a track</li><li>the Gate is out past the fence at 4:30: stop in its ring to make a dust angel and ring the bell</li><li>the airport, past the fence at 4:00: E takes the plane · E again ejects you with a chute</li></>}
               <li>Agave Lounge is at {AGAVE_ADDRESS}. stop in a camp&apos;s pink P to hear its sets</li>
             </ul>
-            <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
+            <div className="pl-over-btns">
+              <button type="button" className="pl-btn pl-go" onClick={go}>{phase === "title" ? "start driving" : "keep driving"}</button>
+              <button type="button" className="pl-btn" onClick={() => setBest(true)}>today&apos;s best</button>
+            </div>
+            </>}
           </div>
         )}
 
