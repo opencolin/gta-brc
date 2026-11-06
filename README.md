@@ -13,6 +13,8 @@ npm test         # the game logic's tests (node --test)
 npm run build    # typecheck + a static build in dist/
 ```
 
+Add `?view=chase` to the address (or press C in the game) for the 3D chase camera; `?view=top` goes back to the map view.
+
 Vite + React + TypeScript, no server: the whole game is a static site. The music is embedded SoundCloud and YouTube players; nothing is copied.
 
 ## Where things are
@@ -24,5 +26,7 @@ Vite + React + TypeScript, no server: the whole game is a static site. The music
 - `src/lib/playaSound.ts` – the proximity mix; `src/lib/playaMedia.ts` – the players
 - `src/game/PlayaWin.tsx` – the screen, controls, HUD and maps; `PlayaLounge.tsx` – the music panel
 - `src/game/artcars.ts`, `artplatforms.ts` – the art cars, drawn in code; `citymap.ts` – the map image
+
+Credits and licences: `public/gta/CREDITS.md`.
 
 This is a fan project with no connection to Burning Man Project or Take-Two Interactive.
