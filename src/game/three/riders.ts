@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { botParts } from "./bots";
 import { aim, joint, skinnedModel, type BoneDef, type Skinned, type SkinPart } from "./skinned";
 
 /**
@@ -15,7 +16,7 @@ export type Motion = { dt: number; speed: number; yaw: number; brake: boolean };
 export type Rig = { group: THREE.Group; animate(m: Motion): void };
 export type Cyclist = "bike" | "ebike" | "unicycle" | "tuktuk";
 
-const TYRE = 0x15161d, RIM = 0xc7ccd6, SPOKE = 0x9aa0ad, SKIN = 0xf2c6a0, STRAW = 0xd9b46a, STEEL = 0x6b7080, DARK = 0x2a2d3a, BOOT = 0x4a3426;
+const TYRE = 0x15161d, RIM = 0xc7ccd6, SPOKE = 0x9aa0ad, STEEL = 0x6b7080, DARK = 0x2a2d3a;
 const UP = new THREE.Vector3(0, 1, 0), DOWN = new THREE.Vector3(0, -1, 0);
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -78,43 +79,13 @@ function riderBones(k: Kit, h: [number, number, number], parent: string): BoneDe
     { name: "footL", parent: "shinL", at: P(-0.28, -2.95) }, { name: "footR", parent: "shinR", at: P(0.28, -2.95) },
   ];
 }
-/** The rider's shapes in the straight rest pose (arms and legs hanging), each on its bone; the IK bends them. */
+/**
+ * The rider, a bot since 2026-11-11 (asked: "swap all the humans for bot avatars"): a pink clover sitting on the saddle, on the chest bone so it leans and
+ * rocks as the rider did; the legs and arms are gone, their bones still there for the IK.
+ */
 function riderParts(k: Kit, h: [number, number, number], shirt: number): SkinPart[] {
-  const [x, y, z] = h, P = (dx: number, dy: number, dzz = 0) => k.p(x + dx, y + dy, z + dzz), parts: SkinPart[] = [];
-  const add = (geo: THREE.BufferGeometry, color: number, bone: string, glow = 0) => parts.push({ geo, color, bone, glow });
-  const SHORTS = 0x2f4a78;
-  add(k.slab(0.66, 0.4, 0.5, P(0, 0.08)), SHORTS, "hips");
-  add(new THREE.CylinderGeometry(0.52 * S, 0.43 * S, 1.75 * S, 8).scale(1, 1, 0.62).translate(P(0, 0.98).x, P(0, 0.98).y, P(0, 0.98).z), shirt, "chest");
-  add(k.tube(P(0, 1.85), P(0, 2.12), 0.1, 6), SKIN, "chest");
-  // the head: skin, sunglasses, a bandana over the lower face, a straw hat with its goggles pushed up on the crown
-  const hd = (dx: number, dy: number, dzz = 0) => P(dx, 2.05 + dy, dzz);
-  add(k.ball(0.45, hd(0, 0.45), 0.92, 1.05, 1, 10, 8), SKIN, "head");
-  add(k.slab(0.7, 0.15, 0.08, hd(0, 0.52, -0.41)), 0x15161d, "head");
-  add(new THREE.CylinderGeometry(0.47 * S, 0.46 * S, 0.24 * S, 10, 1, true).translate(hd(0, 0.2).x, hd(0, 0.2).y, hd(0, 0.2).z), 0xd62828, "head");
-  add(new THREE.CylinderGeometry(0.85 * S, 0.85 * S, 0.05 * S, 14).translate(hd(0, 0.86).x, hd(0, 0.86).y, hd(0, 0.86).z), STRAW, "head");
-  add(new THREE.CylinderGeometry(0.46 * S, 0.52 * S, 0.34 * S, 10).translate(hd(0, 1.03).x, hd(0, 1.03).y, hd(0, 1.03).z), STRAW, "head");
-  add(new THREE.CylinderGeometry(0.53 * S, 0.53 * S, 0.1 * S, 10, 1, true).translate(hd(0, 0.95).x, hd(0, 0.95).y, hd(0, 0.95).z), DARK, "head");
-  for (const s of [-1, 1]) add(k.discZ(0.16, 0.06, hd(s * 0.21, 0.96, -0.52), 8), 0x7fe9ff, "head", 0.9);
-  // the arms: bare, a hand at the end of each forearm
-  for (const [s, n] of [[-1, "L"], [1, "R"]] as const) {
-    const sh = (dy: number) => P(s * 0.58, 1.9 + dy);
-    add(k.tube(sh(0), sh(-1.1), 0.17, 6), SKIN, `upArm${n}`);
-    add(k.ball(0.21, sh(0), 1, 1, 1, 6, 4), SKIN, `upArm${n}`);
-    add(k.tube(sh(-1.1), sh(-2.15), 0.145, 6), SKIN, `foreArm${n}`);
-    add(k.ball(0.19, sh(-2.15), 1, 1, 1, 6, 4), SKIN, `foreArm${n}`);
-  }
-  // the legs: shorts to the knee, bare shins, boots
-  for (const [s, n] of [[-1, "L"], [1, "R"]] as const) {
-    const lg = (dy: number) => P(s * 0.28, dy);
-    add(k.tube(lg(0), lg(-0.95), 0.29, 8), SHORTS, `thigh${n}`);
-    add(k.tube(lg(-0.95), lg(-1.5), 0.2, 6), SKIN, `thigh${n}`);
-    add(k.tube(lg(-1.5), lg(-2.35), 0.18, 6), SKIN, `shin${n}`);
-    add(k.tube(lg(-2.35), lg(-2.95), 0.23, 8), BOOT, `shin${n}`);
-    // the foot, from the ankle forward (-z): the boot, its sole and its heel
-    add(k.slab(0.36, 0.3, 0.95, lg(-2.95 - 0.17).clone().add(new THREE.Vector3(0, 0, -0.3 * S))), BOOT, `foot${n}`);
-    add(k.slab(0.38, 0.07, 1.0, lg(-2.95 - 0.33).clone().add(new THREE.Vector3(0, 0, -0.3 * S))), 0x1d1a18, `foot${n}`);
-  }
-  return parts;
+  const [x, y, z] = h, at = k.p(x, y + 1.55, z);
+  return botParts("clover", at, 3.1 * S).map((p) => ({ geo: p.geo, color: p.body ? shirt : p.color, bone: "chest" }));
 }
 
 export function buildCyclist(kind: Cyclist, material: THREE.Material): Rig {

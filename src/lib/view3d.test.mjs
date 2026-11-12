@@ -61,13 +61,13 @@ test("cang is the canvas angle of a clock time, wrapAngle folds to (-π, π]", (
   near(wrapAngle(0.3), 0.3);
 });
 
-test("readViewMode: ?view wins, then the stored choice, then top-down", () => {
+test("readViewMode: ?view wins, then the stored choice, then the 3D view (2026-11-11)", () => {
   assert.equal(readViewMode("?view=chase", "top"), "chase");
   assert.equal(readViewMode("", "chase"), "chase");
-  assert.equal(readViewMode("?view=nonsense", null), "top");
+  assert.equal(readViewMode("?view=nonsense", null), "chase");
   assert.equal(readViewMode("?x=1&view=top", "chase"), "top");
-  assert.equal(readViewMode("", null), "top");
-  assert.equal(readViewMode("", "garbage"), "top");
+  assert.equal(readViewMode("", null), "chase");
+  assert.equal(readViewMode("", "garbage"), "chase");
   assert.equal(readViewMode("?view=nonsense", "chase"), "chase");
 });
 

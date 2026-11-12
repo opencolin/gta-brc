@@ -221,6 +221,18 @@ function riderImage(seed: number): HTMLCanvasElement {
   return c;
 }
 /** Another biker on the road, at the size of yours (0.55 of the cruiser's pixel art), lit up at night. */
+/**
+ * A bot from above (asked 2026-11-11: "swap all the humans for bot avatars"; three/bots.ts has them in 3D): a puffy plastic shape seen from over its top, `w` across
+ * and a little under half that deep, in its colour with a light on its top, its two dark eyes at its front edge (-y), turned `rot`.
+ */
+function drawBotTop(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, color: string, rot = 0) {
+  const d = w * 0.46;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(-w / 2, -d / 2, w, d, d * 0.48); ctx.fill();
+  ctx.fillStyle = "rgba(255, 255, 255, .35)"; ctx.beginPath(); ctx.ellipse(-w * 0.12, -d * 0.08, w * 0.2, d * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#161a2e"; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * w * 0.13, -d / 2 + d * 0.08, w * 0.07, d * 0.1, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
 function drawRider(ctx: CanvasRenderingContext2D, seed: number, hue: number, night: number) {
   const w = GW * PX * 0.55, h = GH * PX * 0.55;
   ctx.fillStyle = "rgba(27, 31, 59, .16)"; ctx.beginPath(); ctx.ellipse(1, 1.5, w * 0.42, h * 0.46, 0, 0, Math.PI * 2); ctx.fill();
@@ -228,6 +240,7 @@ function drawRider(ctx: CanvasRenderingContext2D, seed: number, hue: number, nig
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(riderImage(seed), -w / 2, -h / 2, w, h);
   ctx.imageSmoothingEnabled = smooth;
+  drawBotTop(ctx, 0, -h * 0.04, w * 0.78, hsl(hue, 70, 58)); // a bot in the saddle
   // at night its wheels glow in its colour
   if (night > 0.3) { ctx.fillStyle = hsl(hue, 100, 65); ctx.fillRect(-1, -h / 2, 2, 2.2); ctx.fillRect(-1, h / 2 - 2.2, 2, 2.2); }
 }
@@ -240,6 +253,7 @@ function drawBikeRide(ctx: CanvasRenderingContext2D, t: number, night: number, b
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(spriteImage(), ox, oy, GW * PX, GH * PX);
   ctx.imageSmoothingEnabled = smooth;
+  drawBotTop(ctx, 0, -GH * PX * 0.04, GW * PX * 0.82, C.pink); // you, a bot in the saddle
   const px = (p: Pix, c: string) => { ctx.fillStyle = c; ctx.fillRect(ox + p.x * PX, oy + p.y * PX, PX, PX); };
   if (night > 0.3) SPRITE.wheels.forEach((p, k) => px(p, hsl((t * 220 + k * 30) % 360, 100, 62)));
   if (brake) SPRITE.tail.forEach((p) => px(p, "#ff2d55"));
@@ -312,17 +326,12 @@ function drawOnewheel(ctx: CanvasRenderingContext2D, t: number, night: number, h
   ctx.fillStyle = "#22242c"; ctx.beginPath(); ctx.roundRect(-1.8, -5.6, 3.6, 11.2, 1.6); ctx.fill(); // the deck
   ctx.fillStyle = "#e9ecf2"; ctx.fillRect(-1.9, -1.3, 3.8, 2.6); // the fender over the tyre
   if (night > 0.3) { ctx.fillStyle = "#55d8ff"; ctx.fillRect(-1.4, -5.4, 2.8, 0.8); }
-  ctx.fillStyle = "#f2c6a0"; ctx.fillRect(-1.2, -4.6, 2.4, 1.4); ctx.fillRect(-1.2, 3.2, 2.4, 1.4); // the feet at the ends
-  ctx.fillStyle = hsl(hue, 70, 58); ctx.beginPath(); ctx.ellipse(0, 0, 2.4, 3.8, 0, 0, Math.PI * 2); ctx.fill(); // the shoulders, along the board
-  ctx.strokeStyle = "#f2c6a0"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(-0.5, -3.2); ctx.lineTo(-1.2, -7.5); ctx.moveTo(-0.5, 3.2); ctx.lineTo(-1, 7.2); ctx.stroke(); // the arms out fore and aft
-  ctx.fillStyle = "#ecd08a"; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill(); // the hat
+  drawBotTop(ctx, 0, 0, 6.4, hsl(hue, 70, 58), Math.PI / 2); // a bot standing on it sideways, facing to the right
 }
 /** The unicycle, from above: the wheel under a rider in a pink shirt and a straw hat. */
 function drawUnicycle(ctx: CanvasRenderingContext2D, t: number, night: number) {
   ctx.fillStyle = night > 0.3 ? hsl((t * 200) % 360, 100, 62) : C.navy; ctx.fillRect(-1.5, -6, 3, 12);
-  ctx.fillStyle = "#f2c6a0"; ctx.fillRect(-5, -1.5, 10, 3);
-  ctx.fillStyle = C.pink; ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#ecd08a"; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+  drawBotTop(ctx, 0, 0, 7, C.pink); // a bot on the saddle
 }
 /** The famous art car you are driving, if that is your ride (PlayaWin's garage). */
 let rideSkin: string | null = null;
@@ -333,8 +342,7 @@ function drawTuktuk(ctx: CanvasRenderingContext2D, t: number, night: number, bra
   ctx.fillStyle = "#15161d"; ctx.fillRect(-0.8, -8, 1.6, 2.6); ctx.fillRect(-0.8, -2.6, 1.6, 2.6);
   ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(0, -6.8); ctx.lineTo(0, -1.2); ctx.stroke();
   ctx.strokeStyle = "#8a8fa3"; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-2.6, -5.8); ctx.lineTo(2.6, -5.8); ctx.stroke();
-  ctx.fillStyle = "#ff8c42"; ctx.beginPath(); ctx.ellipse(0, -3.4, 1.7, 2.1, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#f2c6a0"; ctx.beginPath(); ctx.arc(0, -4.8, 1.1, 0, Math.PI * 2); ctx.fill();
+  drawBotTop(ctx, 0, -3.6, 4.6, "#ff8c42"); // a bot pedalling
   // the hitch, then the trailer: two wheels, a green box with a yellow skirt, the striped canopy over it
   ctx.strokeStyle = "#5b5f73"; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(0, -0.4); ctx.lineTo(0, 1.8); ctx.stroke();
   ctx.fillStyle = "#15161d"; for (const x of [-4.2, 4.2]) ctx.fillRect(x - 0.9, 3.6, 1.8, 3);
@@ -645,30 +653,21 @@ function drawCrowd(ctx: CanvasRenderingContext2D, sp: (typeof SPOTS)[number], t:
   const st = sp.stage, dir = Math.atan2(sp.mid.y - st.y, sp.mid.x - st.x), n = sp.kind === "agave" ? 34 : sp.camp?.piece ? 8 : sp.kind === "art" ? 12 : 20; // a few people looking at a piece
   for (let i = 0; i < n; i++) {
     const a = dir + (rnd() - 0.5) * 3.2, d = st.r + 5 + rnd() * 16, hue = Math.floor(rnd() * 360), ph = rnd() * Math.PI * 2, rate = 5 + rnd() * 3;
-    const dancing = rnd() < 0.72, bob = dancing ? Math.sin(t * rate + ph) : 0, up = dancing && Math.sin(t * rate * 0.5 + ph) > 0.3;
+    const dancing = rnd() < 0.72, bob = dancing ? Math.sin(t * rate + ph) : 0;
     const px = st.x + Math.cos(a) * d, py = st.y + Math.sin(a) * d, fall = crowdFall(`${sp.key}:${i}`, px, py, car, t); // ridden into, they fall over and get back up (asked 2026-11-04)
     ctx.save(); ctx.translate(px, py + (fall ? 0 : bob * 1.2)); ctx.rotate(a + Math.PI); // facing the stage
     if (fall) { ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; ctx.beginPath(); ctx.arc(fall.side * 3, 0, 5 + fall.tilt * 2, 0, Math.PI * 2); ctx.fill(); ctx.translate(fall.side * fall.tilt * 3, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1); }
-    ctx.fillStyle = "#f2c6a0";
-    if (up) { ctx.fillRect(-5.5, -4 + bob, 2, 4); ctx.fillRect(3.5, -4 - bob, 2, 4); } else { ctx.fillRect(-5, -1 + bob * 0.6, 2, 3); ctx.fillRect(3, -1 - bob * 0.6, 2, 3); }
-    ctx.fillStyle = hsl(hue, 70, night > 0.3 ? 60 : 55);
-    ctx.beginPath(); ctx.ellipse(0, 0.5, 4.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = hsl((hue + 40) % 360, 50, 75);
-    ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, Math.PI * 2); ctx.fill();
-    if (night > 0.3) { ctx.fillStyle = hsl((hue + t * 120) % 360, 100, 65); ctx.fillRect(-0.8, -0.8, 1.6, 1.6); }
+    drawBotTop(ctx, 0, 0, 9, hsl(hue, 70, night > 0.3 ? 60 : 55), Math.PI / 2 + (dancing ? 0.3 * Math.sin(t * rate * 0.5 + ph) : 0)); // a bot facing the stage, swaying (2026-11-11)
     ctx.restore();
   }
 }
 /** The crowd round an art car parked on the playa (asked 2026-11-04; scene3d.ts carCrowd), drawn as the stages' crowds are, facing the car. */
 function drawCarCrowd(ctx: CanvasRenderingContext2D, key: string, at: { x: number; y: number }, t: number, night: number, car: Game["car"]) {
   carCrowd(key, at).forEach((p, i) => {
-    const bob = p.dancing ? Math.sin(t * p.rate + p.phase) : 0, up = p.dancing && Math.sin(t * p.rate * 0.5 + p.phase) > 0.3, fall = crowdFall(`${key}:${i}`, p.x, p.y, car, t);
+    const bob = p.dancing ? Math.sin(t * p.rate + p.phase) : 0, fall = crowdFall(`${key}:${i}`, p.x, p.y, car, t);
     ctx.save(); ctx.translate(p.x, p.y + (fall ? 0 : bob * 1.2)); ctx.rotate(p.a + Math.PI);
     if (fall) { ctx.fillStyle = `rgba(236, 222, 196, ${0.55 * fall.tilt})`; ctx.beginPath(); ctx.arc(fall.side * 3, 0, 5 + fall.tilt * 2, 0, Math.PI * 2); ctx.fill(); ctx.translate(fall.side * fall.tilt * 3, 0); ctx.rotate(fall.side * fall.tilt * 1.2); ctx.scale(1 + 0.2 * fall.tilt, 1); }
-    ctx.fillStyle = "#f2c6a0";
-    if (up) { ctx.fillRect(-5.5, -4 + bob, 2, 4); ctx.fillRect(3.5, -4 - bob, 2, 4); } else { ctx.fillRect(-5, -1 + bob * 0.6, 2, 3); ctx.fillRect(3, -1 - bob * 0.6, 2, 3); }
-    ctx.fillStyle = hsl(p.hue, 70, night > 0.3 ? 60 : 55); ctx.beginPath(); ctx.ellipse(0, 0.5, 4.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = hsl((p.hue + 40) % 360, 50, 75); ctx.beginPath(); ctx.arc(0, 0, 2.3, 0, Math.PI * 2); ctx.fill();
+    drawBotTop(ctx, 0, 0, 9, hsl(p.hue, 70, night > 0.3 ? 60 : 55), Math.PI / 2 + (p.dancing ? 0.3 * Math.sin(t * p.rate * 0.5 + p.phase) : 0)); // a bot facing the car (2026-11-11)
     ctx.restore();
   });
 }

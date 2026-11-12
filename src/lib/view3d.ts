@@ -13,12 +13,12 @@ export type ViewMode = "top" | "chase";
 /** localStorage key for the remembered choice (per device). */
 export const VIEW_KEY = "agentcamp-playa-view";
 
-/** `?view=chase|top` wins, then the stored choice, then top-down (the default). */
+/** `?view=chase|top` wins, then the stored choice, then the 3D view (the default since 2026-11-11). */
 export function readViewMode(search: string, stored: string | null): ViewMode {
   const q = new URLSearchParams(search).get("view");
   if (q === "chase" || q === "top") return q;
   if (stored === "chase" || stored === "top") return stored;
-  return "top";
+  return "chase"; // the 3D view first (asked 2026-11-11)
 }
 
 /** A point in three.js axes. */

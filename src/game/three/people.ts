@@ -3,6 +3,7 @@ import { drivenKey, fallOf, npcAt, type Game, type Npc } from "@/lib/playa";
 import { fadeAt } from "@/lib/scene3d";
 import { yawOf } from "@/lib/view3d";
 import { glowing } from "./camps";
+import { botParts, type BotType } from "./bots";
 import { mergedParts, shaped as P, type Part } from "./materials";
 
 /**
@@ -68,20 +69,10 @@ const adder = (parts: Tinted[]): Add => (geo, color, tint = 0) => { parts.push({
  * A rider in a shirt (the hue), dark shorts and a straw hat, sitting at `hips` (real feet), leaning `lean` feet forward at the shoulders,
  * hands at `hands` (left, right) with the elbows bent toward `elbow`, feet at `feet` (left, right) with the knees forward.
  */
-function rider(add: Add, hips: THREE.Vector3, lean: number, hands: [THREE.Vector3, THREE.Vector3], elbow: THREE.Vector3, feet: [THREE.Vector3, THREE.Vector3]): void {
-  const sh = hips.clone().add(v(0, 1.8, -lean)), hd = hips.clone().add(v(0, 2.35, -lean - 0.07));
-  add(box(0.7 * S, 0.45 * S, 0.55 * S).translate(hips.x, hips.y + 0.05 * S, hips.z), SHORTS);
-  add(rod(hips, sh, 0.42, 6, 0.52), WHITE, 1);
-  add(new THREE.SphereGeometry(0.42 * S, 6, 3).translate(hd.x, hd.y, hd.z), SKIN);
-  add(cyl(0.85 * S, 0.85 * S, 0.05 * S, 6).translate(hd.x, hd.y + 0.36 * S, hd.z), STRAW);
-  add(cyl(0.44 * S, 0.5 * S, 0.34 * S, 6).translate(hd.x, hd.y + 0.55 * S, hd.z), STRAW);
-  for (const [i, s] of [[0, -1], [1, 1]] as const) {
-    const shoulder = sh.clone().add(v(s * 0.58, -0.1, 0.05)), el = knee(shoulder, hands[i], 1.1, 1.05, new THREE.Vector3(s * elbow.x, elbow.y, elbow.z));
-    add(rod(shoulder, el, 0.16, 3), WHITE, 1); add(rod(el, hands[i], 0.13, 3), SKIN);
-    const hip = hips.clone().add(v(s * 0.28, 0, 0)), ankle = feet[i], kn = knee(hip, ankle, 1.5, 1.45, v(0, 0.4, -1));
-    add(rod(hip, kn, 0.27, 4, 0.22), SHORTS); add(rod(kn, ankle, 0.17, 3), SKIN);
-    add(box(0.32 * S, 0.22 * S, 0.8 * S).translate(ankle.x, ankle.y - 0.1 * S, ankle.z - 0.2 * S), SHOE);
-  }
+function rider(add: Add, hips: THREE.Vector3, lean: number, _hands: [THREE.Vector3, THREE.Vector3], _elbow: THREE.Vector3, _feet: [THREE.Vector3, THREE.Vector3], bot: BotType = "clover"): void {
+  // a bot where the person was (asked 2026-11-11: "swap all the humans for bot avatars"): its body takes the rider's hue (all but the ghost, which stays white), its eyes stay dark
+  const at = hips.clone().add(v(0, 1.55, -lean * 0.4));
+  for (const p of botParts(bot, at, 3.1 * S, 0, Math.min(0.35, lean * 0.6))) add(p.geo, p.color, p.body && bot !== "ghost" ? 1 : 0);
 }
 const tyre = (add: Add, c: THREE.Vector3, R: number, fat: number) => add(new THREE.TorusGeometry((R - fat / 2) * S, fat * S, 3, 9).rotateY(Math.PI / 2).translate(c.x, c.y, c.z), TYRE);
 
@@ -101,7 +92,7 @@ function bikeParts(ebike: boolean): Tinted[] {
   if (ebike) add(box(0.3 * S, 0.34 * S, 1.1 * S).rotateX(-0.6).translate(0, 1.78 * S, -0.7 * S), 0x1b1f3b);
   // the rider: hips on the saddle, sitting up, hands on the grips; the right foot on the forward pedal, up, the left on the back one, down
   const foot = (s: number) => bb.clone().add(v(s * 0.36, s > 0 ? 0.57 : -0.27, s > 0 ? -0.3 : 0.5));
-  rider(add, v(0, 3.15, 0.85), 0.4, [v(-1.2, 3.47, -0.85), v(1.2, 3.47, -0.85)], v(1, -0.3, 0.6), [foot(-1), foot(1)]);
+  rider(add, v(0, 3.15, 0.85), 0.4, [v(-1.2, 3.47, -0.85), v(1.2, 3.47, -0.85)], v(1, -0.3, 0.6), [foot(-1), foot(1)], ebike ? "star" : "clover");
   return parts;
 }
 /**
@@ -119,7 +110,7 @@ export function unicycleGeometry(): THREE.BufferGeometry {
   add(rod(v(0, R + 1.2, 0.1), v(0, R + 1.55, 0.14), 0.07, 3), WHITE, 1);
   add(box(0.6 * S, 0.14 * S, 1.0 * S).translate(0, (R + 1.6) * S, 0.18 * S), SADDLE);
   for (const s of [-1, 1]) add(rod(v(s * 0.2, R, 0), v(s * 0.34, R, s * 0.6), 0.045, 3), STEEL);
-  rider(add, v(0, R + 1.85, 0.2), 0, [v(-1.9, R + 3.0, 0.1), v(1.9, R + 3.0, 0.1)], v(0.3, -1, 0.3), [v(-0.36, R + 0.15, -0.6), v(0.36, R + 0.15, 0.6)]);
+  rider(add, v(0, R + 1.85, 0.2), 0, [v(-1.9, R + 3.0, 0.1), v(1.9, R + 3.0, 0.1)], v(0.3, -1, 0.3), [v(-0.36, R + 0.15, -0.6), v(0.36, R + 0.15, 0.6)], "blob");
   return mergedTinted(parts);
 }
 /**
@@ -135,7 +126,7 @@ export function onewheelParts(shirt?: number): Tinted[] {
   add(box(0.7 * S, 0.06 * S, 0.5 * S).translate(0, (R + 0.22) * S, -1.0 * S), 0x55d8ff, 0); // the front pad's light
   // the rider, built facing -Z as the riders are, then turned to face +X: feet at the board's ends
   const rp: Tinted[] = [], radd = adder(rp), deck = R + 0.24;
-  rider(radd, v(0, deck + 2.7, 0), 0.25, [v(-1.7, deck + 3.6, -0.35), v(1.7, deck + 3.9, -0.2)], v(0.4, -0.6, 0.3), [v(-0.95, deck + 0.12, -0.1), v(0.95, deck + 0.12, -0.1)]);
+  rider(radd, v(0, deck + 0.05, 0), 0.25, [v(-1.7, deck + 3.6, -0.35), v(1.7, deck + 3.9, -0.2)], v(0.4, -0.6, 0.3), [v(-0.95, deck + 0.12, -0.1), v(0.95, deck + 0.12, -0.1)], "flower");
   for (const p of rp) { p.geo.rotateY(-Math.PI / 2); if (shirt !== undefined && p.tint) { p.color = shirt; p.tint = 0; } parts.push(p); }
   return parts;
 }
@@ -185,7 +176,7 @@ export function personGeometry(pose: Pose): THREE.BufferGeometry {
     up: [v(-0.7, 6.95, -0.3), v(0.7, 6.95, -0.3)], wide: [v(-1.65, 6.3, -0.4), v(1.65, 6.3, -0.4)], wave: [v(-0.6, 6.95, -0.2), v(0.85, 4.7, -1.15)],
   };
   const feet: [THREE.Vector3, THREE.Vector3] = pose === "walk" ? [v(-0.3, 0.25, -0.55), v(0.3, 0.25, 0.55)] : dance ? [v(-0.48, 0.25, 0), v(0.48, 0.25, 0)] : [v(-0.32, 0.25, 0), v(0.32, 0.25, 0)];
-  rider(add, hips, 0, hands[pose], new THREE.Vector3(1, -0.3, 0.3), feet);
+  rider(add, v(0, 0.05, 0), 0, hands[pose], new THREE.Vector3(1, -0.3, 0.3), feet, ({ walk: "star", stand: "ghost", up: "clover", wide: "flower", wave: "square" } as const)[pose]); // a bot standing on the playa, its foot just off the ground
   return mergedTinted(parts);
 }
 /** The people's material (crowds.ts uses it too): the night glow, the instance's hue on the shirt only. */
