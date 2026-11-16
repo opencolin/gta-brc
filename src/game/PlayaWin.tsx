@@ -2232,7 +2232,7 @@ export default function PlayaWin() {
   const acts = (cls: string) => <>
     {(vehicle === "found" || vehicle === "plane" || aboard) && <button type="button" className={cls} onClick={ridealong}>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</button>}
     {parked?.startsWith("mutant:") && !aboard && vehicle !== "found" && <>
-      <button type="button" className={`${cls} pl-found pl-carbtn`} onClick={ridealong} title={`ride along on ${soundOf(parked).name} (R)`}>ride</button>
+      <button type="button" className={`${cls} pl-found pl-carbtn`} onClick={ridealong} title={`ride along on ${soundOf(parked).name}`}>ride along</button>
       {ART_CARS[parked.slice("mutant:".length)] && <button type="button" className={`${cls} pl-found pl-carbtn`} onClick={() => drive(parked.slice("mutant:".length))} title={`take the wheel of ${soundOf(parked).name} (E)`}>drive</button>}
     </>}
     {hud.pad && <button type="button" className={`${cls} pl-found`} onClick={takeOff}>✈ take the plane</button>}
@@ -2324,7 +2324,7 @@ export default function PlayaWin() {
           </button>
           <div className="pl-tools">
             <span className="pl-ride">
-              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog" aria-label={`ride: ${vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}`}>{/* the ride's name alone (asked 2026-11-04: no "ride:"); a phone, with no room for the name, says "ride" */}<span className="pl-ride-word">ride</span><span className="pl-ride-name">{vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}</span> ▾</button>
+              <button type="button" className="pl-btn" onClick={() => { const g = game.current; if (g.vehicle !== "plane" && !g.chute && g.alt === 0) setRides((r) => !r); }} aria-expanded={rides} aria-haspopup="dialog" aria-label={`ride: ${vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}`}>{/* the ride's name alone (asked 2026-11-04: no "ride:"); a phone, with no room for the name, says "ride" */}<span className="pl-ride-word">rides</span><span className="pl-ride-name">{vehicle === "found" && skin ? soundOf(`mutant:${skin}`).name : VEHICLES[vehicle].name}</span> ▾</button>
             </span>
             {acts("pl-btn pl-act")}
             {parked && !lounge && <button type="button" className="pl-btn pl-chip" onClick={() => onPark.current(parked)}>♪ {soundOf(parked).name}</button>}
@@ -2356,6 +2356,8 @@ export default function PlayaWin() {
           // a car radio's faceplate on a desk (asked 2026-11-04, from Collin: "the buttons and the legend could probably look more like a car radio. and we
           // could show the song that's playing"): its display with what is playing and from where, the keys as keycaps under it, the buttons along its foot
           <div className="pl-deck">
+          {/* what you can do just now (hop off, ride along, drive, take the plane, the Gate's angel and bell), on top of the radio rather than in the music panel (asked 2026-11-15) */}
+          <div className="pl-deck-acts">{acts("pl-btn pl-deck-act")}</div>
           {/* the driving keys as a controller's pad at the radio's left (asked 2026-11-04): up, left, right and down, held as the keys are, lit while down */}
           <div className="pl-dpad" role="group" aria-label="drive: W A S D or the arrows">
             {([["w", "ArrowUp", "up", "▲", "W"], ["a", "ArrowLeft", "left", "◀", "A"], ["d", "ArrowRight", "right", "▶", "D"], ["s", "ArrowDown", "down", "▼", "S"]] as const).map(([k, arrow, dir, glyph, cap]) => (
