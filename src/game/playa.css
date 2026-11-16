@@ -577,3 +577,16 @@
 }
 .pl:not([data-phone]):not([data-touch]) .pl-deck-acts .pl-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 1px 0 #7a1f42; }
 .pl:not([data-phone]):not([data-touch]) .pl-lg-hop:has(.pl-lg-act) { display: none; }
+/* the radio's eject button (asked 2026-11-15: "add it to the radio as an eject button similar to the cd-rom eject"): a long slim key at the display's right, ⏏ on it, lit pink
+   when there is something to hop off; hop off is no longer among the buttons over the radio */
+.pl .pl-lcd-row { display: flex; align-items: stretch; gap: 10px; min-width: 0; }
+.pl .pl-lcd-row .pl-lcd { flex: 1 1 auto; }
+.pl .pl-eject {
+  flex: none; width: 76px; display: grid; place-items: center; align-content: center; gap: 2px; padding: 4px; border-radius: 8px; cursor: pointer; pointer-events: auto;
+  background: linear-gradient(180deg, #474b58, #2a2d36); color: #8a8fa3; border: 1px solid #0b0c10; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 3px 0 #0b0c10;
+}
+.pl .pl-eject small { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.pl .pl-eject:not(:disabled) { color: var(--pl-pink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 3px 0 #0b0c10, 0 0 12px rgba(255, 107, 154, .45); }
+.pl .pl-eject:not(:disabled):active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 1px 0 #0b0c10; }
+.pl .pl-eject:disabled { cursor: default; opacity: .6; }
+.pl:not([data-phone]):not([data-touch]) .pl-deck-acts .pl-btn:not(.pl-found) { display: none; }

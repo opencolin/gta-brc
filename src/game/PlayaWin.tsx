@@ -2372,10 +2372,19 @@ export default function PlayaWin() {
             const amb = hud.hearKey ? playable(hud.hearKey) : [], at = now?.playing ? now : null;
             const song = at ? at.title : amb.length ? amb[(setOf[hud.hearKey] ?? nextSetIndex(hud.hearKey)) % amb.length].title : "";
             const from = at ? soundOf(at.key).name : hud.hear ? `${hud.hear}${hud.hearSoon ? " · coming up" : ""}` : "";
+            // the eject button beside the display, as a car radio's for its CD (asked 2026-11-15): hop off the art car you drive or ride along on, or bail out of the plane; lit when there is something to eject from
+            const canEject = vehicle === "found" || vehicle === "plane" || aboard;
             return (
-              <div className="pl-lcd" aria-live="polite" aria-label={song ? `playing ${song} from ${from}` : "nothing playing"}>
-                <span className="pl-lcd-from">{from ? `♪ ${from}` : "♪ radio playa"}</span>
-                <span className="pl-lcd-song"><span className={song.length > 44 ? "pl-lcd-scroll" : undefined}>{song || "nothing playing · N plays what's nearby"}</span></span>
+              <div className="pl-lcd-row">
+                <div className="pl-lcd" aria-live="polite" aria-label={song ? `playing ${song} from ${from}` : "nothing playing"}>
+                  <span className="pl-lcd-from">{from ? `♪ ${from}` : "♪ radio playa"}</span>
+                  <span className="pl-lcd-song"><span className={song.length > 44 ? "pl-lcd-scroll" : undefined}>{song || "nothing playing · N plays what's nearby"}</span></span>
+                </div>
+                <button type="button" className="pl-eject" disabled={!canEject} onClick={() => { ridealong(); }} title={canEject ? (vehicle === "plane" && hud.alt > 0 ? "eject: bail out (E)" : "eject: hop off (E)") : "eject: nothing to hop off"}
+                  aria-label={vehicle === "plane" && hud.alt > 0 ? "eject: bail out of the plane" : "eject: hop off"}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor"><path d="M12 5 4 14h16z" /><rect x="4" y="16.5" width="16" height="3" rx="1" /></svg>
+                  <small>{vehicle === "plane" && hud.alt > 0 ? "bail out" : "hop off"}</small>
+                </button>
               </div>
             );
           })()}

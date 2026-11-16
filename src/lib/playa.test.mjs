@@ -362,7 +362,8 @@ test("the 2026 city's real camps hold the lots, their names on the signs, and th
 test("the camps: several per block, varied, solid things clear of the streets", () => {
   const plan = cityPlan();
   const kinds = new Set(plan.flatMap((b) => b.structs.map((s) => s.kind)));
-  for (const k of ["rv", "pod", "dome", "stage", "speaker", "canopy", "couch", "carpet", "rack", "flag", "arch", "potty", "sign"]) assert.ok(kinds.has(k), k);
+  for (const k of ["rv", "pod", "dome", "stage", "speaker", "canopy", "couch", "carpet", "flag", "arch", "potty", "sign"]) assert.ok(kinds.has(k), k);
+  assert.ok(!kinds.has("rack"), "no bike racks along the frontages (2026-11-15)");
   assert.ok(plan.every((b) => b.structs.filter((s) => s.kind === "arch").length >= 1), "every block has a camp with a way in");
   assert.ok(plan.filter((b) => b.structs.filter((s) => s.kind === "arch").length >= 3).length > plan.length / 2, "most blocks hold several camps");
   for (const b of plan) for (const s of b.solids) assert.equal(surfaceAt(s).kind, "block", `${s.kind} in a block`);

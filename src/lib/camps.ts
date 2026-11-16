@@ -101,12 +101,13 @@ function layLot(U: number, W: number, seed: number, rnd: () => number, camp?: Ca
     for (const sx of [-1, 1]) add("speaker", sx * (Math.min(40, U - 30) / 2 + 7), cy, 7, 7, 0, true);
     add("carpet", 0, cy + 30, Math.min(56, U - 20), 34, (hue + 200) % 360, false);
   }
-  // tents in the back corners when there is room
-  for (const sx of [-1, 1]) if (rnd() < 0.6 && kind !== 1) add("tent", sx * (U / 2 - 12), -W / 2 + 12, 12, 10, Math.floor(rnd() * 360), true);
+  // no tents in the back corners, nor a bike rack along the frontage (asked 2026-11-15: "remove the many small obstacles along the edges of camps and corners"): their draws
+  // are still made, so every lot's other pieces stand where they stood
+  for (const _sx of [-1, 1]) if (rnd() < 0.6 && kind !== 1) rnd();
   // the frontage: an LED arch over the way in, flags, a bike rack, a sign
   add("arch", 0, fy - 6, 22, 3, hue, false);
   for (const sx of [-1, 1]) add("flag", sx * 15, fy - 6, 3, 3, (hue + 120) % 360, false);
-  if (rnd() < 0.7) add("rack", -U / 2 + 20, fy - 12, 22, 3, 0, true, 0, { n: 2 + Math.floor(rnd() * 5) }); // with bikes in it (asked 2026-10-26)
+  if (rnd() < 0.7) rnd(); // the rack that stood here
   // parked bikes (asked 2026-10-26): a row leaning by the way in, and a few dropped by the shade
   if (rnd() < 0.8) add("bikes", 18 + rnd() * 10, fy - 14, 4 + Math.floor(rnd() * 4) * 4, 6, Math.floor(rnd() * 360), false, 0, { n: 2 + Math.floor(rnd() * 4) });
   if (rnd() < 0.5) add("bikes", -U / 2 + 30 + rnd() * 20, (inner.w0 + inner.w1) / 2 + 14, 12, 6, Math.floor(rnd() * 360), false, (rnd() - 0.5) * 0.8, { n: 2 + Math.floor(rnd() * 2) });
