@@ -11,6 +11,7 @@ import { goldenTicket, type Ticket } from "./goldenTicket";
 import { mergedParts, registerGround, shade, shaped as P, type Part } from "./materials";
 import { onewheelParts } from "./people";
 import { botParts } from "./bots";
+import { botMode } from "../botmode";
 import { buildCyclist, buildRv, type Rig } from "./riders";
 import { skinMaterial } from "./skinned";
 
@@ -43,7 +44,7 @@ export type RideMeshes = {
   bail: { t0: number; was: boolean; fall: THREE.Object3D; hang: THREE.Object3D; canopy: THREE.Object3D; swing: THREE.Object3D };
 };
 
-const NAVY = 0x1b1f3b, TYRE = 0x15161d, PINK = 0xff6b9a;
+const NAVY = 0x1b1f3b, TYRE = 0x15161d, SKIN = 0xf2c6a0, PINK = 0xff6b9a;
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 const cyl = (rt: number, rb: number, h: number, seg = 12) => new THREE.CylinderGeometry(rt, rb, h, seg);
 const ball = (r: number, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
@@ -65,8 +66,14 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   rig("ebike", buildCyclist("ebike", skin), [[5.6, 4.6]]);
   rig("unicycle", buildCyclist("unicycle", skin), []);
   rig("tuktuk", buildCyclist("tuktuk", skin), [[9.4, 2.9, 3]]);
+  // and each with a bot in the saddle, shown while you trip (asked 2026-11-15; botMode.ts)
+  rig("bike~bot", buildCyclist("bike", skin, true), [[5.6, 4.6]]);
+  rig("ebike~bot", buildCyclist("ebike", skin, true), [[5.6, 4.6]]);
+  rig("unicycle~bot", buildCyclist("unicycle", skin, true), []);
+  rig("tuktuk~bot", buildCyclist("tuktuk", skin, true), [[9.4, 2.9, 3]]);
   // the Onewheel (asked 2026-11-04): the board, its wheel and you standing on it sideways, in your pink shirt (people.ts onewheelParts)
   add("onewheel", model(onewheelParts(PINK)));
+  add("onewheel~bot", model(onewheelParts(PINK, true)));
   rig("rv", buildRv(skin), [[15.6, 3.4, 1.4, -3.3], [15.6, 3.4, 1.4, 3.3]]);
   // the Golden Ticket: the gold cart with its speaker pods, its sign and its drawing on top (goldenTicket.ts)
   { const g = goldenTicket().group; g.visible = false; add("artcar", withBrake(g, 10.4, 3)); }
@@ -94,7 +101,12 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   // hanging in it in a jumpsuit and helmet, hands up on the steering toggles, legs dangling. The canopy and you swing from the canopy's middle (`swing`,
   // 22 ft up). Falling before it opens, another of you is in the freefall arch: face down, back arched, arms out bent up at the elbows, knees bent, the
   // rig on your back (bailing out, below)
-  const RIG = NAVY;
+  const SUIT = PINK, HELMET = 0xfbf7ef, RIG = NAVY, BOOT = 0x2a211c, GOGGLE = 0x22324a;
+  const rod = (a: THREE.Vector3, b: THREE.Vector3, r: number, color: number, seg = 6): Part => {
+    const d = b.clone().sub(a), g = new THREE.CapsuleGeometry(r, Math.max(0.01, d.length() - 2 * r), 2, seg);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
+    const m = a.clone().add(b).multiplyScalar(0.5); return { geo: g.translate(m.x, m.y, m.z), color };
+  };
   const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
   const cells: Part[] = [], lines: Part[] = [];
@@ -112,14 +124,34 @@ export function buildRides(scene: THREE.Scene): RideMeshes {
   // you, a bot since 2026-11-11 (asked: "swap all the humans for bot avatars"): a pink clover in the harness under the canopy, its rig on its back; falling free,
   // the same bot face down, flat to the wind
   const bot = (lean: number, at: THREE.Vector3, size: number) => botParts("clover", at, size, 0, lean).map((p): Part => ({ geo: p.geo, color: p.body ? PINK : p.color }));
-  const hang = mergedParts([...bot(0, v3(0, 3.6, 0), 6.4), P(box(2.4, 1.6, 0.9), RIG, { y: 3.6, z: 1.4 }), P(box(3, 0.3, 1.8), RIG, { y: 0.9 })]);
-  const fall = mergedParts([...bot(-Math.PI / 2, v3(0, 3, 0), 6.4), P(box(2.4, 0.9, 1.6), RIG, { y: 4.3 })]);
+  const hangBot = mergedParts([...bot(0, v3(0, 3.6, 0), 6.4), P(box(2.4, 1.6, 0.9), RIG, { y: 3.6, z: 1.4 }), P(box(3, 0.3, 1.8), RIG, { y: 0.9 })]);
+  const fallBot = mergedParts([...bot(-Math.PI / 2, v3(0, 3, 0), 6.4), P(box(2.4, 0.9, 1.6), RIG, { y: 4.3 })]);
+  // and as yourself, unless you are tripping (2026-11-15): in a jumpsuit, helmet and goggles in the harness, hands on the toggles; falling free in the arch
+  const hangYou = mergedParts([
+    rod(v3(0, 3.3, 0), v3(0, 5.5, 0), 0.75, SUIT, 8), P(ball(0.78, 10, 8), SKIN, { y: 6.35 }), P(ball(0.86, 10, 6), HELMET, { y: 6.55, sy: 0.9 }), P(box(1.1, 0.32, 0.2), GOGGLE, { y: 6.45, z: -0.7 }),
+    P(box(1.5, 1.7, 0.7), RIG, { y: 4.7, z: 0.75 }), P(box(1.6, 0.25, 1.4), RIG, { y: 3.4 }),
+    ...[-1, 1].flatMap((sx) => [
+      rod(v3(sx * 0.7, 5.3, 0), v3(sx * 1.15, 6.4, 0.15), 0.26, SUIT), rod(v3(sx * 1.15, 6.4, 0.15), v3(sx * 0.8, 7.5, 0), 0.22, SUIT), P(ball(0.24, 6, 4), 0x3a3f52, { x: sx * 0.8, y: 7.6 }),
+      rod(v3(sx * 0.35, 3.2, 0), v3(sx * 0.45, 1.9, -0.6), 0.34, SUIT), rod(v3(sx * 0.45, 1.9, -0.6), v3(sx * 0.4, 0.55, -0.3), 0.28, SUIT), P(box(0.45, 0.4, 0.9), BOOT, { x: sx * 0.4, y: 0.3, z: -0.45 }),
+    ]),
+  ]);
+  const fallYou = mergedParts([
+    rod(v3(0, 3, 1.4), v3(0, 3.1, -1.4), 0.78, SUIT, 8), P(ball(0.78, 10, 8), SKIN, { y: 3.25, z: -2.3 }), P(ball(0.86, 10, 6), HELMET, { y: 3.45, z: -2.35, sz: 0.95 }),
+    P(box(1.1, 0.3, 0.2), GOGGLE, { y: 2.75, z: -2.6, rx: deg(70) }), P(box(1.5, 0.7, 1.9), RIG, { y: 3.85, z: -0.1 }),
+    ...[-1, 1].flatMap((sx) => [
+      rod(v3(sx * 0.75, 3.1, -1.2), v3(sx * 2.2, 3.45, -1.6), 0.26, SUIT), rod(v3(sx * 2.2, 3.45, -1.6), v3(sx * 2.15, 3.75, -3.1), 0.22, SUIT), P(ball(0.25, 6, 4), SKIN, { x: sx * 2.15, y: 3.8, z: -3.25 }),
+      rod(v3(sx * 0.4, 3, 1.3), v3(sx * 1.3, 3.2, 3.1), 0.34, SUIT), rod(v3(sx * 1.3, 3.2, 3.1), v3(sx * 1.55, 4.4, 3.9), 0.28, SUIT), P(box(0.45, 0.9, 0.4), BOOT, { x: sx * 1.6, y: 4.85, z: 4.1 }),
+    ]),
+  ]);
+  // each a pair, yourself first and the bot second: updateRide shows the one botMode says
+  const hang = new THREE.Group(), fall = new THREE.Group(); hang.add(hangYou, hangBot); fall.add(fallYou, fallBot);
   const swing = new THREE.Group(), inner = new THREE.Group();
   swing.position.y = 22; inner.position.y = -22; inner.add(canopy, hang); swing.add(inner);
   fall.scale.setScalar(2); // falling free you are a small thing a long way down: drawn twice your size so the arch reads from the camera
   { const g = new THREE.Group(); g.add(swing, fall); fall.visible = false; g.visible = false; add("chute", g); }
   // you lying in the dust making an angel
-  add("angelmaker", model(botParts("clover", v3(0, 1.2, 0), 6.4, 0, Math.PI / 2).map((p): Part => ({ geo: p.geo, color: p.body ? PINK : p.color })))); // you, a bot on its back in the dust (2026-11-11)
+  add("angelmaker", model([P(box(3, 1, 5), PINK, { y: 0.6 }), P(ball(1.6), SKIN, { y: 0.9, z: -4.2 }), P(box(14, 0.6, 1), SKIN, { y: 0.7, z: -2 }), P(box(1, 0.6, 9), SKIN, { y: 0.7, z: 6, rz: deg(0) }), P(box(8, 0.6, 1), SKIN, { y: 0.7, z: 5.5, rz: 0 })]));
+  add("angelmaker~bot", model(botParts("clover", v3(0, 1.2, 0), 6.4, 0, Math.PI / 2).map((p): Part => ({ geo: p.geo, color: p.body ? PINK : p.color })))); // tripping, a bot on its back in the dust (2026-11-11)
 
   // a shadow under the ride: a soft dark ellipse on the ground
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.25, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -LAYER.decal }));
@@ -140,7 +172,10 @@ const dummy = new THREE.Object3D();
  */
 export function updateRide(r: RideMeshes, g: Game, view: ViewState, carId: string | null, lift = 0): void {
   for (const m of Object.values(r.models)) m.visible = false;
-  const which = g.angelT > 0 ? "angelmaker" : g.chute ? "chute" : carId ? null : (ID[g.vehicle] ?? "bike");
+  const which0 = g.angelT > 0 ? "angelmaker" : g.chute ? "chute" : carId ? null : (ID[g.vehicle] ?? "bike");
+  // tripping, the bot in your place where there is one (asked 2026-11-15)
+  const which = which0 && botMode.on && r.models[`${which0}~bot`] ? `${which0}~bot` : which0;
+  for (const pair of [r.bail.hang, r.bail.fall]) { pair.children[0].visible = !botMode.on; pair.children[1].visible = botMode.on; }
   const m = which ? r.models[which] : null;
   const flying = g.vehicle === "plane" || g.chute;
   // up there the plane and the chute are drawn bigger, so they still read from the camera (chaseCam.ts airScale, which frames them by it)

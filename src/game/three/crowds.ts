@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { SPOTS, parkedCarList, type Game } from "@/lib/playa";
 import { carCrowd, crowdFall, crowdSpots, fadeAt, type CrowdPerson } from "@/lib/scene3d";
-import { peopleMaterial, personGeometry, type Pose } from "./people";
+import { peopleMaterial, personGeometry, withBots, type Pose } from "./people";
+import { botMode } from "../botmode";
 
 /**
  * The crowds at the stages (PLAN-3D.md 3.2): about 2,860 people over the 172 places, each place's crowd made by scene3d.ts crowdSpots (the
@@ -18,8 +19,11 @@ export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
   const places = SPOTS.map((sp) => ({ key: sp.key, x: sp.stage.x, y: sp.stage.y, r: sp.stage.r + 22, people: crowdSpots(sp) as CrowdPerson[], man: sp.key === "camp:the-man" }));
   const total = places.reduce((n, p) => n + p.people.length, 0) + 16 * 12; // and room for the crowds round a dozen parked art cars
   const POSES: Pose[] = ["stand", "up", "wide", "wave"], mat = peopleMaterial();
-  const meshes = POSES.map((pose) => {
-    const m = new THREE.InstancedMesh(personGeometry(pose), mat, total);
+  // each pose as people and as bots (asked 2026-11-15: bots only while tripping), the meshes taking one set or the other as botMode says
+  const people = POSES.map((pose) => personGeometry(pose)), bots = withBots(true, () => POSES.map((pose) => personGeometry(pose)));
+  let showingBots = false;
+  const meshes = POSES.map((pose, k) => {
+    const m = new THREE.InstancedMesh(people[k], mat, total);
     m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.setColorAt(0, new THREE.Color(1, 1, 1));
     group.add(m); return m;
   });
@@ -30,6 +34,7 @@ export function buildCrowds(scene: THREE.Scene): CrowdMeshes {
     group,
     shown: () => shown,
     update(g, cam) {
+      if (botMode.on !== showingBots) { showingBots = botMode.on; meshes.forEach((m, k) => { m.geometry = (showingBots ? bots : people)[k]; }); }
       const n = [0, 0, 0, 0];
       // the crowds round the art cars parked on the playa (asked 2026-11-04), as a place each
       const cars = parkedCarList().map(({ key, at }) => ({ key, x: at.x, y: at.y, r: 62, people: carCrowd(key, at), man: false })).slice(0, 12);
